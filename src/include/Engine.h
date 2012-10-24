@@ -78,6 +78,73 @@ public:
 
 // Core Types
 
+class Segment;
+class SegmentReactor;
+
+class Location : public Fwk::PtrInterface<Location>{
+
+public:
+
+    typedef Fwk::Ptr<Location> Ptr;
+    typedef Fwk::Ptr<Location const> PtrConst;
+
+    enum SegmentSourceOK{
+        yes_=0,
+        no_=1
+    };
+
+    enum EntityType {
+        customer_ = 0,
+        port_ = 1,
+        truckTerminal_ = 2,
+        boatTerminal_ = 3,
+        planeTerminal_ = 4
+    };
+
+    // accessors
+    static inline EntityType customer() { return customer_; } 
+    static inline EntityType port() { return port_; } 
+    static inline EntityType truckTerminal() { return truckTerminal_; } 
+    static inline EntityType boatTerminal() { return boatTerminal_; } 
+    static inline EntityType planeTerminal() { return planeTerminal_; } 
+    static inline SegmentSourceOK yes(){ return yes_; }
+    static inline SegmentSourceOK no(){ return no_; }
+
+    SegmentID segment(uint32_t index) const { return segments_[index]; }
+
+    inline EntityType entityType() const { return entityType_; }
+
+    // mutators
+    void entityTypeIs(EntityType et) { entityType_ = et; }
+    // note: per the instructions, segments_ is read-only
+
+    virtual SegmentSourceOK segmentSourceOK(Segment*) const = 0;
+
+protected: 
+
+    Location(EntityType type): entityType_(type){}
+
+private:
+
+    friend class SegmentReactor;
+
+    void segmentEnq(SegmentID s){
+        // add segment
+    }
+
+    void segmentDeq(SegmentID s) {
+        // TODO: remove segment from list
+    }
+
+    EntityType entityType_;
+
+    typedef std::vector<SegmentID> SegmentList;
+    SegmentList segments_;
+
+    LocationID id_;
+};
+
+
 class Segment : public Fwk::PtrInterface<Segment>{
 
 public:
@@ -128,7 +195,7 @@ public:
     static inline EntityType planeSegment() { return planeSegment_; }
 
     inline EntityType entityType() const { return entityType_; }
-    inline LocationID source() { return source_; }
+    inline Location::Ptr source() { return source_; }
     inline Mile length() const { return length_; }
     inline Segment::Ptr returnSegment() { return returnSegment_; }
     inline Difficulty difficulty() const { return difficulty_; }
@@ -137,15 +204,15 @@ public:
     Segment::Notifiee::Ptr notifiee(){ return notifiee_; }
 
     // mutators
-    void sourceIs(LocationID source);
+    void sourceIs(Location::Ptr source);
     void lengthIs(Mile l) { length_ = l; }
     void returnSegmentIs(Segment::Ptr s) { returnSegment_ = s; }
     void difficultyIs(Difficulty d) { difficulty_ = d; }
     void expediteSupportIs(ExpediteSupport es) { expediteSupport_ = es; }
 
-    void notifieeIs(Segment::Notifiee::Ptr notifiee){ 
+    void notifieeIs(Segment::Notifiee::Ptr notifiee){
         notifiee->notifierIs(this);
-        notifiee_ = notifiee; 
+        notifiee_ = notifiee;
     }
 
 private:
@@ -161,63 +228,11 @@ private:
     SegmentID id_;
     EntityType entityType_;
     Segment::Ptr returnSegment_;
-    LocationID source_;
+    Location::Ptr source_;
 
     Segment::Notifiee::Ptr notifiee_;
 };
 
-
-class Location : public Fwk::PtrInterface<Location>{
-
-public:
-
-    typedef Fwk::Ptr<Location> Ptr;
-    typedef Fwk::Ptr<Location const> PtrConst;
-
-    enum EntityType {
-        customer_ = 0,
-        port_ = 1,
-        truckTerminal_ = 2,
-        boatTerminal_ = 3,
-        planeTerminal_ = 4
-    };
-
-    // accessors
-    static inline EntityType customer() { return customer_; } 
-    static inline EntityType port() { return port_; } 
-    static inline EntityType truckTerminal() { return truckTerminal_; } 
-    static inline EntityType boatTerminal() { return boatTerminal_; } 
-    static inline EntityType planeTerminal() { return planeTerminal_; } 
-
-    Segment::Ptr segment(uint32_t index) const { return segments_[index]; }
-
-    inline EntityType entityType() const { return entityType_; }
-
-    // mutators
-    void entityTypeIs(EntityType et) { entityType_ = et; }
-    // note: per the instructions, segments_ is read-only
-
-protected: 
-
-    Location(EntityType type): entityType_(type){}
-
-    virtual void segmentEnq(Segment::Ptr s){
-        // add segment
-    }
-
-private:
-
-    void segmentDeq(Segment::Ptr s) {
-        // TODO: remove segment from list
-    }
-
-    EntityType entityType_;
-
-    typedef std::vector<Segment::Ptr> SegmentList;
-    SegmentList segments_;
-
-    LocationID id_;
-};
 
 
 class Customer : public Location{
@@ -226,6 +241,10 @@ public:
 
     typedef Fwk::Ptr<Customer> Ptr;
     typedef Fwk::Ptr<Customer const> PtrConst;
+
+    SegmentSourceOK segmentSourceOK(Segment* segment) const{
+        return yes_;
+    }
 
 private:
 
@@ -243,6 +262,10 @@ public:
     typedef Fwk::Ptr<Port> Ptr;
     typedef Fwk::Ptr<Port const> PtrConst;
 
+    SegmentSourceOK segmentSourceOK(Segment* segment) const{
+        return yes_;
+    }
+
 private:
 
     friend class ShippingEngine;
@@ -259,15 +282,12 @@ protected:
     // Constructor
     Terminal(Location::EntityType terminalType, Segment::EntityType segmentType) : Location(terminalType),segmentType_(segmentType){}
 
-private:
-
-    // Add a segment
-    void segmentEnq(Segment::Ptr s){
-        if(segmentType_ != s->entityType()){
-            // ERROR!
-        }
-        Location::segmentEnq(s);
+    SegmentSourceOK segmentSourceOK(Segment* segment) const {
+        if( segment->entityType() == segmentType_) return yes_;
+        return no_;
     }
+
+private:
 
     Segment::EntityType segmentType_;
 };
@@ -322,6 +342,7 @@ private:
     // Constructor
     PlaneTerminal() : Terminal(planeTerminal_,Segment::planeSegment()){}
 };
+
 
 class Path : public Fwk::PtrInterface<Path> {
 
