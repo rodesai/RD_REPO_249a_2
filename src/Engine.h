@@ -8,18 +8,13 @@
 #include <map>
 #include <exception>
 
-#include "Ptr.h"
-#include "PtrInterface.h"
+#include "fwk/Ptr.h"
+#include "fwk/NamedInterface.h"
 
 #include "Nominal.h"
 
 namespace Shipping {
 
-typedef std::string ConnID;
-typedef std::string FleetID;
-typedef std::string StatsID;
-typedef std::string SegmentID;
-typedef std::string LocationID;
 
 class ArgumentException : public std::exception {
     virtual const char* message() const throw() {
@@ -78,7 +73,7 @@ public:
 
 // Core Types
 
-class Segment : public Fwk::PtrInterface<Segment>{
+class Segment : public Fwk::NamedInterface {
 
 public:
 
@@ -100,7 +95,7 @@ public:
 
     // Notifiees
 
-    class Notifiee : public Fwk::PtrInterface<Segment::Notifiee>{
+    class Notifiee : public virtual Fwk::NamedInterface::Notifiee {
 
     public:
 
@@ -128,7 +123,7 @@ public:
     static inline EntityType planeSegment() { return planeSegment_; }
 
     inline EntityType entityType() const { return entityType_; }
-    inline LocationID source() { return source_; }
+    inline Location::Ptr source() { return source_; }
     inline Mile length() const { return length_; }
     inline Segment::Ptr returnSegment() { return returnSegment_; }
     inline Difficulty difficulty() const { return difficulty_; }
@@ -137,7 +132,7 @@ public:
     Segment::Notifiee::Ptr notifiee(){ return notifiee_; }
 
     // mutators
-    void sourceIs(LocationID source);
+    void sourceIs(Location::Ptr source);
     void lengthIs(Mile l) { length_ = l; }
     void returnSegmentIs(Segment::Ptr s) { returnSegment_ = s; }
     void difficultyIs(Difficulty d) { difficulty_ = d; }
@@ -152,22 +147,20 @@ private:
 
     friend class ShippingEngine;
 
-    Segment(SegmentID id, EntityType type) : length_(0), difficulty_(1.0), expediteSupport_(no_), id_(id), entityType_(type){}
+    Segment(string name, EntityType type) : Fwk::NamedInterface(name), length_(0), difficulty_(1.0), expediteSupport_(no_), entityType_(type){}
 
     // attributes
     Mile length_;
     Difficulty difficulty_;
     ExpediteSupport expediteSupport_;
-    SegmentID id_;
     EntityType entityType_;
     Segment::Ptr returnSegment_;
-    LocationID source_;
-
+    Location::Ptr source_;
     Segment::Notifiee::Ptr notifiee_;
 };
 
 
-class Location : public Fwk::PtrInterface<Location>{
+class Location : public Fwk::NamedInterface {
 
 public:
 
@@ -199,7 +192,7 @@ public:
 
 protected: 
 
-    Location(EntityType type): entityType_(type){}
+    Location(string name, EntityType type): Fwk::NamedInterface(name), entityType_(type){}
 
     virtual void segmentEnq(Segment::Ptr s){
         // add segment
@@ -216,7 +209,6 @@ private:
     typedef std::vector<Segment::Ptr> SegmentList;
     SegmentList segments_;
 
-    LocationID id_;
 };
 
 
@@ -323,14 +315,14 @@ private:
     PlaneTerminal() : Terminal(planeTerminal_,Segment::planeSegment()){}
 };
 
-class Path : public Fwk::PtrInterface<Path> {
+class Path : public Fwk::NamedInterface {
 
 public:
 
     typedef Fwk::Ptr<Path> Ptr;
     typedef Fwk::Ptr<Path const> PtrConst;
 
-    class PathElement : public PtrInterface<PathElement>{
+    class PathElement : public NamedInterface {
 
     public:
 
@@ -338,16 +330,16 @@ public:
         typedef Fwk::Ptr<PathElement const> PtrConst;
 
         // accessors
-        inline LocationID source() const { return source_; }
-        inline SegmentID segment() const { return segment_; }
+        inline Location::Ptr source() const { return source_; }
+        inline Segment::Ptr segment() const { return segment_; }
 
         // mutators
-        void sourceIs(LocationID s) { source_ = s; }
-        void segmentIs(SegmentID s) { segment_ = s; }
+        void sourceIs(Location::Ptr s) { source_ = s; }
+        void segmentIs(Segment::Ptr s) { segment_ = s; }
     private:
 
-        LocationID source_;
-        SegmentID segment_;
+        Location::Ptr source_;
+        Segment::Ptr segment_;
     };
 
 
@@ -370,19 +362,21 @@ private:
 };
 
 
-class Conn : public Fwk::PtrInterface<Conn>{
+class Conn : public Fwk::NamedInterface {
 
 public:
 
     typedef Fwk::Ptr<Conn> Ptr;
     typedef Fwk::Ptr<Conn const> PtrConst;
 
-    std::vector<Path::Ptr> connect() const;
-    std::vector<Path::Ptr> explore() const;
+    std::vector<Path::Ptr> connect(Location::Ptr start, Location::Ptr end) const;
+    std::vector<Path::Ptr> explore(Location::Ptr start, Location::Ptr end,
+        Mile distance, Dollar cost, Hour time,
+        Segment::ExpediteSupport expedited) const;
 };
 
 
-class Fleet : public Fwk::PtrInterface<Fleet>{
+class Fleet : public Fwk::NamedInterface {
 
 public:
 
@@ -406,7 +400,7 @@ private:
 };
 
 
-class Stats : public Fwk::PtrInterface<Stats>{
+class Stats : public Fwk::NamedInterface {
 
     // TODO: this needs to be updated via notification
 
@@ -429,7 +423,7 @@ private:
     int segmentCountTotal_;
 };
 
-class ShippingEngine : public Fwk::PtrInterface<Stats>{
+class ShippingEngine : public Fwk::NamedInterface {
 
 public:
 
@@ -440,26 +434,26 @@ public:
 
     // notifiee
 
-    class Notifiee : public Fwk::PtrInterface<ShippingEngine::Notifiee>{
+    class Notifiee : public virtual Fwk::NamedInterface::Notifiee {
     public:
 
         typedef Fwk::Ptr<ShippingEngine::Notifiee> Ptr;
         typedef Fwk::Ptr<ShippingEngine::Notifiee const> PtrConst;
 
         // Segments
-        virtual void onSegmentNew(SegmentID segmentID){}
+        virtual void onSegmentNew(Segment::Ptr segment){}
         virtual void onSegmentDel(Segment::Ptr segment){}
 
         // Locations
-        virtual void onCustomerNew(LocationID locationID){}
+        virtual void onCustomerNew(Location::Ptr location){}
         virtual void onCustomerDel(Customer::Ptr customer){}
-        virtual void onPortNew(LocationID locationID){}
+        virtual void onPortNew(Location::Ptr port){}
         virtual void onPortDel(Port::Ptr port){}
-        virtual void onPlaneTerminalNew(LocationID locationID){}
+        virtual void onPlaneTerminalNew(Location::Ptr planeTerminal){}
         virtual void onPlaneTerminalDel(PlaneTerminal::Ptr planeTerminal){}
-        virtual void onBoatTerminalNew(LocationID locationID){}
+        virtual void onBoatTerminalNew(Location::Ptr boatTerminal){}
         virtual void onBoatTerminalDel(BoatTerminal::Ptr boatTerminal){}
-        virtual void onTruckTerminalNew(LocationID locationID){}
+        virtual void onTruckTerminalNew(Location::Ptr truckTerminal){}
         virtual void onTruckTerminalDel(TruckTerminal::Ptr truckTerminal){}
  
     protected:
@@ -473,11 +467,11 @@ public:
 
     // accessor
 
-    Segment::Ptr segement(SegmentID sid) { return segmentMap_[sid]; }
-    Location::Ptr location(LocationID lid) { return locationMap_[lid]; }
-    Conn::Ptr conn(ConnID cid) const;
-    Stats::Ptr stats(StatsID sid) const;
-    Fleet::Ptr fleet(FleetID fid) const;
+    Segment::Ptr segement(string name) { return segmentMap_[name]; }
+    Location::Ptr location(string name) { return locationMap_[name]; }
+    Conn::Ptr conn(string cid) const;
+    Stats::Ptr stats(string sid) const;
+    Fleet::Ptr fleet(string fid) const;
 
     // mutators
 
@@ -485,43 +479,43 @@ public:
     // These instance creators create an instance, add it to the map, 
     // and set up any needed reactors;
 
-    Segment::Ptr SegmentNew(SegmentID name, Segment::EntityType entityType); 
+    Segment::Ptr SegmentNew(string name, Segment::EntityType entityType); 
     Segment::Ptr segmentDel();
 
-    Location::Ptr CustomerNew(LocationID name);
+    Location::Ptr CustomerNew(string name);
     Location::Ptr customerDel();
 
-    Location::Ptr PortNew(LocationID name);
+    Location::Ptr PortNew(string name);
     Location::Ptr portDel();
 
-    Location::Ptr TruckTerminalNew(LocationID name);
+    Location::Ptr TruckTerminalNew(string name);
     Location::Ptr truckTerminalDel();
 
-    Location::Ptr BoatTerminalNew(LocationID name);
+    Location::Ptr BoatTerminalNew(string name);
     Location::Ptr boatTerminalDel();
 
-    Location::Ptr PlaneTerminalNew(LocationID name);
+    Location::Ptr PlaneTerminalNew(string name);
     Location::Ptr planeTerminalDel();
 
     // These instance creators should only create instance on first call
 
-    Conn::Ptr ConnNew(ConnID name);
-    Conn::Ptr connDel(ConnID name);
+    Conn::Ptr ConnNew(string name);
+    Conn::Ptr connDel(string name);
 
-    Stats::Ptr StatsNew(StatsID name);
-    Stats::Ptr statsDel(StatsID name);
+    Stats::Ptr StatsNew(string name);
+    Stats::Ptr statsDel(string name);
 
-    Fleet::Ptr FleetNew(FleetID name);
-    Fleet::Ptr fleetDel(FleetID name);
+    Fleet::Ptr FleetNew(string name);
+    Fleet::Ptr fleetDel(string name);
 
     void notifieeIs(Segment::Notifiee::Ptr notifiee);
 
 private:
 
     // attributes
-    typedef std::map<LocationID, Location::Ptr> LocationMap;
+    typedef std::map<string, Location::Ptr> LocationMap;
     LocationMap locationMap_;
-    typedef std::map<SegmentID, Segment::Ptr> SegmentMap;
+    typedef std::map<string, Segment::Ptr> SegmentMap;
     SegmentMap segmentMap_;
 
     // notifiees
@@ -529,7 +523,7 @@ private:
     NotifieeList notifieees_;
 };
 
-class SegmentReactor : public Segment::Notifiee{
+class SegmentReactor : public Segment::Notifiee {
 
 public:
 
@@ -556,8 +550,8 @@ public:
 private:
 
     SegmentReactor(){
-        currentSource_=NULL;
-        currentReverse_=NULL;
+        currentSource_ = NULL;
+        currentReverse_ = NULL;
     }
 
     Location::Ptr currentSource_;
@@ -593,17 +587,17 @@ public:
     typedef Fwk::Ptr<StatsReactor> Ptr;
     typedef Fwk::Ptr<StatsReactor const> PtrConst;
 
-    void onSegmentNew(SegmentID segmentID);
+    void onSegmentNew(Segment::Ptr segment);
     void onSegmentDel(Segment::Ptr segment);
-    void onCustomerNew(LocationID locationID);
+    void onCustomerNew(Customer::Ptr customer);
     void onCustomerDel(Customer::Ptr customer);
-    void onPortNew(LocationID locationID);
+    void onPortNew(Port::Ptr port);
     void onPortDel(Port::Ptr port);
-    void onPlaneTerminalNew(LocationID locationID);
+    void onPlaneTerminalNew(PlaneTerminal::Ptr planeTerminal);
     void onPlaneTerminalDel(PlaneTerminal::Ptr planeTerminal);
-    void onBoatTerminalNew(LocationID locationID);
+    void onBoatTerminalNew(BoatTerminal::Ptr boatTerminal);
     void onBoatTerminalDel(BoatTerminal::Ptr boatTerminal);
-    void onTruckTerminalNew(LocationID locationID);
+    void onTruckTerminalNew(TruckTerminal::Ptr truckTerminal);
     void onTruckTerminalDel(TruckTerminal::Ptr truckTerminal);
 
     static StatsReactor::Ptr StatsReactorIs(){
