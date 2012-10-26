@@ -2,7 +2,7 @@
 #include <ostream>
 #include <iostream>
 #include <string>
-#include "Instance.h"
+#include "source/Instance.h"
 
 using std::cout;
 using std::cerr;
