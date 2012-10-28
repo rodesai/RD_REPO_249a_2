@@ -209,7 +209,7 @@ public:
 
 private:
 
-    friend class ShippingEngine;
+    friend class ShippingNetwork;
 
     Segment(string name, EntityType type) : Fwk::NamedInterface(name), length_(0), difficulty_(1.0), expediteSupport_(no_), entityType_(type){}
 
@@ -236,7 +236,7 @@ public:
 
 private:
 
-    friend class ShippingEngine;
+    friend class ShippingNetwork;
 
     // Constructor
     Customer() : Location(Location::customer()){}
@@ -256,7 +256,7 @@ public:
 
 private:
 
-    friend class ShippingEngine;
+    friend class ShippingNetwork;
 
     // Constructor
     Port() : Location(Location::port()){}
@@ -293,7 +293,7 @@ public:
 
 private:
 
-    friend class ShippingEngine;
+    friend class ShippingNetwork;
 
     // Constructor
     TruckTerminal() : Terminal(Location::truckTerminal(),Segment::truckSegment()){}
@@ -309,7 +309,7 @@ public:
 
 private:
 
-    friend class ShippingEngine;
+    friend class ShippingNetwork;
 
     // Constructor
     BoatTerminal() : Terminal(Location::boatTerminal(),Segment::boatSegment()){}
@@ -325,7 +325,7 @@ public:
 
 private:
 
-    friend class ShippingEngine;
+    friend class ShippingNetwork;
 
     // Constructor
     PlaneTerminal() : Terminal(planeTerminal_,Segment::planeSegment()){}
@@ -439,7 +439,7 @@ private:
     int segmentCountTotal_;
 };
 
-class ShippingEngine : public Fwk::NamedInterface {
+class ShippingNetwork : public Fwk::NamedInterface {
 
 public:
 
@@ -574,7 +574,7 @@ private:
     Segment::Ptr  currentReverse_;
 };
 
-class ShippingEngineReactor : public ShippingEngine::Notifiee{
+class ShippingNetworkReactor : public ShippingEngine::Notifiee{
 
 public:
 
