@@ -1,7 +1,7 @@
 #include <string>
 #include <ostream>
 #include <iostream>
-#include "Instance.h"
+#include "include/Instance.h"
 
 using std::cout;
 using std::cerr;

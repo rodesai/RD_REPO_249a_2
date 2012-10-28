@@ -13,5 +13,5 @@ example:	example.o $(OBJECTS)
 clean:
 	rm -f test1 test1.o $(OBJECTS) *~
 
-Instance.o: Instance.cpp Instance.h PtrInterface.h Ptr.h Engine.h
-test1.o: test1.cpp Instance.h PtrInterface.h Ptr.h
+Instance.o: Instance.cpp 
+test1.o: test1.cpp 
