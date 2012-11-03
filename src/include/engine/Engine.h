@@ -396,22 +396,35 @@ class Fleet : public Fwk::NamedInterface {
 
 public:
 
+    enum Mode {
+        boat_ = 1,
+        plane_ = 2,
+        truck_ = 3
+    }
+
     typedef Fwk::Ptr<Fleet> Ptr;
     typedef Fwk::Ptr<Fleet const> PtrConst;
 
-    MilePerHour speed(Segment::EntityType segmentType);
-    PackageNum capacity(Segment::EntityType segmentType);
-    DollarPerMile cost(Segment::EntityType segmentType);
+    static inline Mode boat() { return boat_; }
+    static inline Mode truck() { return truck_; }
+    static inline Mode plane() { return plane_; }
 
+    MilePerHour speed(Mode segmentType);
+    PackageNum capacity(Mode segmentType);
+    DollarPerMile cost(Mode segmentType);
+
+    void speedIs(Mode m, MilePerHour s);
+    void capacityIs(Mode m, PackageNum p);
+    void costIs(Mode m, DollarPerMile d);
 private:
 
-    typedef std::map<Segment::EntityType,MilePerHour> SpeedMap;
+    typedef std::map<Mode,MilePerHour> SpeedMap;
     SpeedMap speed_;
 
-    typedef std::map<Segment::EntityType,PackageNum> CapacityMap;
+    typedef std::map<Mode,PackageNum> CapacityMap;
     CapacityMap capacity_;
    
-    typedef std::map<Segment::EntityType,DollarPerMile> CostMap;
+    typedef std::map<Mode,DollarPerMile> CostMap;
     CostMap cost_;
 };
 
