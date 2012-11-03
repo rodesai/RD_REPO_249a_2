@@ -1,10 +1,12 @@
 #ifndef ENGINE_H
 #define ENGINE_H
 
+#include <stdlib.h>
 #include <stdint.h>
 
 #include <string>
 #include <vector>
+#include <set>
 #include <map>
 #include <exception>
 
@@ -15,6 +17,7 @@
 
 namespace Shipping {
 
+typedef std::string EntityID;
 
 class ArgumentException : public std::exception {
     virtual const char* message() const throw() {
@@ -107,34 +110,32 @@ public:
     static inline SegmentSourceOK yes(){ return yes_; }
     static inline SegmentSourceOK no(){ return no_; }
 
-    SegmentID segment(uint32_t index) const { return segments_[index]; }
+    uint32_t segmentCount() const { return segments_.size(); }
+    EntityID segmentID(uint32_t index) const { return segments_[index]; }
 
     inline EntityType entityType() const { return entityType_; }
 
-    // mutators
-    void entityTypeIs(EntityType et) { entityType_ = et; }
-    // note: per the instructions, segments_ is read-only
-
-    virtual SegmentSourceOK segmentSourceOK(Segment*) const = 0;
-
 protected: 
 
-    Location(string name, EntityType type): Fwk::NamedInterface(name), entityType_(type){}
+    Location(EntityID name, EntityType type): Fwk::NamedInterface(name), entityType_(type){}
 
 private:
 
+    // Factory Class
+    friend class ShippingNetwork;
+    // Needs access to private mutators to add/remove segments
     friend class SegmentReactor;
 
-    void segmentEnq(SegmentID s){
-        // add segment
-    }
+    // mutators
+    void entityTypeIs(EntityType et);
+    // note: per the instructions, segments_ is read-only
 
-    void segmentDeq(SegmentID s) {
-        // TODO: remove segment from list
-    }
+    void segmentIs(EntityID segmentID);
+
+    void segmentDel(EntityID segmentID);
 
     EntityType entityType_;
-    typedef std::vector<Segment::Ptr> SegmentList;
+    typedef std::vector<EntityID> SegmentList;
     SegmentList segments_;
 };
 
@@ -171,18 +172,19 @@ public:
 
         // Events
         virtual void onSource(){}
-        virtual void onReverseSegment(){}
+        virtual void onReturnSegment(){}
 
         void notifierIs(Segment::Ptr notifier){ notifier_=notifier; }
         Segment::Ptr notifier() const { return notifier_; }
 
     protected:
         Notifiee(){}
-    private:
         Segment::Ptr notifier_;
     };
 
-    // accesors
+    // Accesors
+
+    // constant accesors
     static inline ExpediteSupport expediteSupported() { return expediteSupported_; }
     static inline ExpediteSupport expediteUnsupported() { return expediteUnsupported_; }
     static inline ExpediteSupport expediteUnspecified() { return expediteUnspecified_; }
@@ -191,31 +193,28 @@ public:
     static inline EntityType planeSegment() { return planeSegment_; }
 
     inline EntityType entityType() const { return entityType_; }
-    inline Location::Ptr source() { return source_; }
+    inline Location::Ptr source() const { return source_; }
     inline Mile length() const { return length_; }
-    inline Segment::Ptr returnSegment() { return returnSegment_; }
+    inline Segment::Ptr returnSegment() const { return returnSegment_; }
     inline Difficulty difficulty() const { return difficulty_; }
     inline ExpediteSupport expediteSupport() const { return expediteSupport_; }
 
-    Segment::Notifiee::Ptr notifiee(){ return notifiee_; }
-
     // mutators
     void sourceIs(Location::Ptr source);
-    void lengthIs(Mile l) { length_ = l; }
-    void returnSegmentIs(Segment::Ptr s) { returnSegment_ = s; }
-    void difficultyIs(Difficulty d) { difficulty_ = d; }
-    void expediteSupportIs(ExpediteSupport es) { expediteSupport_ = es; }
-
-    void notifieeIs(Segment::Notifiee::Ptr notifiee){
-        notifiee->notifierIs(this);
-        notifiee_ = notifiee;
-    }
+    void lengthIs(Mile l);
+    void returnSegmentIs(Segment::Ptr s); 
+    void difficultyIs(Difficulty d); 
+    void expediteSupportIs(ExpediteSupport es);
+    void notifieeIs(Segment::Notifiee* notifiee);
 
 private:
 
     friend class ShippingNetwork;
+    friend class SegmentReactor;
 
-    Segment(string name, EntityType type) : Fwk::NamedInterface(name), length_(0), difficulty_(1.0), expediteSupport_(no_), entityType_(type){}
+    Segment(EntityID name, EntityType type) : Fwk::NamedInterface(name), length_(0), difficulty_(1.0), expediteSupport_(expediteUnsupported_), entityType_(type){}
+
+    void returnSegmentRm();
 
     // attributes
     Mile length_;
@@ -224,115 +223,9 @@ private:
     EntityType entityType_;
     Segment::Ptr returnSegment_;
     Location::Ptr source_;
-    Segment::Notifiee::Ptr notifiee_;
-};
 
-class Customer : public Location{
-
-public: 
-
-    typedef Fwk::Ptr<Customer> Ptr;
-    typedef Fwk::Ptr<Customer const> PtrConst;
-
-    SegmentSourceOK segmentSourceOK(Segment* segment) const{
-        return yes_;
-    }
-
-private:
-
-    friend class ShippingNetwork;
-
-    // Constructor
-    Customer() : Location(Location::customer()){}
-};
-
-
-class Port : public Location{
-
-public:
-
-    typedef Fwk::Ptr<Port> Ptr;
-    typedef Fwk::Ptr<Port const> PtrConst;
-
-    SegmentSourceOK segmentSourceOK(Segment* segment) const{
-        return yes_;
-    }
-
-private:
-
-    friend class ShippingNetwork;
-
-    // Constructor
-    Port() : Location(Location::port()){}
-};
-
-
-class Terminal : public Location{
-
-protected:
-
-    // Constructor
-    Terminal(Location::EntityType terminalType, Segment::EntityType segmentType) : Location(terminalType),segmentType_(segmentType){}
-
-    SegmentSourceOK segmentSourceOK(Segment* segment) const {
-        if( segment->entityType() == segmentType_) return yes_;
-        return no_;
-    }
-
-private:
-
-    Segment::EntityType segmentType_;
-};
-
-
-class TruckTerminal : public Terminal{
-
-public:
-
-    typedef Fwk::Ptr<TruckTerminal> Ptr;
-    typedef Fwk::Ptr<TruckTerminal const> PtrConst;
-
-    // Instantiator
-    TruckTerminal::Ptr TruckTerminalIs();
-
-private:
-
-    friend class ShippingNetwork;
-
-    // Constructor
-    TruckTerminal() : Terminal(Location::truckTerminal(),Segment::truckSegment()){}
-};
-
-
-class BoatTerminal : public Terminal{
-
-public:
-
-    typedef Fwk::Ptr<BoatTerminal> Ptr;
-    typedef Fwk::Ptr<BoatTerminal const> PtrConst;
-
-private:
-
-    friend class ShippingNetwork;
-
-    // Constructor
-    BoatTerminal() : Terminal(Location::boatTerminal(),Segment::boatSegment()){}
-};
-
-
-class PlaneTerminal : public Terminal{
-
-public:
-
-    typedef Fwk::Ptr<PlaneTerminal> Ptr;
-    typedef Fwk::Ptr<PlaneTerminal const> PtrConst;
-
-private:
-
-    friend class ShippingNetwork;
-
-    // Constructor
-    PlaneTerminal() : Terminal(planeTerminal_,Segment::planeSegment()){}
+    typedef std::vector<Segment::Notifiee::Ptr> NotifieeList;
+    NotifieeList notifieeList_;
 };
 
 class Path : public Fwk::NamedInterface {
@@ -350,15 +243,14 @@ public:
         typedef Fwk::Ptr<PathElement const> PtrConst;
 
         // accessors
-        inline Location::Ptr source() const { return source_; }
+        inline Location::Ptr source() const { return segment_->source(); }
         inline Segment::Ptr segment() const { return segment_; }
 
         // mutators
-        void sourceIs(Location::Ptr s) { source_ = s; }
-        void segmentIs(Segment::Ptr s) { segment_ = s; }
+        void segmentIs(Segment::Ptr s); 
+
     private:
 
-        Location::Ptr source_;
         Segment::Ptr segment_;
     };
 
@@ -393,6 +285,12 @@ public:
     std::vector<Path::Ptr> explore(Location::Ptr start,
         Mile distance, Dollar cost, Hour time,
         Segment::ExpediteSupport expedited) const;
+
+private:
+
+    friend class ShippingNetwork;
+
+    Conn(std::string name) : NamedInterface(name){}
 };
 
 
@@ -404,7 +302,7 @@ public:
         boat_ = 1,
         plane_ = 2,
         truck_ = 3
-    }
+    };
 
     typedef Fwk::Ptr<Fleet> Ptr;
     typedef Fwk::Ptr<Fleet const> PtrConst;
@@ -421,6 +319,10 @@ public:
     void capacityIs(Mode m, PackageNum p);
     void costIs(Mode m, DollarPerMile d);
 private:
+
+    friend class ShippingNetwork;
+
+    Fleet(std::string name) : NamedInterface(name){};
 
     typedef std::map<Mode,MilePerHour> SpeedMap;
     SpeedMap speed_;
@@ -443,17 +345,42 @@ public:
     typedef Fwk::Ptr<Stats const> PtrConst;
 
     // accessors
-    inline int locationCount(Location::EntityType et) 
+    inline uint32_t locationCount(Location::EntityType et) 
         { return locationCount_[et]; }
-    inline int segmentCount(Segment::EntityType et) 
+    inline uint32_t segmentCount(Segment::EntityType et) 
         { return segmentCount_[et]; }
     inline float expeditePercentage() const
-        { return expediteSegmentCount_ * 1.0 / segmentCountTotal_;}
+        { return expediteSegmentCount_ * 1.0 / totalSegmentCount_;}
+
 private:
-    std::map<Location::EntityType, int> locationCount_;
-    std::map<Segment::EntityType, int> segmentCount_;
-    int expediteSegmentCount_;
-    int segmentCountTotal_;
+
+    friend class ShippingNetwork;
+    friend class StatsReactor;
+
+    Stats(std::string name) : NamedInterface(name){
+        expediteSegmentCount_=0;
+        totalSegmentCount_=0;
+    }
+
+
+    // mutators
+    void locationCountIncr(Location::EntityType type);
+    void locationCountDecr(Location::EntityType type);
+    void segmentCountIncr(Segment::EntityType type);
+    void segmentCountDecr(Segment::EntityType type);
+    void expediteSegmentCountIncr();
+    void expediteSegmentCountDecr();
+    void totalSegmentCountIncr();
+    void totalSegmentCountDecr();
+
+    typedef std::map<Location::EntityType, uint32_t> LocationCountMap;
+    LocationCountMap locationCount_;
+
+    typedef std::map<Segment::EntityType, uint32_t> SegmentCountMap;   
+    SegmentCountMap segmentCount_;
+
+    uint32_t expediteSegmentCount_;
+    uint32_t totalSegmentCount_;
 };
 
 class ShippingNetwork : public Fwk::NamedInterface {
@@ -462,49 +389,42 @@ public:
 
     // class types
 
-    typedef Fwk::Ptr<ShippingEngine> Ptr;
-    typedef Fwk::Ptr<ShippingEngine const> PtrConst;
+    typedef Fwk::Ptr<ShippingNetwork> Ptr;
+    typedef Fwk::Ptr<ShippingNetwork const> PtrConst;
 
     // notifiee
 
     class Notifiee : public virtual Fwk::NamedInterface::Notifiee {
     public:
 
-        typedef Fwk::Ptr<ShippingEngine::Notifiee> Ptr;
-        typedef Fwk::Ptr<ShippingEngine::Notifiee const> PtrConst;
+        typedef Fwk::Ptr<ShippingNetwork::Notifiee> Ptr;
+        typedef Fwk::Ptr<ShippingNetwork::Notifiee const> PtrConst;
 
         // Segments
-        virtual void onSegmentNew(Segment::Ptr segment){}
+        virtual void onSegmentNew(EntityID segmentID){}
         virtual void onSegmentDel(Segment::Ptr segment){}
 
         // Locations
-        virtual void onCustomerNew(Location::Ptr location){}
-        virtual void onCustomerDel(Customer::Ptr customer){}
-        virtual void onPortNew(Location::Ptr port){}
-        virtual void onPortDel(Port::Ptr port){}
-        virtual void onPlaneTerminalNew(Location::Ptr planeTerminal){}
-        virtual void onPlaneTerminalDel(PlaneTerminal::Ptr planeTerminal){}
-        virtual void onBoatTerminalNew(Location::Ptr boatTerminal){}
-        virtual void onBoatTerminalDel(BoatTerminal::Ptr boatTerminal){}
-        virtual void onTruckTerminalNew(Location::Ptr truckTerminal){}
-        virtual void onTruckTerminalDel(TruckTerminal::Ptr truckTerminal){}
+        virtual void onLocationNew(EntityID locationID){}
+        virtual void onLocationDel(Location::Ptr location){}
+
+        void notifierIs(ShippingNetwork::Ptr notifier){ notifier_=notifier; }
+        ShippingNetwork::Ptr notifier() const { return notifier_; }
  
     protected:
 
         Notifiee() {}
 
-    private:
-
-        ShippingEngine::Ptr shippingEngine_;
+        ShippingNetwork::Ptr notifier_;
     };
 
     // accessor
 
-    Segment::Ptr segement(string name) { return segmentMap_[name]; }
-    Location::Ptr location(string name) { return locationMap_[name]; }
-    Conn::Ptr conn(string cid) const;
-    Stats::Ptr stats(string sid) const;
-    Fleet::Ptr fleet(string fid) const;
+    Segment::Ptr segment(EntityID name) { return segmentMap_[name]; }
+    Location::Ptr location(EntityID name) { return locationMap_[name]; }
+    Conn::Ptr conn(EntityID cid) const;
+    Stats::Ptr stats(EntityID sid) const;
+    Fleet::Ptr fleet(EntityID fid) const;
 
     // mutators
 
@@ -512,48 +432,53 @@ public:
     // These instance creators create an instance, add it to the map, 
     // and set up any needed reactors;
 
-    Segment::Ptr SegmentNew(string name, Segment::EntityType entityType); 
-    Segment::Ptr segmentDel();
+    Segment::Ptr SegmentNew(EntityID name, Segment::EntityType entityType); 
+    Segment::Ptr segmentDel(EntityID name);
 
-    Location::Ptr CustomerNew(string name);
-    Location::Ptr customerDel();
-
-    Location::Ptr PortNew(string name);
-    Location::Ptr portDel();
-
-    Location::Ptr TruckTerminalNew(string name);
-    Location::Ptr truckTerminalDel();
-
-    Location::Ptr BoatTerminalNew(string name);
-    Location::Ptr boatTerminalDel();
-
-    Location::Ptr PlaneTerminalNew(string name);
-    Location::Ptr planeTerminalDel();
+    Location::Ptr LocationNew(EntityID name, Location::EntityType entityType);
+    Location::Ptr locationDel(EntityID name);
 
     // These instance creators should only create instance on first call
 
-    Conn::Ptr ConnNew(string name);
-    Conn::Ptr connDel(string name);
+    Conn::Ptr ConnNew(EntityID name);
+    Conn::Ptr connDel(EntityID name);
 
-    Stats::Ptr StatsNew(string name);
-    Stats::Ptr statsDel(string name);
+    Stats::Ptr StatsNew(EntityID name);
+    Stats::Ptr statsDel(EntityID name);
 
-    Fleet::Ptr FleetNew(string name);
-    Fleet::Ptr fleetDel(string name);
+    Fleet::Ptr FleetNew(EntityID name);
+    Fleet::Ptr fleetDel(EntityID name);
 
-    void notifieeIs(Segment::Notifiee::Ptr notifiee);
+    void notifieeIs(ShippingNetwork::Notifiee::Ptr notifiee);
+
+    static ShippingNetwork::Ptr ShippingNetworkIs(EntityID name);
 
 private:
 
+    ShippingNetwork(EntityID name) : Fwk::NamedInterface(name){}
+
     // attributes
-    typedef std::map<string, Location::Ptr> LocationMap;
+    typedef std::map<EntityID, Location::Ptr> LocationMap;
     LocationMap locationMap_;
-    typedef std::map<string, Segment::Ptr> SegmentMap;
+
+    typedef std::map<EntityID, Segment::Ptr> SegmentMap;
     SegmentMap segmentMap_;
 
+    typedef std::set<EntityID> ConnSet;
+    ConnSet conn_;
+    Conn::Ptr connPtr_;
+
+    typedef std::set<EntityID> FleetSet;
+    FleetSet fleet_;
+    Fleet::Ptr fleetPtr_;
+
+    typedef std::set<EntityID> StatSet;
+    StatSet stat_;
+    Stats::Ptr statPtr_;
+
     // notifiees
-    typedef std::vector<ShippingEngine::Notifiee::Ptr> NotifieeList;
-    NotifieeList notifieees_;
+    typedef std::vector<ShippingNetwork::Notifiee::Ptr> NotifieeList;
+    NotifieeList notifieeList_;
 };
 
 class SegmentReactor : public Segment::Notifiee {
@@ -574,72 +499,62 @@ public:
      * Reset the current reverse segment to the 
      *   new reverse segment
      */ 
-    void onReverseSegment();  
-
-    static SegmentReactor::Ptr SegmentReactorIs(){
-        return new SegmentReactor();
-    }
+    void onReturnSegment();  
 
 private:
 
-    SegmentReactor(){
-        currentSource_ = NULL;
-        currentReverse_ = NULL;
-    }
+    friend class ShippingNetwork;
+
+    SegmentReactor(ShippingNetwork::Ptr network);
 
     Location::Ptr currentSource_;
-    Segment::Ptr  currentReverse_;
+    Segment::Ptr  currentReturnSegment_;
+
+    ShippingNetwork::Ptr network_;
 };
 
-class ShippingNetworkReactor : public ShippingEngine::Notifiee{
+class ShippingNetworkReactor : public ShippingNetwork::Notifiee{
 
 public:
 
-    typedef Fwk::Ptr<ShippingEngineReactor> Ptr;
-    typedef Fwk::Ptr<ShippingEngineReactor const> PtrConst;
+    typedef Fwk::Ptr<ShippingNetworkReactor> Ptr;
+    typedef Fwk::Ptr<ShippingNetworkReactor const> PtrConst;
 
-    void onSegmentDel(Segment::Ptr segment) {
-        // remove segment from source
-        // remove segment from reverse segment
-    }
+    void onSegmentDel(Segment::Ptr segment); 
 
-    static ShippingEngineReactor::Ptr ShippingEngineReactorIs(){
-        return new ShippingEngineReactor();
+    void onLocationDel(Location::Ptr location);
+
+    static ShippingNetworkReactor::Ptr ShippingNetworkReactorIs(){
+        return new ShippingNetworkReactor();
     }
 
 private:
 
-    ShippingEngineReactor(){}
+    friend class ShippingNetwork;
+
+    ShippingNetworkReactor();
 };
 
 
-class StatsReactor : public ShippingEngine::Notifiee{
+class StatsReactor : public ShippingNetwork::Notifiee{
 
 public:
 
     typedef Fwk::Ptr<StatsReactor> Ptr;
     typedef Fwk::Ptr<StatsReactor const> PtrConst;
 
-    void onSegmentNew(Segment::Ptr segment);
+    void onSegmentNew(EntityID segmentID);
     void onSegmentDel(Segment::Ptr segment);
-    void onCustomerNew(Customer::Ptr customer);
-    void onCustomerDel(Customer::Ptr customer);
-    void onPortNew(Port::Ptr port);
-    void onPortDel(Port::Ptr port);
-    void onPlaneTerminalNew(PlaneTerminal::Ptr planeTerminal);
-    void onPlaneTerminalDel(PlaneTerminal::Ptr planeTerminal);
-    void onBoatTerminalNew(BoatTerminal::Ptr boatTerminal);
-    void onBoatTerminalDel(BoatTerminal::Ptr boatTerminal);
-    void onTruckTerminalNew(TruckTerminal::Ptr truckTerminal);
-    void onTruckTerminalDel(TruckTerminal::Ptr truckTerminal);
-
-    static StatsReactor::Ptr StatsReactorIs(){
-        return new StatsReactor();
-    }
+    void onLocationNew(EntityID locationID);
+    void onLocationDel(Location::Ptr location);
 
 private:
 
-    StatsReactor(){}
+    friend class ShippingNetwork;
+
+    StatsReactor(Stats::Ptr stats);
+
+    Stats::Ptr stats_;
 };
 
 } /* end namespace */
