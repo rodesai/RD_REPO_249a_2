@@ -29,7 +29,9 @@ class ArgumentException : public std::exception {
 
 class Mile : public Ordinal<Mile, uint64_t> {
 public:
-    Mile(uint64_t num) : Ordinal<Mile, uint64_t>(num) {}
+    Mile(int64_t num) : Ordinal<Mile, uint64_t>(num) {
+        if (num < 0 && num != -1) throw ArgumentException();
+    }
 };
 
 
@@ -42,7 +44,7 @@ public:
 class Dollar : public Ordinal<Dollar, float> {
 public:
     Dollar(float num) : Ordinal<Dollar, float>(num) {
-        if (num < 0) throw ArgumentException();
+        if (num < 0 && num != -1) throw ArgumentException();
     }
 };
 
@@ -56,7 +58,7 @@ public:
 class Hour : public Ordinal<Hour, float> {
 public:
     Hour(float num) : Ordinal<Hour, float>(num) {
-        if (num < 0) throw ArgumentException();
+        if (num < 0 && num != -1) throw ArgumentException();
     }
 };
 
@@ -148,8 +150,9 @@ public:
     typedef Fwk::Ptr<Segment const> PtrConst;
 
     enum ExpediteSupport {
-        no_ = 0,
-        yes_ = 1
+        expediteUnsupported_ = 0,
+        expediteSupported_ = 1,
+        expediteUnspecified_ = 2,
     };
 
     enum EntityType {
@@ -181,9 +184,10 @@ public:
 
     // Accesors
 
-    // Constant Accessors
-    static inline ExpediteSupport yes() { return yes_; }
-    static inline ExpediteSupport no() { return no_; }
+    // constant accesors
+    static inline ExpediteSupport expediteSupported() { return expediteSupported_; }
+    static inline ExpediteSupport expediteUnsupported() { return expediteUnsupported_; }
+    static inline ExpediteSupport expediteUnspecified() { return expediteUnspecified_; }
     static inline EntityType truckSegment() { return truckSegment_; }
     static inline EntityType boatSegment() { return boatSegment_; }
     static inline EntityType planeSegment() { return planeSegment_; }
@@ -208,7 +212,7 @@ private:
     friend class ShippingNetwork;
     friend class SegmentReactor;
 
-    Segment(EntityID name, EntityType type) : Fwk::NamedInterface(name), length_(0), difficulty_(1.0), expediteSupport_(no_), entityType_(type){}
+    Segment(EntityID name, EntityType type) : Fwk::NamedInterface(name), length_(0), difficulty_(1.0), expediteSupport_(expediteUnsupported_), entityType_(type){}
 
     void returnSegmentRm();
 
@@ -278,7 +282,7 @@ public:
     typedef Fwk::Ptr<Conn const> PtrConst;
 
     std::vector<Path::Ptr> connect(Location::Ptr start, Location::Ptr end) const;
-    std::vector<Path::Ptr> explore(Location::Ptr start, Location::Ptr end,
+    std::vector<Path::Ptr> explore(Location::Ptr start,
         Mile distance, Dollar cost, Hour time,
         Segment::ExpediteSupport expedited) const;
 
@@ -294,26 +298,39 @@ class Fleet : public Fwk::NamedInterface {
 
 public:
 
+    enum Mode {
+        boat_ = 1,
+        plane_ = 2,
+        truck_ = 3
+    };
+
     typedef Fwk::Ptr<Fleet> Ptr;
     typedef Fwk::Ptr<Fleet const> PtrConst;
 
-    MilePerHour speed(Segment::EntityType segmentType);
-    PackageNum capacity(Segment::EntityType segmentType);
-    DollarPerMile cost(Segment::EntityType segmentType);
+    static inline Mode boat() { return boat_; }
+    static inline Mode truck() { return truck_; }
+    static inline Mode plane() { return plane_; }
 
+    MilePerHour speed(Mode segmentType);
+    PackageNum capacity(Mode segmentType);
+    DollarPerMile cost(Mode segmentType);
+
+    void speedIs(Mode m, MilePerHour s);
+    void capacityIs(Mode m, PackageNum p);
+    void costIs(Mode m, DollarPerMile d);
 private:
 
     friend class ShippingNetwork;
 
     Fleet(std::string name) : NamedInterface(name){};
 
-    typedef std::map<Segment::EntityType,MilePerHour> SpeedMap;
+    typedef std::map<Mode,MilePerHour> SpeedMap;
     SpeedMap speed_;
 
-    typedef std::map<Segment::EntityType,PackageNum> CapacityMap;
+    typedef std::map<Mode,PackageNum> CapacityMap;
     CapacityMap capacity_;
    
-    typedef std::map<Segment::EntityType,DollarPerMile> CostMap;
+    typedef std::map<Mode,DollarPerMile> CostMap;
     CostMap cost_;
 };
 
