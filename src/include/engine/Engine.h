@@ -26,7 +26,9 @@ class ArgumentException : public std::exception {
 
 class Mile : public Ordinal<Mile, uint64_t> {
 public:
-    Mile(uint64_t num) : Ordinal<Mile, uint64_t>(num) {}
+    Mile(int64_t num) : Ordinal<Mile, uint64_t>(num) {
+        if (num < 0 && num != -1) throw ArgumentException();
+    }
 };
 
 
@@ -39,7 +41,7 @@ public:
 class Dollar : public Ordinal<Dollar, float> {
 public:
     Dollar(float num) : Ordinal<Dollar, float>(num) {
-        if (num < 0) throw ArgumentException();
+        if (num < 0 && num != -1) throw ArgumentException();
     }
 };
 
@@ -53,7 +55,7 @@ public:
 class Hour : public Ordinal<Hour, float> {
 public:
     Hour(float num) : Ordinal<Hour, float>(num) {
-        if (num < 0) throw ArgumentException();
+        if (num < 0 && num != -1) throw ArgumentException();
     }
 };
 
@@ -147,8 +149,9 @@ public:
     typedef Fwk::Ptr<Segment const> PtrConst;
 
     enum ExpediteSupport {
-        no_ = 0,
-        yes_ = 1
+        expediteUnsupported_ = 0,
+        expediteSupported_ = 1,
+        expediteUnspecified_ = 2,
     };
 
     enum EntityType {
@@ -180,8 +183,9 @@ public:
     };
 
     // accesors
-    static inline ExpediteSupport yes() { return yes_; }
-    static inline ExpediteSupport no() { return no_; }
+    static inline ExpediteSupport expediteSupported() { return expediteSupported_; }
+    static inline ExpediteSupport expediteUnsupported() { return expediteUnsupported_; }
+    static inline ExpediteSupport expediteUnspecified() { return expediteUnspecified_; }
     static inline EntityType truckSegment() { return truckSegment_; }
     static inline EntityType boatSegment() { return boatSegment_; }
     static inline EntityType planeSegment() { return planeSegment_; }
@@ -386,7 +390,7 @@ public:
     typedef Fwk::Ptr<Conn const> PtrConst;
 
     std::vector<Path::Ptr> connect(Location::Ptr start, Location::Ptr end) const;
-    std::vector<Path::Ptr> explore(Location::Ptr start, Location::Ptr end,
+    std::vector<Path::Ptr> explore(Location::Ptr start,
         Mile distance, Dollar cost, Hour time,
         Segment::ExpediteSupport expedited) const;
 };
