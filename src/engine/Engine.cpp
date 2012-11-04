@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <iostream>
 #include "engine/Engine.h"
 
 using namespace Shipping;
@@ -43,7 +44,14 @@ void Location::segmentDel(std::string segmentID){
  */
 
 void Segment::returnSegmentRm(){
+
+    std::cout << "IN " << name() << " rm" << std::endl;
+
     returnSegment_=NULL;
+}
+
+void Segment::returnSegmentSet(Segment::Ptr returnSegment){
+    returnSegment_=returnSegment;
 }
 
 void Segment::sourceIs(Location::Ptr source){
@@ -90,6 +98,26 @@ void Segment::returnSegmentIs(Segment::Ptr returnSegment){
     }
 }
 
+void Segment::expediteSupportIs(Segment::ExpediteSupport expediteSupport){
+
+    if(expediteSupport_==expediteSupport){
+        return;
+    }
+
+    expediteSupport_=expediteSupport;
+
+    // Call Notifiees
+    Segment::NotifieeList::iterator it;
+    for ( it=notifieeList_.begin(); it < notifieeList_.end(); it++ ){
+        try{
+            (*it)->onExpediteSupport();
+        }
+        catch(...){
+            // ERROR: maybe we should log something here
+        }
+    }
+}
+
 void Segment::notifieeIs(Segment::Notifiee* notifiee){
 
     // Ensure idempotency
@@ -109,10 +137,6 @@ void Segment::lengthIs(Mile length){
 
 void Segment::difficultyIs(Difficulty difficulty){
     difficulty_=difficulty;
-}
-
-void Segment::expediteSupportIs(Segment::ExpediteSupport expediteSupport){
-    expediteSupport_=expediteSupport;
 }
 
 /*
@@ -215,9 +239,10 @@ Segment::Ptr ShippingNetwork::SegmentNew(EntityID name, Segment::EntityType enti
 
     // Create a New Segment
     Segment::Ptr retval(new Segment(name,entityType));
+    segmentMap_[name]=retval;
 
     // Setup Reactor
-    retval->notifieeIs(new SegmentReactor(this));
+    retval->notifieeIs(new SegmentReactor(this,statPtr_));
 
     // Issue Notifications
     ShippingNetwork::NotifieeList::iterator it;
@@ -267,6 +292,7 @@ Location::Ptr ShippingNetwork::LocationNew(EntityID name, Location::EntityType e
 
     // Create a New Segment
     Location::Ptr retval(new Location(name,entityType));
+    locationMap_[name]=retval;
 
     // Issue Notifications
     ShippingNetwork::NotifieeList::iterator it;
@@ -308,15 +334,29 @@ Location::Ptr ShippingNetwork::locationDel(EntityID name){
     return retval;
 }
 
+Stats::Ptr ShippingNetwork::StatsNew(EntityID name){
+    stat_.insert(name);
+    return statPtr_;
+}
+
+Stats::Ptr ShippingNetwork::statsDel(EntityID name){
+    if(stat_.count(name) == 1){
+        stat_.erase(name);
+        return statPtr_;
+    }
+    return NULL;
+}
+
 /*
  * SegmentReactor
  * 
  */
 
-SegmentReactor::SegmentReactor(ShippingNetwork::Ptr network){
+SegmentReactor::SegmentReactor(ShippingNetwork::Ptr network, Stats::Ptr stats){
     currentSource_ = NULL;
     currentReturnSegment_ = NULL;
     network_=network;
+    stats_=stats;
 }
 
 void SegmentReactor::onSource(){
@@ -333,15 +373,31 @@ void SegmentReactor::onSource(){
 }
 
 void SegmentReactor::onReturnSegment(){
-    // Remove this segment from old return segment
-    if(currentReturnSegment_){
-        currentReturnSegment_->returnSegmentRm();
+
+    /* Remove this segment from old return segment if it still thinks
+     * this reactor's segment is its return segment
+     */
+    if(currentReturnSegment_ && currentReturnSegment_->returnSegment() == notifier_){
+        currentReturnSegment_->returnSegmentIs(NULL);
     }
-    // Update return segment ref
+
+    /* Update return segment ref */
     currentReturnSegment_ = notifier_->returnSegment();
-    // Update new return segment to set this segment as its return segment
-    if(currentReturnSegment_){
+
+    /* Update new return segment to set this segment as its return segment
+     * if this segment is not already its return segment
+     */
+    if(currentReturnSegment_ && currentReturnSegment_->returnSegment() != notifier_){
         currentReturnSegment_->returnSegmentIs(notifier_);
+    }
+}
+
+void SegmentReactor::onExpediteSupport(){
+    if(notifier_->expediteSupport() == Segment::expediteSupported()){
+        stats_->expediteSegmentCountIncr();
+    }
+    else if(notifier_->expediteSupport() == Segment::expediteUnsupported()){
+        stats_->expediteSegmentCountDecr();
     }
 }
 
@@ -378,17 +434,19 @@ StatsReactor::StatsReactor(Stats::Ptr stats){
 
 void StatsReactor::onSegmentNew(EntityID segmentID){
     Segment::Ptr segment = notifier_->segment(segmentID);
-    stats_->segmentCountIncr(segment->entityType());
-    stats_->totalSegmentCountIncr();
-    if(segment->expediteSupport() == segment->yes()){
-        stats_->expediteSegmentCountIncr();
+    if(segment){
+        stats_->segmentCountIncr(segment->entityType());
+        stats_->totalSegmentCountIncr();
+        if(segment->expediteSupport() == segment->expediteSupported()){
+            stats_->expediteSegmentCountIncr();
+        }
     }
 }
 
 void StatsReactor::onSegmentDel(Segment::Ptr segment){
     stats_->segmentCountDecr(segment->entityType());
     stats_->totalSegmentCountDecr();
-    if(segment->expediteSupport() == segment->yes()){
+    if(segment->expediteSupport() == segment->expediteSupported()){
         stats_->expediteSegmentCountDecr();
     }
 }
@@ -400,4 +458,61 @@ void StatsReactor::onLocationNew(EntityID locationID){
 
 void StatsReactor::onLocationDel(Location::Ptr location){
     stats_->locationCountDecr(location->entityType());
+}
+
+/*
+ * Conn
+ * 
+ */
+PathList Conn::paths(ConstraintList constraints,LocationSet endpoints,
+                       Location::Ptr start, ShippingNetwork* network,Fleet* fleet){
+
+    PathList retval;
+    return retval;
+/*
+    std::stack<Path::Ptr> pathStack;
+
+    // Load Starting Paths
+    for(uint32_t i = 0; i < start->segmentCount(); i++){
+        Path::Ptr path = PathIs();
+        Path::PathElement::Ptr start = PathElementIs(start->segment(i));
+        path->elementEnq(start);
+        pathStack.push(path);
+    }
+
+    while(pathStack.size() > 0){
+
+        Path::Ptr currentPath = pathStack.top();
+
+        /* Evaluate Current Path
+         
+ 
+        // If the last location is null, ignore this path
+        if(!currentPath->lastLocation()) continue;
+
+        // If the path is cyclic, ignore this path
+        
+
+        // Evaluate constraints
+        Conn::Constraint::EvalOutput evalOutput;
+        for(ConstraintList::iterator it = constraints.begin(): it < constraints.end(); it++){
+            it->pathIs(currentPath);
+            evalOutput = it->evalOutput();
+            if(evalOutput == Conn::Constraint::fail()) break;
+        }
+        if(evalOutput==Conn::Constraint::fail()) continue;
+
+        if( endpoints.size() == 0 ){
+            retval.push_back(path);
+        }
+        else if( endpoints.count(currentPath->lastLocation()->name()) != 0 ){
+            retval.push_back(path);
+            continue;
+        }
+
+        if(
+
+        for(uint32_t i = 0; i < currentPath->
+    }
+*/
 }
