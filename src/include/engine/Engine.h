@@ -141,7 +141,12 @@ public:
     static inline SegmentSourceOK no(){ return no_; }
 
     uint32_t segmentCount() const { return segments_.size(); }
-    EntityID segmentID(uint32_t index) const { return segments_[index]; }
+    EntityID segmentID(uint32_t index) const {
+        // TODO: it would be better to return a null pointer instead of an empty string
+        if (index < 1 || index > segments_.size())
+            return "";
+        return segments_[index - 1];
+    }
 
     inline EntityType entityType() const { return entityType_; }
 
@@ -477,8 +482,11 @@ public:
         { return locationCount_[et]; }
     inline uint32_t segmentCount(TransportMode et) 
         { return segmentCount_[et]; }
-    inline float expeditePercentage() const
-        { return expediteSegmentCount_ * 1.0 / totalSegmentCount_;}
+    inline float expeditePercentage() const {
+        if (totalSegmentCount_ == 0)
+            return 0;
+        return expediteSegmentCount_ * 100.0 / totalSegmentCount_;
+    }
 
 private:
 
