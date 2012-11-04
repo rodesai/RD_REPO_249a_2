@@ -94,6 +94,17 @@ public:
     static PackageNum min(){ return min_; }
 };
 
+enum TransportMode{
+    truck_=0,
+    boat_,
+    plane_
+};
+/*class TransportMode : public Nominal<TransportMode, transport_mode>{
+public:
+    TransportMode(transport_mode mode) : Nominal<TransportMode,transport_mode>(mode){}
+    TransportMode() : Nominal<TransportMode,transport_mode>(undef_){}
+};*/
+
 // Core Types
 
 class Segment;
@@ -174,12 +185,6 @@ public:
         expediteUnspecified_ = 2,
     };
 
-    enum EntityType {
-        truckSegment_ = 0,
-        boatSegment_ = 1,
-        planeSegment_ = 2
-    };
-
     // Notifiees
 
     class Notifiee : public virtual Fwk::NamedInterface::Notifiee {
@@ -208,11 +213,8 @@ public:
     static inline ExpediteSupport expediteSupported() { return expediteSupported_; }
     static inline ExpediteSupport expediteUnsupported() { return expediteUnsupported_; }
     static inline ExpediteSupport expediteUnspecified() { return expediteUnspecified_; }
-    static inline EntityType truckSegment() { return truckSegment_; }
-    static inline EntityType boatSegment() { return boatSegment_; }
-    static inline EntityType planeSegment() { return planeSegment_; }
 
-    inline EntityType entityType() const { return entityType_; }
+    inline TransportMode mode() const { return mode_; }
     inline Location::Ptr source() const { return source_; }
     inline Mile length() const { return length_; }
     inline Segment::Ptr returnSegment() const { return returnSegment_; }
@@ -232,7 +234,7 @@ private:
     friend class ShippingNetwork;
     friend class SegmentReactor;
 
-    Segment(EntityID name, EntityType type) : Fwk::NamedInterface(name), length_(0), difficulty_(1.0), expediteSupport_(expediteUnsupported_), entityType_(type){}
+    Segment(EntityID name, TransportMode mode) : Fwk::NamedInterface(name), length_(0), difficulty_(1.0), expediteSupport_(expediteUnsupported_), mode_(mode){}
 
     void returnSegmentRm();
     void returnSegmentSet(Segment::Ptr returnSegment);
@@ -241,7 +243,7 @@ private:
     Mile length_;
     Difficulty difficulty_;
     ExpediteSupport expediteSupport_;
-    EntityType entityType_;
+    TransportMode mode_;
     Segment::Ptr returnSegment_;
     Location::Ptr source_;
 
@@ -249,14 +251,44 @@ private:
     NotifieeList notifieeList_;
 };
 
-class Path : public Fwk::NamedInterface {
+class Fleet : public Fwk::NamedInterface {
+
+public:
+
+    typedef Fwk::Ptr<Fleet> Ptr;
+    typedef Fwk::Ptr<Fleet const> PtrConst;
+
+    MilePerHour speed(TransportMode segmentType) { return speed_[segmentType]; }
+    PackageNum capacity(TransportMode segmentType) { return capacity_[segmentType]; }
+    DollarPerMile cost(TransportMode segmentType) { return cost_[segmentType]; }
+
+    void speedIs(TransportMode m, MilePerHour s);
+    void capacityIs(TransportMode m, PackageNum p);
+    void costIs(TransportMode m, DollarPerMile d);
+private:
+
+    friend class ShippingNetwork;
+
+    Fleet(std::string name) : NamedInterface(name){};
+
+    typedef std::map<TransportMode,MilePerHour> SpeedMap;
+    SpeedMap speed_;
+
+    typedef std::map<TransportMode,PackageNum> CapacityMap;
+    CapacityMap capacity_;
+
+    typedef std::map<TransportMode,DollarPerMile> CostMap;
+    CostMap cost_;
+};
+
+class Path : public Fwk::PtrInterface<Path>{
 
 public:
 
     typedef Fwk::Ptr<Path> Ptr;
     typedef Fwk::Ptr<Path const> PtrConst;
 
-    class PathElement : public NamedInterface {
+    class PathElement : public Fwk::PtrInterface<Path::PathElement> {
 
     public:
 
@@ -270,22 +302,43 @@ public:
         // mutators
         void segmentIs(Segment::Ptr s); 
 
+        // Constructor
+        static PathElement::Ptr PathElementIs(Segment::Ptr segment);
+        // Copy Constructor 
+        static PathElement::Ptr PathElementIs(PathElement::Ptr pathElement);
+
     private:
+
+        PathElement(Segment::Ptr segment) : segment_(segment){}
+        PathElement(PathElement* pathElement){
+            segment_ = pathElement->segment();
+        }
 
         Segment::Ptr segment_;
     };
 
 
-    typedef std::vector<PathElement::Ptr> LocationVector;
-    typedef std::vector<PathElement::Ptr>::iterator LocationIterator;
+    typedef std::vector<PathElement::Ptr> PathList;
 
     // accessors
     Dollar cost() const { return cost_; }
     Hour time() const { return time_; }
     Mile distance() const{ return distance_; }
     Segment::ExpediteSupport expedited() const { return expedited_; }
-    LocationIterator pathIterator(); 
+    PathElement::Ptr pathElement(uint32_t index);
+    uint32_t pathElementCount(){ return path_.size(); }
+    Fleet::Ptr fleet(){ return fleet_; }
+    Location::Ptr lastLocation();
+    Location::Ptr location(Location::Ptr location);
 
+    // mutators
+
+    void pathElementEnq(PathElement::Ptr element);
+    //PathElement::Ptr pathElementDeq();
+
+    static Path::Ptr PathIs(Fleet::Ptr fleet);
+    static Path::Ptr PathIs(Path::Ptr path);
+    
 private:
 
     Dollar cost_;
@@ -293,7 +346,13 @@ private:
     Mile distance_;
     Segment::ExpediteSupport expedited_;
 
-    LocationVector locations_;
+    Fleet::Ptr fleet_;
+
+    std::set<EntityID> locations_;
+    PathList path_;
+
+    Path(Fleet* fleet);
+    Path(Path* path); 
 };
 
 
@@ -307,7 +366,7 @@ public:
     typedef std::set<EntityID> LocationSet;
     typedef std::vector<Path::Ptr> PathList;
 
-    std::vector<Path::Ptr> connect(Location::Ptr start, Location::Ptr end) const { return std::vector<Path::Ptr>(); }
+    std::vector<Path::Ptr> connect(Location::Ptr start, Location::Ptr end, ShippingNetwork* network, Fleet* fleet); 
     std::vector<Path::Ptr> explore(Location::Ptr start,
         Mile distance, Dollar cost, Hour time,
         Segment::ExpediteSupport expedited) const { return std::vector<Path::Ptr>(); }
@@ -322,8 +381,8 @@ public:
             fail_=0,
             pass_=1
         };
-        EvalOutput fail(){ return fail_; }
-        EvalOutput pass(){ return pass_; }
+        static EvalOutput fail(){ return fail_; }
+        static EvalOutput pass(){ return pass_; }
         void pathIs(Path::Ptr path){ path_=path; }
         Path::Ptr path(){ return path_; }
         virtual EvalOutput evalOutput()=0;
@@ -404,48 +463,6 @@ private:
     Conn(std::string name) : NamedInterface(name){}
 };
 
-
-class Fleet : public Fwk::NamedInterface {
-
-public:
-
-    enum Mode {
-        boat_ = 1,
-        plane_ = 2,
-        truck_ = 3
-    };
-
-    typedef Fwk::Ptr<Fleet> Ptr;
-    typedef Fwk::Ptr<Fleet const> PtrConst;
-
-    static inline Mode boat() { return boat_; }
-    static inline Mode truck() { return truck_; }
-    static inline Mode plane() { return plane_; }
-
-    MilePerHour speed(Mode segmentType) { return speed_[segmentType]; }
-    PackageNum capacity(Mode segmentType) { return capacity_[segmentType]; }
-    DollarPerMile cost(Mode segmentType) { return cost_[segmentType]; }
-
-    void speedIs(Mode m, MilePerHour s);
-    void capacityIs(Mode m, PackageNum p);
-    void costIs(Mode m, DollarPerMile d);
-private:
-
-    friend class ShippingNetwork;
-
-    Fleet(std::string name) : NamedInterface(name){};
-
-    typedef std::map<Mode,MilePerHour> SpeedMap;
-    SpeedMap speed_;
-
-    typedef std::map<Mode,PackageNum> CapacityMap;
-    CapacityMap capacity_;
-   
-    typedef std::map<Mode,DollarPerMile> CostMap;
-    CostMap cost_;
-};
-
-
 class Stats : public Fwk::NamedInterface {
 
     // TODO: this needs to be updated via notification
@@ -458,7 +475,7 @@ public:
     // accessors
     inline uint32_t locationCount(Location::EntityType et) 
         { return locationCount_[et]; }
-    inline uint32_t segmentCount(Segment::EntityType et) 
+    inline uint32_t segmentCount(TransportMode et) 
         { return segmentCount_[et]; }
     inline float expeditePercentage() const
         { return expediteSegmentCount_ * 1.0 / totalSegmentCount_;}
@@ -477,8 +494,8 @@ private:
     // mutators
     void locationCountIncr(Location::EntityType type);
     void locationCountDecr(Location::EntityType type);
-    void segmentCountIncr(Segment::EntityType type);
-    void segmentCountDecr(Segment::EntityType type);
+    void segmentCountIncr(TransportMode type);
+    void segmentCountDecr(TransportMode type);
     void expediteSegmentCountIncr();
     void expediteSegmentCountDecr();
     void totalSegmentCountIncr();
@@ -487,7 +504,7 @@ private:
     typedef std::map<Location::EntityType, uint32_t> LocationCountMap;
     LocationCountMap locationCount_;
 
-    typedef std::map<Segment::EntityType, uint32_t> SegmentCountMap;   
+    typedef std::map<TransportMode, uint32_t> SegmentCountMap;   
     SegmentCountMap segmentCount_;
 
     uint32_t expediteSegmentCount_;
@@ -543,7 +560,7 @@ public:
     // These instance creators create an instance, add it to the map, 
     // and set up any needed reactors;
 
-    Segment::Ptr SegmentNew(EntityID name, Segment::EntityType entityType); 
+    Segment::Ptr SegmentNew(EntityID name, TransportMode mode); 
     Segment::Ptr segmentDel(EntityID name);
 
     Location::Ptr LocationNew(EntityID name, Location::EntityType entityType);

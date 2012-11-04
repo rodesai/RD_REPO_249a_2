@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <iostream>
+#include <stack>
 #include "engine/Engine.h"
 
 using namespace Shipping;
@@ -164,7 +165,7 @@ void Stats::locationCountIncr(Location::EntityType type){
     locationCount_[type]=locationCount_[type]+1;
 }
 
-void Stats::segmentCountDecr(Segment::EntityType type){
+void Stats::segmentCountDecr(TransportMode type){
     if(segmentCount_.count(type) == 0){
         segmentCount_[type]=0;
     }
@@ -173,7 +174,7 @@ void Stats::segmentCountDecr(Segment::EntityType type){
     }
 }
 
-void Stats::segmentCountIncr(Segment::EntityType type){
+void Stats::segmentCountIncr(TransportMode type){
     if(segmentCount_.count(type) == 0){
         segmentCount_[type]=0;
     }
@@ -231,7 +232,7 @@ void ShippingNetwork::notifieeIs(ShippingNetwork::Notifiee::Ptr notifiee){
     notifieeList_.push_back(notifiee);
 }
 
-Segment::Ptr ShippingNetwork::SegmentNew(EntityID name, Segment::EntityType entityType){
+Segment::Ptr ShippingNetwork::SegmentNew(EntityID name, TransportMode entityType){
 
     // If Segment with this name already exists, just return it
     Segment::Ptr existing = segment(name);
@@ -461,7 +462,7 @@ StatsReactor::StatsReactor(Stats::Ptr stats){
 void StatsReactor::onSegmentNew(EntityID segmentID){
     Segment::Ptr segment = notifier_->segment(segmentID);
     if(segment){
-        stats_->segmentCountIncr(segment->entityType());
+        stats_->segmentCountIncr(segment->mode());
         stats_->totalSegmentCountIncr();
         if(segment->expediteSupport() == segment->expediteSupported()){
             stats_->expediteSegmentCountIncr();
@@ -470,7 +471,7 @@ void StatsReactor::onSegmentNew(EntityID segmentID){
 }
 
 void StatsReactor::onSegmentDel(Segment::Ptr segment){
-    stats_->segmentCountDecr(segment->entityType());
+    stats_->segmentCountDecr(segment->mode());
     stats_->totalSegmentCountDecr();
     if(segment->expediteSupport() == segment->expediteSupported()){
         stats_->expediteSegmentCountDecr();
@@ -494,53 +495,84 @@ Conn::PathList Conn::paths(ConstraintList constraints,LocationSet endpoints,
                        Location::Ptr start, ShippingNetwork* network,Fleet* fleet){
 
     Conn::PathList retval;
-    return retval;
-/*
+
     std::stack<Path::Ptr> pathStack;
 
     // Load Starting Paths
     for(uint32_t i = 0; i < start->segmentCount(); i++){
-        Path::Ptr path = PathIs();
-        Path::PathElement::Ptr start = PathElementIs(start->segment(i));
-        path->elementEnq(start);
+        Path::Ptr path = Path::PathIs(fleet);
+        Path::PathElement::Ptr startElement = Path::PathElement::PathElementIs(network->segment(start->segmentID(i)));
+        path->pathElementEnq(startElement);
         pathStack.push(path);
     }
 
+    std::cout << "Starting stack size: " << pathStack.size() << std::endl;
+    std::cout << "Starting location: " << start->name() << std::endl;
+
     while(pathStack.size() > 0){
 
+        sleep(1);
+
         Path::Ptr currentPath = pathStack.top();
+        pathStack.pop();
 
-        // Evaluate Current Path
-         
- 
-        // If the last location is null, ignore this path
-        if(!currentPath->lastLocation()) continue;
+        std::cout << "Visiting location: " << currentPath->lastLocation()->name() << std::endl;
+        std::cout << "path: " << currentPath.ptr() << std::endl;
 
-        // If the path is cyclic, ignore this path
-        
+        /* Evaluate Current Path */
 
         // Evaluate constraints
-        Conn::Constraint::EvalOutput evalOutput;
-        for(ConstraintList::iterator it = constraints.begin(): it < constraints.end(); it++){
-            it->pathIs(currentPath);
-            evalOutput = it->evalOutput();
-            if(evalOutput == Conn::Constraint::fail()) break;
+        Conn::Constraint::EvalOutput evalOutput = Conn::Constraint::pass();
+        for(ConstraintList::iterator it = constraints.begin(); it < constraints.end(); it++){
+            (*it)->pathIs(currentPath);
+            evalOutput = (*it)->evalOutput();
+            if(evalOutput == Conn::Constraint::fail()){
+                break;
+            }
         }
-        if(evalOutput==Conn::Constraint::fail()) continue;
-
-        if( endpoints.size() == 0 ){
-            retval.push_back(path);
-        }
-        else if( endpoints.count(currentPath->lastLocation()->name()) != 0 ){
-            retval.push_back(path);
+        if(evalOutput==Conn::Constraint::fail()){
+            std::cout << "Failed to pass constraints, discarding path" << std::endl;
             continue;
         }
 
-        if(
+        if( endpoints.size() == 0 ){
+            retval.push_back(currentPath);
+        }
+        else if( endpoints.count(currentPath->lastLocation()->name()) != 0 ){
+            std::cout << "Found an endpoint, terminate path" << std::endl;
+            retval.push_back(currentPath);
+            continue;
+        }
 
-        for(uint32_t i = 0; i < currentPath->
+        // Iterate over next set of segments
+        for(uint32_t i = 0; i < currentPath->lastLocation()->segmentCount(); i++){
+
+            EntityID segmentID = currentPath->lastLocation()->segmentID(i);
+            Segment::Ptr segment = network->segment(segmentID);
+            Location::Ptr destination = segment->returnSegment()->source();
+
+            std::cout << "Destination of potential path: " << destination->name() << std::endl;
+
+            // If the segment has a valid end point that doesnt cause a cycle, push onto stack
+            if( destination
+                && !(currentPath->location(destination))){
+                Path::Ptr pathCopy = Path::PathIs(currentPath);
+                pathCopy->pathElementEnq(Path::PathElement::PathElementIs(segment));
+                pathStack.push(pathCopy);
+            }
+            else{
+                std::cout << "Found a looped path, discard" << std::endl;
+            }
+        }
     }
-*/
+
+    return retval;
+}
+
+std::vector<Path::Ptr> Conn::connect(Location::Ptr start, Location::Ptr end, ShippingNetwork* network, Fleet* fleet){
+    Conn::LocationSet ls;
+    ls.insert(end->name());
+    return paths(Conn::ConstraintList(),ls,start,network,fleet);
 }
 
 /*
@@ -548,14 +580,89 @@ Conn::PathList Conn::paths(ConstraintList constraints,LocationSet endpoints,
  *
  */
 
-void Fleet::speedIs(Mode m, MilePerHour s){
+void Fleet::speedIs(TransportMode m, MilePerHour s){
     speed_[m]=s;
 }
 
-void Fleet::capacityIs(Mode m, PackageNum p){
+void Fleet::capacityIs(TransportMode m, PackageNum p){
     capacity_[m]=p;
 }
 
-void Fleet::costIs(Mode m, DollarPerMile d){
+void Fleet::costIs(TransportMode m, DollarPerMile d){
     cost_[m]=d;
+}
+
+/*
+ * Path
+ *
+ */
+
+Path::Ptr Path::PathIs(Fleet::Ptr fleet){
+    return new Path(fleet.ptr());
+}
+
+Path::Ptr Path::PathIs(Path::Ptr path){
+    return new Path(path.ptr());
+}
+
+Path::Path(Path* path) : cost_(0),time_(0),distance_(0),expedited_(Segment::expediteSupported()){
+    for(uint32_t i = 0; i < path->pathElementCount(); i++){
+        Path::PathElement::Ptr elementCpy = Path::PathElement::PathElementIs(path->pathElement(i));
+        pathElementEnq(elementCpy);
+    }
+    fleet_ = path->fleet();
+}
+
+Path::Path(Fleet* fleet) : cost_(0),time_(0),distance_(0),expedited_(Segment::expediteSupported()){
+    fleet_ = fleet; 
+}
+
+Path::PathElement::Ptr Path::PathElement::PathElementIs(Segment::Ptr segment){
+    return new Path::PathElement(segment);
+}
+
+Path::PathElement::Ptr Path::PathElement::PathElementIs(Path::PathElement::Ptr pathElement){
+    return new Path::PathElement(pathElement.ptr());
+}
+
+Path::PathElement::Ptr Path::pathElement(uint32_t index){
+    if(index >= path_.size()) return NULL;
+    return path_[index];
+}
+
+void Path::pathElementEnq(Path::PathElement::Ptr element){
+    /* Add Element */
+    path_.push_back(element);
+    /* Update Metadata */
+    //Difficulty difficulty = element->segment()->difficulty();
+    Mile length = element->segment()->length();
+    //TODO
+    //TransportMode mode = element->segment()->mode();
+    // Update cost
+    //cost_ = cost_.value() + difficulty.value()*length.value()*(fleet_->cost(element->segment()->mode())).value();
+    // Update time
+    //time_ = time_.value() + length.value()*(fleet_->speed(mode)).value();
+    // Update distance
+    distance_ = distance_.value() + length.value();
+    // Update expedite status
+    if(expedited_ == Segment::expediteSupported() && element->segment()->expediteSupport() == Segment::expediteUnsupported()){
+        expedited_ = Segment::expediteUnsupported();
+    }
+
+    std::cout << "Adding source to segment set: " << element->segment()->source()->name() << " ptr: " << element->segment()->source().ptr() << std::endl;
+    locations_.insert(element->segment()->source()->name());
+    std::cout << "Adding dst to segment set: " << element->segment()->returnSegment()->source()->name() << " ptr: " << element->segment()->returnSegment()->source().ptr() << std::endl;
+    locations_.insert(element->segment()->returnSegment()->source()->name());
+}
+
+Location::Ptr Path::lastLocation(){
+    if(path_.size() == 0) return NULL;
+    Segment::Ptr lastReturnSegment = path_.back()->segment()->returnSegment();
+    if(!lastReturnSegment) return NULL;
+    return lastReturnSegment->source();
+}
+
+Location::Ptr Path::location(Location::Ptr location){
+    if(locations_.count(location->name()) == 0){ return NULL; }
+    return location;
 }
