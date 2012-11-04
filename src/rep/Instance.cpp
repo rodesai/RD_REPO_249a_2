@@ -146,17 +146,8 @@ string PackageNumToStr(PackageNum x) {
     return s.str();
 }
 
-// float based types
-string DifficultyToStr(Difficulty x) {
-    stringstream s;
-    s.precision(2);
-    s << x.value();
-    return s.str();
-}
-
 string MilePerHourToStr(MilePerHour x) {
     stringstream s;
-    s.precision(2);
     s << x.value();
     return s.str();
 }
@@ -164,21 +155,29 @@ string MilePerHourToStr(MilePerHour x) {
 string DollarPerMileToStr(DollarPerMile x) {
     stringstream s;
     s.precision(2);
-    s << x.value();
+    s << fixed << x.value();
+    return s.str();
+}
+
+// float based types
+string DifficultyToStr(Difficulty x) {
+    stringstream s;
+    s.precision(2);
+    s << fixed << x.value();
     return s.str();
 }
 
 string DollarToStr(Dollar x) {
     stringstream s;
     s.precision(2);
-    s << x.value();
+    s << fixed << x.value();
     return s.str();
 }
 
 string HourToStr(Hour x) {
     stringstream s;
     s.precision(2);
-    s << x.value();
+    s << fixed << x.value();
     return s.str();
 }
 
@@ -194,10 +193,9 @@ public:
     // Instance method
     Shipping::Segment::Ptr representee() { return representee_; }
     string attribute(const string& name) {
-        stringstream ss;
-        if (name == "source") {
+        if (name == "source" && representee_->source()) {
             return representee_->source()->name();
-        } else if (name == "return segment") {
+        } else if (name == "return segment" && representee_->returnSegment()) {
             return representee_->returnSegment()->name();
         } else if (name == "length") {
             return MileToStr(representee_->length());
@@ -209,12 +207,17 @@ public:
                 "yes" : "no";
         }
 
-        return ss.str();
+        return "";
     }
     void attributeIs(const string& name, const string& v) {
         if (name == "source") {
             Ptr<LocationRep> sr = dynamic_cast<LocationRep *> (manager_->instance(v).ptr());
-            if (sr) representee_->sourceIs(sr->representee());
+            if (sr) {
+                Location::Ptr loc = sr->representee();
+                if (sourceOK(loc->entityType())) {
+                    representee_->sourceIs(loc);
+                }
+            }
         } else if (name == "return segment") {
             Ptr<SegmentRep> sr= dynamic_cast<SegmentRep *> (manager_->instance(v).ptr());
             if (sr) representee_->returnSegmentIs(sr->representee());
@@ -227,6 +230,8 @@ public:
         }
     }
 protected:
+    // TODO: why do I need to put the "return false" in here?
+    virtual bool sourceOK(Location::EntityType et) { return false; }
     Ptr<ManagerImpl> manager_;
     int segmentNumber(const string& name);
     Shipping::Segment::Ptr representee_;
@@ -240,6 +245,14 @@ public:
         representee_ = manager->shippingNetwork()->SegmentNew(name,
             Shipping::Segment::truckSegment());
     }
+protected:
+    bool sourceOK(Location::EntityType et) {
+        if (et == Location::truckTerminal() ||
+            et == Location::customer() ||
+            et == Location::port())
+            return true;
+        return false;
+    }
 };
 
 
@@ -251,6 +264,14 @@ public:
             Shipping::Segment::boatSegment());
 
     }
+protected:
+    bool sourceOK(Location::EntityType et) {
+        if (et == Location::boatTerminal() ||
+            et == Location::customer() ||
+            et == Location::port())
+            return true;
+        return false;
+    }
 };
 
 
@@ -260,6 +281,14 @@ public:
         SegmentRep(name, manager) {
         representee_ = manager->shippingNetwork()->SegmentNew(name,
             Shipping::Segment::planeSegment());
+    }
+protected:
+    bool sourceOK(Location::EntityType et) {
+        if (et == Location::planeTerminal() ||
+            et == Location::customer() ||
+            et == Location::port())
+            return true;
+        return false;
     }
 };
 
@@ -374,7 +403,7 @@ public:
         // expedite percentage
         else if (name == "expedite percentage") {
             ss.precision(2);
-            ss << stats_->expeditePercentage();
+            ss << fixed << stats_->expeditePercentage();
         }
 
         return ss.str();
@@ -475,7 +504,7 @@ ManagerImpl::ManagerImpl() {
 Ptr<Instance> ManagerImpl::instanceNew(const string& name,
     const string& type) {
     // do not create an instance if the name already exists
-    if (!instance_[name]) return NULL;
+    if (instance_[name]) return NULL;
 
     // Location Types
     if (type == truckTerminalStr) {
