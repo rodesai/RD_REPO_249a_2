@@ -480,8 +480,27 @@ void StatsReactor::onLocationDel(Location::Ptr location){
  * Conn
  * 
  */
-Conn::PathList Conn::paths(ConstraintList constraints,LocationSet endpoints,
-                       Location::Ptr start, ShippingNetwork* network,Fleet* fleet){
+
+Conn::PathList Conn::paths(ShippingNetwork* network,Fleet* fleet, Constraint::Ptr constraints,EntityID start, EntityID end) const {
+
+    Location::Ptr startPtr = network->location(start);
+    Location::Ptr endPtr = network->location(end);
+    if(startPtr){
+        return paths(network,fleet,constraints,startPtr,endPtr);
+    }
+    return PathList();
+}
+
+Conn::PathList Conn::paths(ShippingNetwork* network,Fleet* fleet, Constraint::Ptr constraints,EntityID start) const {
+
+    Location::Ptr startPtr = network->location(start);
+    if(startPtr){
+        return paths(network,fleet,constraints,startPtr,NULL);
+    }
+    return PathList();
+}
+
+Conn::PathList Conn::paths(ShippingNetwork* network,Fleet* fleet, Constraint::Ptr constraints,Location::Ptr start, Location::Ptr endpoint) const {
 
     Conn::PathList retval;
 
@@ -513,9 +532,10 @@ Conn::PathList Conn::paths(ConstraintList constraints,LocationSet endpoints,
 
         // Evaluate constraints
         Conn::Constraint::EvalOutput evalOutput = Conn::Constraint::pass();
-        for(ConstraintList::iterator it = constraints.begin(); it < constraints.end(); it++){
-            (*it)->pathIs(currentPath);
-            evalOutput = (*it)->evalOutput();
+        Constraint::Ptr constraint = constraints;
+        while(constraint){ 
+            constraint->pathIs(currentPath);
+            evalOutput = constraint->evalOutput();
             if(evalOutput == Conn::Constraint::fail()){
                 break;
             }
@@ -525,11 +545,11 @@ Conn::PathList Conn::paths(ConstraintList constraints,LocationSet endpoints,
             continue;
         }
 
-        if( endpoints.size() == 0 ){
+        if( !endpoint ){
             retval.push_back(currentPath);
         }
-        else if( endpoints.count(currentPath->lastLocation()->name()) != 0 ){
-            std::cout << "Found an endpoint, terminate path" << std::endl;
+        else if( endpoint->name() == currentPath->lastLocation()->name() ){
+            std::cout << "Found endpoint, terminate path" << std::endl;
             retval.push_back(currentPath);
             continue;
         }
@@ -559,12 +579,17 @@ Conn::PathList Conn::paths(ConstraintList constraints,LocationSet endpoints,
     return retval;
 }
 
-std::vector<Path::Ptr> Conn::connect(Location::Ptr start, Location::Ptr end, ShippingNetwork* network, Fleet* fleet){
+/*
+std::vector<Path::Ptr> Conn::connect(Location::Ptr start, Location::Ptr end, ShippingNetwork* network, Fleet* fleet) const {
     Conn::LocationSet ls;
     ls.insert(end->name());
-    return paths(Conn::ConstraintList(),ls,start,network,fleet);
+    return paths(NULL,ls,start,network,fleet);
 }
 
+std::vector<Path::Ptr> explore(Location::Ptr start,
+                                       Mile distance, Dollar cost, Hour time, Segment::ExpediteSupport expedited
+                                       ShippingNetwork* network, Fleet* fleet) const;
+*/
 /*
  * Fleet
  *

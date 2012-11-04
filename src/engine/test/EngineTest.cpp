@@ -136,7 +136,7 @@ TEST(Engine, Conn){
     fleet->capacityIs(truck_,100);
     fleet->costIs(truck_,100);
 
-    std::vector<Path::Ptr> paths = conn->connect(location1,location4,nwk.ptr(),fleet.ptr());
+    Conn::PathList paths = conn->paths(nwk.ptr(),fleet.ptr(),NULL,"location1","location4");
 
     std::cout << "Paths: " << paths.size() << std::endl;
     ASSERT_TRUE(paths.size()==2);

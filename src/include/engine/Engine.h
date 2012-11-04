@@ -371,10 +371,13 @@ public:
     typedef std::set<EntityID> LocationSet;
     typedef std::vector<Path::Ptr> PathList;
 
-    std::vector<Path::Ptr> connect(Location::Ptr start, Location::Ptr end, ShippingNetwork* network, Fleet* fleet); 
+    /*
+    std::vector<Path::Ptr> connect(Location::Ptr start, Location::Ptr end, 
+                                       ShippingNetwork* network, Fleet* fleet) const; 
     std::vector<Path::Ptr> explore(Location::Ptr start,
-        Mile distance, Dollar cost, Hour time,
-        Segment::ExpediteSupport expedited) const { return std::vector<Path::Ptr>(); }
+                                       Mile distance, Dollar cost, Hour time, Segment::ExpediteSupport expedited,
+                                       ShippingNetwork* network, Fleet* fleet) const; 
+    */
 
     /* Constraint Classes */
 
@@ -389,14 +392,18 @@ public:
         static EvalOutput fail(){ return fail_; }
         static EvalOutput pass(){ return pass_; }
         void pathIs(Path::Ptr path){ path_=path; }
-        Path::Ptr path(){ return path_; }
+        void nextIs(Constraint::Ptr next){ nxt_=next; }
+        Path::Ptr path() const { return path_; }
+        Constraint::Ptr next() const { return nxt_; }
         virtual EvalOutput evalOutput()=0;
     protected:
-        Constraint(){}
+        Constraint() : path_(NULL),nxt_(NULL){}
         Path::Ptr path_;
+        Constraint::Ptr nxt_;
     };
 
-    typedef std::vector<Constraint::Ptr> ConstraintList;
+    PathList paths(ShippingNetwork* network,Fleet* fleet, Constraint::Ptr constraints,EntityID start) const ;
+    PathList paths(ShippingNetwork* network,Fleet* fleet, Constraint::Ptr constraints,EntityID start,EntityID end) const ;
 
     class DistanceConstraint : public Conn::Constraint{
     public:
@@ -409,7 +416,7 @@ public:
             return new DistanceConstraint(distance);
         }
     private:
-        DistanceConstraint(Mile distance) : distance_(distance){}
+        DistanceConstraint(Mile distance) : Constraint(), distance_(distance){}
         Mile distance_;
     };
 
@@ -424,7 +431,7 @@ public:
             return new CostConstraint(cost);
         }
     private:
-        CostConstraint(Dollar cost) : cost_(cost){}
+        CostConstraint(Dollar cost) : Constraint(), cost_(cost){}
         Dollar cost_;
     };
 
@@ -439,7 +446,7 @@ public:
             return new TimeConstraint(time);
         } 
     private:
-        TimeConstraint(Hour time) : time_(time){}
+        TimeConstraint(Hour time) : Constraint(), time_(time) {}
         Hour time_;
     };
 
@@ -454,15 +461,14 @@ public:
             return new ExpediteConstraint(expediteSupport);
         }
     private:
-        ExpediteConstraint(Segment::ExpediteSupport expediteSupport) : expediteSupport_(expediteSupport){}
+        ExpediteConstraint(Segment::ExpediteSupport expediteSupport) : Constraint(), expediteSupport_(expediteSupport){}
         Segment::ExpediteSupport expediteSupport_;
     };
 
-    PathList paths(ConstraintList constraints,LocationSet endpoints,Location::Ptr start,
-                    ShippingNetwork* network,Fleet* fleet);
-
 private:
-   
+
+    PathList paths(ShippingNetwork* network,Fleet* fleet,Constraint::Ptr constraints,Location::Ptr start,Location::Ptr endpoint) const ;
+
     friend class ShippingNetwork;
 
     Conn(std::string name) : NamedInterface(name){}
