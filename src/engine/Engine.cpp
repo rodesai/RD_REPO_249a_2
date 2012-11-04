@@ -335,16 +335,42 @@ Location::Ptr ShippingNetwork::locationDel(EntityID name){
 }
 
 Stats::Ptr ShippingNetwork::StatsNew(EntityID name){
-    stat_.insert(name);
+    stat_[name] = statPtr_;
     return statPtr_;
 }
 
 Stats::Ptr ShippingNetwork::statsDel(EntityID name){
-    if(stat_.count(name) == 1){
-        stat_.erase(name);
-        return statPtr_;
-    }
-    return NULL;
+    StatMap::iterator it = stat_.find(name);
+    if(it == stat_.end())
+        return NULL;
+    stat_.erase(it);
+    return it->second;
+}
+
+Conn::Ptr ShippingNetwork::ConnNew(EntityID name){
+    conn_[name] = connPtr_;
+    return connPtr_;
+}
+
+Conn::Ptr ShippingNetwork::connDel(EntityID name){
+    ConnMap::iterator it = conn_.find(name);
+    if(it == conn_.end())
+        return NULL;
+    conn_.erase(it);
+    return it->second;
+}
+
+Fleet::Ptr ShippingNetwork::FleetNew(EntityID name){
+    fleet_[name]=fleetPtr_;
+    return fleetPtr_;
+}
+
+Fleet::Ptr ShippingNetwork::fleetDel(EntityID name){
+    FleetMap::iterator it = fleet_.find(name);
+    if(it == fleet_.end())
+        return NULL;
+    fleet_.erase(it);
+    return it->second;
 }
 
 /*
@@ -464,10 +490,10 @@ void StatsReactor::onLocationDel(Location::Ptr location){
  * Conn
  * 
  */
-PathList Conn::paths(ConstraintList constraints,LocationSet endpoints,
+Conn::PathList Conn::paths(ConstraintList constraints,LocationSet endpoints,
                        Location::Ptr start, ShippingNetwork* network,Fleet* fleet){
 
-    PathList retval;
+    Conn::PathList retval;
     return retval;
 /*
     std::stack<Path::Ptr> pathStack;
@@ -484,7 +510,7 @@ PathList Conn::paths(ConstraintList constraints,LocationSet endpoints,
 
         Path::Ptr currentPath = pathStack.top();
 
-        /* Evaluate Current Path
+        // Evaluate Current Path
          
  
         // If the last location is null, ignore this path
@@ -515,4 +541,21 @@ PathList Conn::paths(ConstraintList constraints,LocationSet endpoints,
         for(uint32_t i = 0; i < currentPath->
     }
 */
+}
+
+/*
+ * Fleet
+ *
+ */
+
+void Fleet::speedIs(Mode m, MilePerHour s){
+    speed_[m]=s;
+}
+
+void Fleet::capacityIs(Mode m, PackageNum p){
+    capacity_[m]=p;
+}
+
+void Fleet::costIs(Mode m, DollarPerMile d){
+    cost_[m]=d;
 }

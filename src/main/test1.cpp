@@ -1,7 +1,7 @@
 #include <string>
 #include <ostream>
 #include <iostream>
-#include "include/Instance.h"
+#include "rep/Instance.h"
 
 using std::cout;
 using std::cerr;
@@ -14,14 +14,14 @@ static void badTruckSegment();
 int main(int argc, char *argv[]) {
     Ptr<Instance::Manager> manager = shippingInstanceManager();
 
-    if (manager == NULL) {
+    if (!manager) {
         badInstanceManager();
         return 1;
     }
 
     Ptr<Instance> a = manager->instanceNew("terminal1", "Truck terminal");
 
-    if (a == NULL) {
+    if (!a) {
         badTruckTerminal();
         return 1;
     }
@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
     Ptr<Instance> b = manager->instanceNew("seg1", "Truck segment");
     Ptr<Instance> c = manager->instanceNew("seg2", "Truck segment");
 
-    if (b == NULL || c == NULL) {
+    if ( !b || !c ) {
         badTruckSegment();
 	return 1;
     }

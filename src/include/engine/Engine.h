@@ -37,7 +37,13 @@ public:
 
 class MilePerHour : public Nominal<MilePerHour, uint64_t> {
 public:
-    MilePerHour(uint64_t num) : Nominal<MilePerHour, uint64_t>(num) {}
+    enum {min_ = 0,max_ = 10000};
+    MilePerHour(uint64_t num) : Nominal<MilePerHour, uint64_t>(num) {
+        if(num < min_ || num > max_) throw ArgumentException();
+    }
+    MilePerHour() : Nominal<MilePerHour, uint64_t>(max()) {}
+    static MilePerHour max(){ return max_; }
+    static MilePerHour min(){ return min_; }
 };
 
 
@@ -51,7 +57,13 @@ public:
 
 class DollarPerMile : public Nominal<DollarPerMile, uint64_t> {
 public:
-    DollarPerMile(uint64_t num) : Nominal<DollarPerMile, uint64_t>(num) {}
+    enum {min_ = 0,max_ = 1000000};
+    DollarPerMile(uint64_t num) : Nominal<DollarPerMile, uint64_t>(num) {
+        if(num < min_ || num > max_) throw ArgumentException();
+    }
+    DollarPerMile() : Nominal<DollarPerMile, uint64_t>(max()) {}
+    static DollarPerMile max(){ return max_; }
+    static DollarPerMile min(){ return min_; }
 };
 
 
@@ -73,14 +85,21 @@ public:
 
 class PackageNum : public Ordinal<PackageNum, uint64_t> {
 public:
-    PackageNum(uint64_t num) : Ordinal<PackageNum, uint64_t>(num) {}
+    enum {min_ = 0,max_ = 1000000};
+    PackageNum(uint64_t num) : Ordinal<PackageNum, uint64_t>(num) {
+        if(num < min_ || num > max_) throw ArgumentException();
+    }
+    PackageNum() : Ordinal<PackageNum, uint64_t>(max()) {}
+    static PackageNum max(){ return max_; }
+    static PackageNum min(){ return min_; }
 };
 
 // Core Types
 
 class Segment;
 class SegmentReactor;
-
+class ShippingNetwork;
+class Fleet;
 class Location : public Fwk::NamedInterface {
 
 public:
@@ -173,6 +192,7 @@ public:
         // Events
         virtual void onSource(){}
         virtual void onReturnSegment(){}
+        virtual void onExpediteSupport(){}
 
         void notifierIs(Segment::Ptr notifier){ notifier_=notifier; }
         Segment::Ptr notifier() const { return notifier_; }
@@ -215,6 +235,7 @@ private:
     Segment(EntityID name, EntityType type) : Fwk::NamedInterface(name), length_(0), difficulty_(1.0), expediteSupport_(expediteUnsupported_), entityType_(type){}
 
     void returnSegmentRm();
+    void returnSegmentSet(Segment::Ptr returnSegment);
 
     // attributes
     Mile length_;
@@ -261,6 +282,7 @@ public:
     // accessors
     Dollar cost() const { return cost_; }
     Hour time() const { return time_; }
+    Mile distance() const{ return distance_; }
     Segment::ExpediteSupport expedited() const { return expedited_; }
     LocationIterator pathIterator(); 
 
@@ -268,6 +290,7 @@ private:
 
     Dollar cost_;
     Hour time_;
+    Mile distance_;
     Segment::ExpediteSupport expedited_;
 
     LocationVector locations_;
@@ -281,13 +304,101 @@ public:
     typedef Fwk::Ptr<Conn> Ptr;
     typedef Fwk::Ptr<Conn const> PtrConst;
 
-    std::vector<Path::Ptr> connect(Location::Ptr start, Location::Ptr end) const;
+    typedef std::set<EntityID> LocationSet;
+    typedef std::vector<Path::Ptr> PathList;
+
+    std::vector<Path::Ptr> connect(Location::Ptr start, Location::Ptr end) const { return std::vector<Path::Ptr>(); }
     std::vector<Path::Ptr> explore(Location::Ptr start,
         Mile distance, Dollar cost, Hour time,
-        Segment::ExpediteSupport expedited) const;
+        Segment::ExpediteSupport expedited) const { return std::vector<Path::Ptr>(); }
+
+    /* Constraint Classes */
+
+    class Constraint : public Fwk::PtrInterface<Conn::Constraint>{
+    public:
+        typedef Fwk::Ptr<Conn::Constraint> Ptr;
+        typedef Fwk::Ptr<Conn::Constraint const> PtrConst;
+        enum EvalOutput{
+            fail_=0,
+            pass_=1
+        };
+        EvalOutput fail(){ return fail_; }
+        EvalOutput pass(){ return pass_; }
+        void pathIs(Path::Ptr path){ path_=path; }
+        Path::Ptr path(){ return path_; }
+        virtual EvalOutput evalOutput()=0;
+    protected:
+        Constraint(){}
+        Path::Ptr path_;
+    };
+
+    typedef std::vector<Constraint::Ptr> ConstraintList;
+
+    class DistanceConstraint : public Conn::Constraint{
+    public:
+        EvalOutput evalOutput(){
+            if( !path_ || path_->distance() > distance_ ) 
+                return Constraint::fail();
+            return Constraint::pass();
+        }
+        Constraint::Ptr DistanceConstraintIs(Mile distance){
+            return new DistanceConstraint(distance);
+        }
+    private:
+        DistanceConstraint(Mile distance) : distance_(distance){}
+        Mile distance_;
+    };
+
+    class CostConstraint : public Constraint{
+    public:
+        EvalOutput evalOutput(){
+            if( !path_ || path_->cost() > cost_ ) 
+                return Constraint::fail();
+            return Constraint::pass();
+        }
+        Constraint::Ptr CostConstraintIs(Dollar cost){
+            return new CostConstraint(cost);
+        }
+    private:
+        CostConstraint(Dollar cost) : cost_(cost){}
+        Dollar cost_;
+    };
+
+    class TimeConstraint : public Constraint{
+    public:
+        EvalOutput evalOutput(){
+            if( !path_ || path_->time() > time_ )
+                return Constraint::fail();
+            return Constraint::pass();
+        }
+        Constraint::Ptr TimeConstraintIs(Hour time){
+            return new TimeConstraint(time);
+        } 
+    private:
+        TimeConstraint(Hour time) : time_(time){}
+        Hour time_;
+    };
+
+    class ExpediteConstraint : public Constraint{
+    public:
+        EvalOutput evalOutput(){
+            if( !path_ || path_->expedited() != expediteSupport_ )
+                return Constraint::fail();
+            return Constraint::pass();
+        }
+        Constraint::Ptr ExpediteConstraintIs(Segment::ExpediteSupport expediteSupport){
+            return new ExpediteConstraint(expediteSupport);
+        }
+    private:
+        ExpediteConstraint(Segment::ExpediteSupport expediteSupport) : expediteSupport_(expediteSupport){}
+        Segment::ExpediteSupport expediteSupport_;
+    };
+
+    PathList paths(ConstraintList constraints,LocationSet endpoints,Location::Ptr start,
+                    ShippingNetwork* network,Fleet* fleet);
 
 private:
-
+   
     friend class ShippingNetwork;
 
     Conn(std::string name) : NamedInterface(name){}
@@ -311,9 +422,9 @@ public:
     static inline Mode truck() { return truck_; }
     static inline Mode plane() { return plane_; }
 
-    MilePerHour speed(Mode segmentType);
-    PackageNum capacity(Mode segmentType);
-    DollarPerMile cost(Mode segmentType);
+    MilePerHour speed(Mode segmentType) { return speed_[segmentType]; }
+    PackageNum capacity(Mode segmentType) { return capacity_[segmentType]; }
+    DollarPerMile cost(Mode segmentType) { return cost_[segmentType]; }
 
     void speedIs(Mode m, MilePerHour s);
     void capacityIs(Mode m, PackageNum p);
@@ -355,13 +466,13 @@ public:
 private:
 
     friend class ShippingNetwork;
+    friend class SegmentReactor;
     friend class StatsReactor;
 
     Stats(std::string name) : NamedInterface(name){
         expediteSegmentCount_=0;
         totalSegmentCount_=0;
     }
-
 
     // mutators
     void locationCountIncr(Location::EntityType type);
@@ -422,9 +533,9 @@ public:
 
     Segment::Ptr segment(EntityID name) { return segmentMap_[name]; }
     Location::Ptr location(EntityID name) { return locationMap_[name]; }
-    Conn::Ptr conn(EntityID cid) const;
-    Stats::Ptr stats(EntityID sid) const;
-    Fleet::Ptr fleet(EntityID fid) const;
+    Conn::Ptr conn(EntityID name) { return conn_[name]; }
+    Stats::Ptr stats(EntityID name) { return stat_[name]; }
+    Fleet::Ptr fleet(EntityID name) { return fleet_[name]; }
 
     // mutators
 
@@ -464,16 +575,16 @@ private:
     typedef std::map<EntityID, Segment::Ptr> SegmentMap;
     SegmentMap segmentMap_;
 
-    typedef std::set<EntityID> ConnSet;
-    ConnSet conn_;
+    typedef std::map<EntityID,Conn::Ptr> ConnMap;
+    ConnMap conn_;
     Conn::Ptr connPtr_;
 
-    typedef std::set<EntityID> FleetSet;
-    FleetSet fleet_;
+    typedef std::map<EntityID,Fleet::Ptr> FleetMap;
+    FleetMap fleet_;
     Fleet::Ptr fleetPtr_;
 
-    typedef std::set<EntityID> StatSet;
-    StatSet stat_;
+    typedef std::map<EntityID,Stats::Ptr> StatMap;
+    StatMap stat_;
     Stats::Ptr statPtr_;
 
     // notifiees
@@ -501,16 +612,19 @@ public:
      */ 
     void onReturnSegment();  
 
+    void onExpediteSupport();
+
 private:
 
     friend class ShippingNetwork;
 
-    SegmentReactor(ShippingNetwork::Ptr network);
+    SegmentReactor(ShippingNetwork::Ptr network,Stats::Ptr stats);
 
     Location::Ptr currentSource_;
     Segment::Ptr  currentReturnSegment_;
 
     ShippingNetwork::Ptr network_;
+    Stats::Ptr stats_;
 };
 
 class ShippingNetworkReactor : public ShippingNetwork::Notifiee{

@@ -2,7 +2,7 @@
 #include <ostream>
 #include <iostream>
 #include <string>
-#include "include/Instance.h"
+#include "rep/Instance.h"
 
 using std::cout;
 using std::cerr;
@@ -12,21 +12,21 @@ using std::string;
 int main(int argc, char *argv[]) {
     Ptr<Instance::Manager> manager = shippingInstanceManager();
 
-    if (manager == NULL) {
+    if (!manager ) {
         cerr << "Unexpected NULL manager." << endl;
         return 1;
     }
 
     Ptr<Instance> stats = manager->instanceNew("myStats", "Stats");
 
-    if (stats == NULL) {
+    if (!stats ) {
         cerr << "Unexpected NULL stats." << endl;
         return 1;
     }
 
     Ptr<Instance> fleet = manager->instanceNew("myFleet", "Fleet");
 
-    if (fleet == NULL) {
+    if (!fleet ) {
         cerr << "Unexpected NULL." << endl;
         return 1;
     }
@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
     // ports
     Ptr<Instance> port1 = manager->instanceNew("port1", "Port");  
 
-    if (customer1 == NULL || customer2 == NULL || port1 == NULL) {
+    if (!customer1  || !customer2  || !port1 ) {
         cerr << "Unexpected NULL customer or port." << endl;
 	return 1;
     }
@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
     Ptr<Instance> truckSeg1 = manager->instanceNew("truckSeg1", "Truck segment");  
     Ptr<Instance> truckSeg2 = manager->instanceNew("truckSeg2", "Truck segment");  
 
-    if (boatSeg1 == NULL || boatSeg2 == NULL || truckSeg1 == NULL || truckSeg2 == NULL) {
+    if (!boatSeg1  || !boatSeg2  || !truckSeg1  || !truckSeg2 ) {
         cerr << "Unexpected NULL segment." << endl;
         return 1;
     }
@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
     // -- Connectivity queries
     Ptr<Instance> conn = manager->instanceNew("myConn", "Conn");
 
-    if (conn == NULL) {
+    if (!conn ) {
         cerr << "Unexpected NULL conn." << endl;
         return 1;
     }
