@@ -380,7 +380,7 @@ void StatsReactor::onSegmentNew(EntityID segmentID){
     Segment::Ptr segment = notifier_->segment(segmentID);
     stats_->segmentCountIncr(segment->entityType());
     stats_->totalSegmentCountIncr();
-    if(segment->expediteSupport() == segment->yes()){
+    if(segment->expediteSupport() == segment->expediteSupported()){
         stats_->expediteSegmentCountIncr();
     }
 }
@@ -388,7 +388,7 @@ void StatsReactor::onSegmentNew(EntityID segmentID){
 void StatsReactor::onSegmentDel(Segment::Ptr segment){
     stats_->segmentCountDecr(segment->entityType());
     stats_->totalSegmentCountDecr();
-    if(segment->expediteSupport() == segment->yes()){
+    if(segment->expediteSupport() == segment->expediteSupported()){
         stats_->expediteSegmentCountDecr();
     }
 }

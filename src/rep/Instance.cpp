@@ -2,14 +2,17 @@
 #include <iostream>
 #include <map>
 #include <vector>
-#include "include/Instance.h"
-#include "include/Engine.h"
+#include "../include/rep/Instance.h"
+#include "../include/engine/Engine.h"
 
 namespace Shipping {
 
 using namespace std;
 
 // strings
+static const string speedStr = "speed";
+static const string capacityStr = "capacity";
+static const string costStr = "cost";
 static const string truckTerminalStr = "Truck terminal";
 static const string customerStr = "Customer";
 static const string portStr = "Port";
@@ -24,9 +27,7 @@ static const int segmentStrlen = segmentStr.length();
 
 class ManagerImpl : public Instance::Manager {
 public:
-    ManagerImpl() {
-        shippingNetwork_ = new Shipping::ShippingNetwork();
-    };
+    ManagerImpl();
     Ptr<Instance> instanceNew(const string& name, const string& type);
     Ptr<Instance> instance(const string& name);
     void instanceDel(const string& name);
@@ -39,12 +40,13 @@ private:
 
 Ptr<Instance> ManagerImpl::instance(const string& name) {
     map<string,Ptr<Instance> >::const_iterator t = instance_.find(name);
-    return t == instance_.end() ? NULL : (*t).second;
+    if (t == instance_.end())
+        return NULL;
+    return (*t).second;
 }
 
 void ManagerImpl::instanceDel(const string& name) {
 }
-
 
 class LocationRep : public Instance {
 public:
@@ -57,17 +59,18 @@ public:
     }
 
     // Instance method
+    Shipping::Location::Ptr representee() { return representee_; }
     string attribute(const string& name) {
         int i = segmentNumber(name);
         if (i != 0) {
-            return location_->segment(i).name();
+            return representee_->segmentID(i);
         }
         return "";
     }
     void attributeIs(const string& name, const string& v) {}
-private:
+protected:
     Ptr<ManagerImpl> manager_;
-    Shipping::Location::Ptr location_;
+    Shipping::Location::Ptr representee_;
     int segmentNumber(const string& name) {
         if (name.substr(0, segmentStrlen) == segmentStr) {
             const char* t = name.c_str() + segmentStrlen;
@@ -82,7 +85,8 @@ class TruckTerminalRep : public LocationRep {
 public:
     TruckTerminalRep(const string& name, ManagerImpl *manager) :
         LocationRep(name, manager) {
-        location_ = mamager->shippingNetwork()->TruckTerminalNew(name);
+        representee_ = manager->shippingNetwork()->LocationNew(name,
+            Shipping::Location::truckTerminal());
     }
 };
 
@@ -91,7 +95,8 @@ class BoatTerminalRep : public LocationRep {
 public:
     BoatTerminalRep(const string& name, ManagerImpl *manager) :
         LocationRep(name, manager) {
-        location_ = mamager->shippingNetwork()->BoatTerminalNew(name);
+        representee_ = manager->shippingNetwork()->LocationNew(name,
+            Shipping::Location::boatTerminal());
     }
 };
 
@@ -100,7 +105,8 @@ class PlaneTerminalRep : public LocationRep {
 public:
     PlaneTerminalRep(const string& name, ManagerImpl *manager) :
         LocationRep(name, manager) {
-        location_ = mamager->shippingNetwork()->PlaneTerminalNew(name);
+        representee_ = manager->shippingNetwork()->LocationNew(name,
+            Shipping::Location::planeTerminal());
     }
 };
 
@@ -109,7 +115,8 @@ class CustomerRep : public LocationRep {
 public:
     CustomerRep(const string& name, ManagerImpl *manager) :
         LocationRep(name, manager) {
-        location_ = mamager->shippingNetwork()->CustomerNew(name);
+        representee_ = manager->shippingNetwork()->LocationNew(name,
+            Shipping::Location::customer());
     }
 };
 
@@ -118,20 +125,61 @@ class PortRep : public LocationRep {
 public:
     PortRep(const string& name, ManagerImpl *manager) :
         LocationRep(name, manager) {
-        location_ = mamager->shippingNetwork()->PortNew(name);
+        representee_ = manager->shippingNetwork()->LocationNew(name,
+            Shipping::Location::port());
     }
 };
 
 
-// TODO: should i be using a larger int type?
-void streamInt(stringstream ss, int i) {
-    ss.precision(0);
-    ss << i;
+// TODO: are these the correct types?
+// TODO: should we move these into the types?
+// int based types
+string MileToStr(Mile x) {
+    stringstream s;
+    s << x.value();
+    return s.str();
 }
 
-void streamFloat(stringstream ss, float f) {
-    ss.precision(2);
-    ss << f;
+string PackageNumToStr(PackageNum x) {
+    stringstream s;
+    s << x.value();
+    return s.str();
+}
+
+// float based types
+string DifficultyToStr(Difficulty x) {
+    stringstream s;
+    s.precision(2);
+    s << x.value();
+    return s.str();
+}
+
+string MilePerHourToStr(MilePerHour x) {
+    stringstream s;
+    s.precision(2);
+    s << x.value();
+    return s.str();
+}
+
+string DollarPerMileToStr(DollarPerMile x) {
+    stringstream s;
+    s.precision(2);
+    s << x.value();
+    return s.str();
+}
+
+string DollarToStr(Dollar x) {
+    stringstream s;
+    s.precision(2);
+    s << x.value();
+    return s.str();
+}
+
+string HourToStr(Hour x) {
+    stringstream s;
+    s.precision(2);
+    s << x.value();
+    return s.str();
 }
 
 
@@ -144,19 +192,20 @@ public:
     }
 
     // Instance method
+    Shipping::Segment::Ptr representee() { return representee_; }
     string attribute(const string& name) {
         stringstream ss;
         if (name == "source") {
-            return segment_->source().name();
+            return representee_->source()->name();
         } else if (name == "return segment") {
-            return segment_->returnSegment().name();
+            return representee_->returnSegment()->name();
         } else if (name == "length") {
-            streamFloat(ss, segment_->length());
+            return MileToStr(representee_->length());
         } else if (name == "difficulty") {
-            streamFloat(ss, segment_->difficulty());
+            return DifficultyToStr(representee_->difficulty());
         } else if (name == "expedite support") {
-            return segment->expediteSupport() == 
-                Shipping::Segment::expediteSupported() ?
+            return (representee_->expediteSupport() == 
+                            Shipping::Segment::expediteSupported()) ?
                 "yes" : "no";
         }
 
@@ -164,31 +213,31 @@ public:
     }
     void attributeIs(const string& name, const string& v) {
         if (name == "source") {
-            Location::Ptr source = manager_[v];
-            if (source) segment_->sourceIs(source);
+            Ptr<LocationRep> sr = dynamic_cast<LocationRep *> (manager_->instance(v).ptr());
+            if (sr) representee_->sourceIs(sr->representee());
         } else if (name == "return segment") {
-            Segment::Ptr rs = manager_[v];
-            if (rs) segment_->returnSegmentIs(name);
+            Ptr<SegmentRep> sr= dynamic_cast<SegmentRep *> (manager_->instance(v).ptr());
+            if (sr) representee_->returnSegmentIs(sr->representee());
         } else if (name == "length") {
-            segment_->lengthIs(Shipping::Mile(atoi(v)));
+            representee_->lengthIs(Shipping::Mile(atoi(v.data())));
         } else if (name == "difficulty") {
-            segment_->difficutlyIs(Shipping::Difficulty(atof(v)));
+            representee_->difficultyIs(Shipping::Difficulty(atof(v.data())));
         } else if (name == "expedite support" && v == "yes") {
-            segment_->expediteSupportIs(Shipping::Segment::yes());
+            representee_->expediteSupportIs(Shipping::Segment::expediteSupported());
         }
     }
-private:
+protected:
     Ptr<ManagerImpl> manager_;
     int segmentNumber(const string& name);
-    Shipping::Segment::Ptr segment_;
+    Shipping::Segment::Ptr representee_;
 };
 
-
+// TODO: check that segments are right
 class TruckSegmentRep : public SegmentRep {
 public:
     TruckSegmentRep(const string& name, ManagerImpl *manager) :
         SegmentRep(name, manager) {
-        segment_ = mamager->shippingNetwork()->SegmentNew(name,
+        representee_ = manager->shippingNetwork()->SegmentNew(name,
             Shipping::Segment::truckSegment());
     }
 };
@@ -198,7 +247,7 @@ class BoatSegmentRep : public SegmentRep {
 public:
     BoatSegmentRep(const string& name, ManagerImpl *manager) :
         SegmentRep(name, manager) {
-        segment_ = mamager->shippingNetwork()->SegmentNew(name,
+        representee_ = manager->shippingNetwork()->SegmentNew(name,
             Shipping::Segment::boatSegment());
 
     }
@@ -209,7 +258,7 @@ class PlaneSegmentRep : public SegmentRep {
 public:
     PlaneSegmentRep(const string& name, ManagerImpl *manager) :
         SegmentRep(name, manager) {
-        segment_ = mamager->shippingNetwork()->SegmentNew(name,
+        representee_ = manager->shippingNetwork()->SegmentNew(name,
             Shipping::Segment::planeSegment());
     }
 };
@@ -221,54 +270,55 @@ public:
         Instance(name), manager_(manager) {
         // TODO: do I need the manager?
         manager_ = manager;
-        fleet_ = mamager->shippingNetwork()->FleetNew(name);
+        fleet_ = manager->shippingNetwork()->FleetNew(name);
     }
 
     // Instance method
     string attribute(const string& name) {
         stringstream ss;
         FleetAttribute fa = fleetAttribute(name);
-        // TODO: need to set precision differently for float and int
         if (fa.attribute == speedStr) {
-            streamInt(ss, fleet_->speed(fa.mode));
+            return MilePerHourToStr(fleet_->speed(fa.mode));
         } else if (fa.attribute == capacityStr) {
-            streamInt(ss, fleet_->capacity(fa.mode));
+            return PackageNumToStr(fleet_->capacity(fa.mode));
         } else if (fa.attribute == costStr) {
-            streamFloat(ss, fleet_->cost(fa.mode));
+            return DollarPerMileToStr(fleet_->cost(fa.mode));
         }
         return ss.str();
     }
     void attributeIs(const string& name, const string& v) {
         FleetAttribute fa = fleetAttribute(name);
         if (fa.attribute == speedStr) {
-            fleet_->speedIs(fa.mode, v);
+            fleet_->speedIs(fa.mode, MilePerHour(atof(v.data())));
         } else if (fa.attribute == capacityStr) {
-            fleet_->capacityIs(fa.mode, v);
+            fleet_->capacityIs(fa.mode, PackageNum(atoi(v.data())));
         } else if (fa.attribute == costStr) {
-            fleet_->costIs(fa.mode, v);
+            fleet_->costIs(fa.mode, DollarPerMile(atof(v.data())));
         }
     }
 private:
-    static const string speedStr = "speed";
-    static const string capacityStr = "capacity";
-    static const string costStr = "cost";
     typedef struct FleetAttribute_t {
-        string& attribute;
+        string attribute;
         Shipping::Fleet::Mode mode;
     } FleetAttribute;
-    FleetAttribute fleetAttribute(string& str) {
+    FleetAttribute fleetAttribute(const string& str) {
         FleetAttribute result = {"", Shipping::Fleet::boat()};
-        string& namePtr = strtok(name, ", ");
-        if (namePtr == "Boat") {
+
+        // TODO: this doesn't seem efficient
+        char* tokenString = strdup(str.data());
+        char* namePtr = strtok(tokenString, ", ");
+        if (strcmp(namePtr, "Boat") == 0) {
             result.mode = Shipping::Fleet::boat();
-        } else if (namePtr == "Truck") {
+        } else if (strcmp(namePtr, "Truck") == 0) {
             result.mode = Shipping::Fleet::truck();
-        } else if (namePtr == "Plane") {
+        } else if (strcmp(namePtr, "Plane") == 0) {
             result.mode = Shipping::Fleet::plane();
         } else {
-            return result
+            delete tokenString;
+            return result;
         }
-        result.attribute = strtok(NULL, ", ");
+        result.attribute = string(strtok(NULL, ", "));
+        delete tokenString;
         return result;
     }
     Ptr<ManagerImpl> manager_;
@@ -283,7 +333,7 @@ public:
         // TODO: Nothing else to do?
         // TODO: do I need the manager?
         manager_ = manager;
-        stats_ = mamager->shippingNetwork()->StatsNew(name);
+        stats_ = manager->shippingNetwork()->StatsNew(name);
     }
 
     // Instance method
@@ -293,40 +343,41 @@ public:
 
         // return location count
         if (name == truckTerminalStr) {
-            streamInt(ss, stats_->locationCount(
-                Shipping::Location::truckTerminal()));
+            ss << stats_->locationCount(
+                Shipping::Location::truckTerminal());
         } else if (name == customerStr) {
-            streamInt(ss, stats_->locationCount(
-                Shipping::Location::customer()));            
+            ss << stats_->locationCount(
+                Shipping::Location::customer());            
         } else if (name == portStr) {
-            streamInt(ss, stats_->locationCount(
-                Shipping::Location::port()));            
+            ss << stats_->locationCount(
+                Shipping::Location::port());            
         } else if (name == planeTerminalStr) {
-            streamInt(ss, stats_->locationCount(
-                Shipping::Location::planeTerminal()));            
+            ss << stats_->locationCount(
+                Shipping::Location::planeTerminal());            
         } else if (name == boatTerminalStr) {
-            streamInt(ss, stats_->locationCount(
-                Shipping::Location::boatTerminal()));            
+            ss << stats_->locationCount(
+                Shipping::Location::boatTerminal());            
         }
 
         // return segment stats
         else if (name == boatSegmentStr) {
-            streamInt(ss, stats_->segmentCount(
-                Shipping::Segment::boatSegment()));
+            ss << stats_->segmentCount(
+                Shipping::Segment::boatSegment());
         } else if (name == truckSegmentStr) {
-            streamInt(ss, stats_->segmentCount(
-                Shipping::Segment::truckSegment()));
+            ss << stats_->segmentCount(
+                Shipping::Segment::truckSegment());
         } else if (name == planeSegmentStr) {
-            streamInt(ss, stats_->segmentCount(
-                Shipping::Segment::planeSegment()));
+            ss << stats_->segmentCount(
+                Shipping::Segment::planeSegment());
         }
 
         // expedite percentage
         else if (name == "expedite percentage") {
-            streamFloat(ss, stats_->expeditePercentage());
+            ss.precision(2);
+            ss << stats_->expeditePercentage();
         }
 
-        return ss.str()
+        return ss.str();
     }
     void attributeIs(const string& name, const string& v) {
         // nothing to do here
@@ -342,7 +393,7 @@ public:
         Instance(name), manager_(manager) {
         // TODO: do I need the manager?
         manager_ = manager;
-        conn_ = Shipping::ShippingNetwork::ConnNew(name);
+        conn_ = manager->shippingNetwork()->ConnNew(name);
     }
 
     // Instance method
@@ -350,46 +401,57 @@ public:
         stringstream ss;
         bool explore = false;
         std::vector<Shipping::Path::Ptr> paths;
-        string& namePtr = strtok(name, ", :");
-        if (namePtr == "connect") {
+
+        // TODO: is there a better way to tokenize?
+        char* tokenString = strdup(name.data());
+        char* namePtr = strtok(tokenString, ", :");
+        if (strcmp(namePtr, "connect") == 0) {
             namePtr = strtok(NULL, ", :");
-            string& loc1 = namePtr;
-            string& loc2 = (namePtr, ", :");
-            paths = conn_->connect(loc1, loc2);
-        } else if (namePtr = "explore") {
+            Ptr<LocationRep> loc1 = dynamic_cast<LocationRep*> (manager_->instance(namePtr).ptr());
+            namePtr = strtok(NULL, ", :");
+            Ptr<LocationRep> loc2 = dynamic_cast<LocationRep*> (manager_->instance(namePtr).ptr());
+            delete tokenString;
+            if (!loc1 && !loc2) return "";
+            paths = conn_->connect(loc1->representee(), loc2->representee());
+        } else if (strcmp(namePtr, "explore") == 0) {
             explore = true;
             Shipping::Mile distance = -1;
             Shipping::Hour hour = -1;
             Shipping::Dollar cost = -1;
             Shipping::Segment::ExpediteSupport es =
-                Shipping::Segment::unspecified();
+                Shipping::Segment::expediteUnspecified();
             namePtr = strtok(NULL, ", :");
-            string& loc = namePtr;
-            paths = conn_->explore(loc, distance, cost, hour, es);
+            Ptr<LocationRep> loc = dynamic_cast<LocationRep*> (manager_->instance(namePtr).ptr());
+            delete tokenString;
+            if (!loc) return "";
+            paths = conn_->explore(loc->representee(), distance, cost, hour, es);
         }
 
-        uint numPaths = paths.size()
+        unsigned int numPaths = paths.size();
         for (int i = 0; i < numPaths; i++) {
-            Shipping::Path path = paths[i]
+            Shipping::Path::Ptr path = paths[i];
             if (!explore) {
-                streamFloat(ss, path->cost());
-                ss << " ";
-                streamFloat(ss, path->time());
-                ss << " " << segment->expediteSupport() == 
+                // TODO: the setting of precision here is inconsistent
+                ss << DollarToStr(path->cost()) << " ";
+                ss << HourToStr(path->time()) << " ";
+                ss << (path->expedited() == 
                     Shipping::Segment::expediteSupported() ?
-                    "yes" : "no";
+                    "yes" : "no");
                 ss << "; ";
             }
 
-            Shipping::Path::LocationIterator li = path->pathIterator();
-            for (; li != li.end(); i++) {
-                ss << li->source().name()
-                if (li + 1 != li.end()) {
-                    ss << "(" << li->segment().name() << ":";
-                    streamFloat(ss, li->segment().length());
-                    ss << ":" li->segment().returnSegment().name() << ") ";
-                }
-            }
+            // TODO: This is incomplete since the paths aren't ready
+
+            // Shipping::Path::LocationIterator li = path->pathIterator();
+            // // TODO: is this where the iterator stops?
+            // for (; li != NULL; i++) {
+            //     ss << li->source().name()
+            //     if (li + 1 != li.end()) {
+            //         ss << "(" << li->segment()->name() << ":";
+            //         ss << MileToStr(li->segment().length());
+            //         ss << ":" li->segment().returnSegment()->name() << ") ";
+            //     }
+            // }
 
             ss << "\n";
         }
@@ -401,14 +463,13 @@ public:
     }
 private:
     Ptr<ManagerImpl> manager_;
-    Shipping::Stats::Ptr stats_;
-    string locationString(Shipping::Path p) {
-        stringstream ss;
-
-    }
+    Shipping::Conn::Ptr conn_;
 };
 
 ManagerImpl::ManagerImpl() {
+    // TODO: Don't think I need to set this name to something the client can read
+    shippingNetwork_ =
+        Shipping::ShippingNetwork::ShippingNetworkIs("ShippingNetwork");
 }
 
 Ptr<Instance> ManagerImpl::instanceNew(const string& name,
