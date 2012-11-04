@@ -2,8 +2,8 @@
 #include <iostream>
 #include <map>
 #include <vector>
-#include "include/Instance.h"
-#include "include/Engine.h"
+#include "rep/Instance.h"
+#include "engine/Engine.h"
 
 namespace Shipping {
 
@@ -80,7 +80,10 @@ Ptr<Instance> ManagerImpl::instanceNew(const string& name, const string& type) {
 Ptr<Instance> ManagerImpl::instance(const string& name) {
     map<string,Ptr<Instance> >::const_iterator t = instance_.find(name);
 
-    return t == instance_.end() ? NULL : (*t).second;
+    if(t == instance_.end()){
+        return NULL;
+    }
+    return (*t).second;
 }
 
 void ManagerImpl::instanceDel(const string& name) {
