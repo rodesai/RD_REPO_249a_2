@@ -35,23 +35,23 @@ TEST(Engine, SegmentSource){
     segment1->sourceIs(location);
 
     ASSERT_TRUE(segment1->source() == location);
-    ASSERT_TRUE(location->segmentID(0) == "segment1");
+    ASSERT_TRUE(location->segmentID(1) == "segment1");
 
     segment2->sourceIs(location);
 
     ASSERT_TRUE(segment2->source() == location);
-    ASSERT_TRUE(location->segmentID(1) == "segment2");
+    ASSERT_TRUE(location->segmentID(2) == "segment2");
 
     segment3->sourceIs(location);
 
     ASSERT_TRUE(segment3->source() == location);
-    ASSERT_TRUE(location->segmentID(2) == "segment3");
+    ASSERT_TRUE(location->segmentID(3) == "segment3");
 
     segment2->sourceIs(NULL);
 
     ASSERT_TRUE(location->segmentCount() == 2);
-    ASSERT_TRUE(location->segmentID(0) == "segment1");
-    ASSERT_TRUE(location->segmentID(1) == "segment3");
+    ASSERT_TRUE(location->segmentID(1) == "segment1");
+    ASSERT_TRUE(location->segmentID(2) == "segment3");
 }
 
 TEST(Engine, SegmentReturnSegment){

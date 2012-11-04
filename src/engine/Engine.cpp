@@ -44,17 +44,6 @@ void Location::segmentDel(std::string segmentID){
  *
  */
 
-void Segment::returnSegmentRm(){
-
-    std::cout << "IN " << name() << " rm" << std::endl;
-
-    returnSegment_=NULL;
-}
-
-void Segment::returnSegmentSet(Segment::Ptr returnSegment){
-    returnSegment_=returnSegment;
-}
-
 void Segment::sourceIs(Location::Ptr source){
 
     // Ensure idempotency
@@ -499,8 +488,9 @@ Conn::PathList Conn::paths(ConstraintList constraints,LocationSet endpoints,
     std::stack<Path::Ptr> pathStack;
 
     // Load Starting Paths
-    for(uint32_t i = 0; i < start->segmentCount(); i++){
+    for(uint32_t i = 1; i <= start->segmentCount(); i++){
         Path::Ptr path = Path::PathIs(fleet);
+        std::cout << "Adding segment: " << start->segmentID(i) << std::endl;
         Path::PathElement::Ptr startElement = Path::PathElement::PathElementIs(network->segment(start->segmentID(i)));
         path->pathElementEnq(startElement);
         pathStack.push(path);
@@ -545,7 +535,7 @@ Conn::PathList Conn::paths(ConstraintList constraints,LocationSet endpoints,
         }
 
         // Iterate over next set of segments
-        for(uint32_t i = 0; i < currentPath->lastLocation()->segmentCount(); i++){
+        for(uint32_t i = 1; i <= currentPath->lastLocation()->segmentCount(); i++){
 
             EntityID segmentID = currentPath->lastLocation()->segmentID(i);
             Segment::Ptr segment = network->segment(segmentID);
@@ -606,11 +596,11 @@ Path::Ptr Path::PathIs(Path::Ptr path){
 }
 
 Path::Path(Path* path) : cost_(0),time_(0),distance_(0),expedited_(Segment::expediteSupported()){
+    fleet_ = path->fleet();
     for(uint32_t i = 0; i < path->pathElementCount(); i++){
         Path::PathElement::Ptr elementCpy = Path::PathElement::PathElementIs(path->pathElement(i));
         pathElementEnq(elementCpy);
     }
-    fleet_ = path->fleet();
 }
 
 Path::Path(Fleet* fleet) : cost_(0),time_(0),distance_(0),expedited_(Segment::expediteSupported()){
@@ -634,14 +624,14 @@ void Path::pathElementEnq(Path::PathElement::Ptr element){
     /* Add Element */
     path_.push_back(element);
     /* Update Metadata */
-    //Difficulty difficulty = element->segment()->difficulty();
+    Difficulty difficulty = element->segment()->difficulty();
     Mile length = element->segment()->length();
     //TODO
-    //TransportMode mode = element->segment()->mode();
+    TransportMode mode = element->segment()->mode();
     // Update cost
-    //cost_ = cost_.value() + difficulty.value()*length.value()*(fleet_->cost(element->segment()->mode())).value();
+    cost_ = cost_.value() + difficulty.value()*length.value()*(fleet_->cost(element->segment()->mode())).value();
     // Update time
-    //time_ = time_.value() + length.value()*(fleet_->speed(mode)).value();
+    time_ = time_.value() + length.value()*(fleet_->speed(mode)).value();
     // Update distance
     distance_ = distance_.value() + length.value();
     // Update expedite status
