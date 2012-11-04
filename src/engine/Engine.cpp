@@ -2,6 +2,7 @@
 #include <iostream>
 #include <stack>
 #include "engine/Engine.h"
+#include "logging.h"
 
 using namespace Shipping;
 
@@ -509,24 +510,22 @@ Conn::PathList Conn::paths(ShippingNetwork* network,Fleet* fleet, Constraint::Pt
     // Load Starting Paths
     for(uint32_t i = 1; i <= start->segmentCount(); i++){
         Path::Ptr path = Path::PathIs(fleet);
-        std::cout << "Adding segment: " << start->segmentID(i) << std::endl;
+        DEBUG_LOG << "Adding segment: " << start->segmentID(i) << std::endl;
         Path::PathElement::Ptr startElement = Path::PathElement::PathElementIs(network->segment(start->segmentID(i)));
         path->pathElementEnq(startElement);
         pathStack.push(path);
     }
 
-    std::cout << "Starting stack size: " << pathStack.size() << std::endl;
-    std::cout << "Starting location: " << start->name() << std::endl;
+    DEBUG_LOG << "Starting stack size: " << pathStack.size() << std::endl;
+    DEBUG_LOG << "Starting location: " << start->name() << std::endl;
 
     while(pathStack.size() > 0){
-
-        sleep(1);
 
         Path::Ptr currentPath = pathStack.top();
         pathStack.pop();
 
-        std::cout << "Visiting location: " << currentPath->lastLocation()->name() << std::endl;
-        std::cout << "path: " << currentPath.ptr() << std::endl;
+        DEBUG_LOG << "Visiting location: " << currentPath->lastLocation()->name() << std::endl;
+        DEBUG_LOG << "path: " << currentPath.ptr() << std::endl;
 
         /* Evaluate Current Path */
 
@@ -541,27 +540,26 @@ Conn::PathList Conn::paths(ShippingNetwork* network,Fleet* fleet, Constraint::Pt
             }
         }
         if(evalOutput==Conn::Constraint::fail()){
-            std::cout << "Failed to pass constraints, discarding path" << std::endl;
+            DEBUG_LOG << "Failed to pass constraints, discarding path" << std::endl;
             continue;
         }
 
-        if( !endpoint ){
+        // Should we output the segment?
+        if( !endpoint || endpoint->name() == currentPath->lastLocation()->name() ){
             retval.push_back(currentPath);
-        }
-        else if( endpoint->name() == currentPath->lastLocation()->name() ){
-            std::cout << "Found endpoint, terminate path" << std::endl;
-            retval.push_back(currentPath);
-            continue;
         }
 
-        // Iterate over next set of segments
+        /* Iterate over next set of segments
+         */
+        // Only continue iterating if we havent the endpoint (THIS IS AN OPTIMIZATION)
+        if(!endpoint || endpoint->name() != currentPath->lastLocation()->name()){
         for(uint32_t i = 1; i <= currentPath->lastLocation()->segmentCount(); i++){
 
             EntityID segmentID = currentPath->lastLocation()->segmentID(i);
             Segment::Ptr segment = network->segment(segmentID);
             Location::Ptr destination = segment->returnSegment()->source();
 
-            std::cout << "Destination of potential path: " << destination->name() << std::endl;
+            DEBUG_LOG << "Destination of potential path: " << destination->name() << std::endl;
 
             // If the segment has a valid end point that doesnt cause a cycle, push onto stack
             if( destination
@@ -571,8 +569,9 @@ Conn::PathList Conn::paths(ShippingNetwork* network,Fleet* fleet, Constraint::Pt
                 pathStack.push(pathCopy);
             }
             else{
-                std::cout << "Found a looped path, discard" << std::endl;
+                DEBUG_LOG << "Found a looped path, discard" << std::endl;
             }
+        }
         }
     }
 
@@ -646,6 +645,7 @@ Path::PathElement::Ptr Path::pathElement(uint32_t index){
 }
 
 void Path::pathElementEnq(Path::PathElement::Ptr element){
+
     /* Add Element */
     path_.push_back(element);
     /* Update Metadata */
@@ -664,9 +664,9 @@ void Path::pathElementEnq(Path::PathElement::Ptr element){
         expedited_ = Segment::expediteUnsupported();
     }
 
-    std::cout << "Adding source to segment set: " << element->segment()->source()->name() << " ptr: " << element->segment()->source().ptr() << std::endl;
+    DEBUG_LOG << "Adding source to segment set: " << element->segment()->source()->name() << " ptr: " << element->segment()->source().ptr() << std::endl;
     locations_.insert(element->segment()->source()->name());
-    std::cout << "Adding dst to segment set: " << element->segment()->returnSegment()->source()->name() << " ptr: " << element->segment()->returnSegment()->source().ptr() << std::endl;
+    DEBUG_LOG << "Adding dst to segment set: " << element->segment()->returnSegment()->source()->name() << " ptr: " << element->segment()->returnSegment()->source().ptr() << std::endl;
     locations_.insert(element->segment()->returnSegment()->source()->name());
 }
 

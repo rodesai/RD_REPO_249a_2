@@ -30,7 +30,7 @@ SECONDARY_OBJ_PATH = $(addsuffix .o, $(addprefix $(SRC_PATH), $(SECONDARY_FILES)
 # Compiler parameters.
 # ##################
 
-PREPROCESSOR_FLAGS += -I$(GUNIT_PATH) -I$(SRC_PATH)
+PREPROCESSOR_FLAGS += -I$(GUNIT_PATH) -I$(SRC_PATH) 
 COMPILER_FLAGS += -g -Wall
 
 # ##################
