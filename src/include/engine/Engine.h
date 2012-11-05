@@ -154,11 +154,6 @@ class Location : public Fwk::NamedInterface {
 
 public:
 
-    enum SegmentSourceOK{
-        yes_=0,
-        no_=1
-    };
-
     enum EntityType {
         customer_ = 0,
         port_ = 1,
@@ -173,8 +168,6 @@ public:
     static inline EntityType truckTerminal() { return truckTerminal_; } 
     static inline EntityType boatTerminal() { return boatTerminal_; } 
     static inline EntityType planeTerminal() { return planeTerminal_; } 
-    static inline SegmentSourceOK yes(){ return yes_; }
-    static inline SegmentSourceOK no(){ return no_; }
 
     uint32_t segmentCount() const { return segments_.size(); }
     SegmentPtr segment(uint32_t index) const {

@@ -31,7 +31,7 @@ void connectLocations(LocationPtr l1,LocationPtr l2,ShippingNetworkPtr nwk){
     connectLocations(l1,l2,nwk,100,1.0);
 }
 
-TEST(Engine, Segment){
+TEST(Engine, SegmentNew){
 
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
     SegmentPtr segment = nwk->SegmentNew("segment1",truck_);
@@ -40,7 +40,7 @@ TEST(Engine, Segment){
     ASSERT_TRUE(nwk->segment("segment1"));
 }
 
-TEST(Engine, Location){
+TEST(Engine, LocationNew){
 
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
     LocationPtr location = nwk->LocationNew("location1",Location::port());
@@ -110,18 +110,6 @@ TEST(Engine, SegmentReturnSegment){
     ASSERT_FALSE(segment1->returnSegment());
     ASSERT_TRUE(segment2->returnSegment()==segment3);
     ASSERT_TRUE(segment3->returnSegment()==segment2);
-}
-
-TEST(Engine, Stat){
-
-    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
- 
-    SegmentPtr segment = nwk->SegmentNew("segment1",truck_);
-    LocationPtr location = nwk->LocationNew("location1",Location::port());
-    StatsPtr stat = nwk->StatsNew("stat1");
-
-    ASSERT_TRUE(stat->locationCount(Location::port()) == 1);
-    ASSERT_TRUE(stat->segmentCount(truck_) == 1);
 }
 
 TEST(Engine, conn_endpoint_basic){
@@ -469,5 +457,111 @@ TEST(Engine, conn_no_endpoint_expedited_constraint){
     ASSERT_TRUE(paths[9]->pathElement(1)->segment()->name() == "l2-l6");
     ASSERT_TRUE(paths[9]->pathElement(2)->segment()->name() == "l6-l3");
     ASSERT_TRUE(paths[9]->pathElement(3)->segment()->name() == "l3-l4");
+}
+
+TEST(Engine, conn_no_endpoint_distance_time_constraint){
+
+    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
+
+    LocationPtr l1 = nwk->LocationNew("l1",Location::port());
+    LocationPtr l2 = nwk->LocationNew("l2",Location::port());
+    LocationPtr l3 = nwk->LocationNew("l3",Location::port());
+    LocationPtr l4 = nwk->LocationNew("l4",Location::port());
+    LocationPtr l5 = nwk->LocationNew("l5",Location::port());
+    LocationPtr l6 = nwk->LocationNew("l6",Location::port());
+    LocationPtr l7 = nwk->LocationNew("l7",Location::port());
+    LocationPtr l8 = nwk->LocationNew("l8",Location::port());
+
+    connectLocations(l1,l2,nwk,10.0);
+    connectLocations(l1,l3,nwk,10.0);
+    connectLocations(l3,l4,nwk,10.0);
+    connectLocations(l2,l5,nwk,11.0);
+    connectLocations(l2,l6,nwk,9.0);
+    connectLocations(l3,l6,nwk,2.0);
+    connectLocations(l4,l7,nwk,1.0);
+    connectLocations(l5,l7,nwk,1.0);
+    connectLocations(l6,l8,nwk,3.0);
+
+    ConnPtr conn = nwk->ConnNew("conn");
+    FleetPtr fleet = nwk->FleetNew("fleet");
+    fleet->speedIs(truck_,0.5);
+    fleet->capacityIs(truck_,100);
+    fleet->costIs(truck_,100);
+
+    Conn::ConstraintPtr constraint;
+    constraint = Conn::DistanceConstraint::DistanceConstraintIs(20.0);
+    constraint->nextIs(Conn::TimeConstraint::TimeConstraintIs(30.0));
+    Conn::PathList paths = conn->paths(constraint,"l1");
+
+    ASSERT_TRUE(paths.size()==4);
+
+    ASSERT_TRUE(paths[0]->pathElementCount()==1);
+    ASSERT_TRUE(paths[0]->pathElement(0)->segment()->name() == "l1-l3");
+
+    ASSERT_TRUE(paths[1]->pathElementCount()==2);
+    ASSERT_TRUE(paths[1]->pathElement(0)->segment()->name() == "l1-l3");
+    ASSERT_TRUE(paths[1]->pathElement(1)->segment()->name() == "l3-l6");
+
+    ASSERT_TRUE(paths[2]->pathElementCount()==3);
+    ASSERT_TRUE(paths[2]->pathElement(0)->segment()->name() == "l1-l3");
+    ASSERT_TRUE(paths[2]->pathElement(1)->segment()->name() == "l3-l6");
+    ASSERT_TRUE(paths[2]->pathElement(2)->segment()->name() == "l6-l8");
+
+    ASSERT_TRUE(paths[3]->pathElementCount()==1);
+    ASSERT_TRUE(paths[3]->pathElement(0)->segment()->name() == "l1-l2");
+}
+
+TEST(Engine, Location_segmentCount){
+//TODO
+}
+
+TEST(Engine, Location_segment){
+//TODO
+}
+
+TEST(Engine, Location_entityType){
+//TODO
+}
+
+TEST(Engine, Segment_length){
+//TODO
+}
+
+TEST(Engine, Segment_difficulty){
+//TODO
+}
+
+TEST(Engine, Segment_expediteSupport){
+//TODO: note-make sure to test that stats get updated if expedite support changes
+}
+
+TEST(Engine, Fleet){
+//TODO: test all the attributes
+}
+
+TEST(Engine, Path_emptyPath){
+//TODO
+}
+
+TEST(Engine, Path_pathEnq){
+//TODO: test all accessors after enqueing some elements
+}
+
+TEST(Engine, Stats){
+//TODO: test that all stats maintained correctly
+}
+
+
+
+TEST(Engine, Stat){
+
+    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
+
+    SegmentPtr segment = nwk->SegmentNew("segment1",truck_);
+    LocationPtr location = nwk->LocationNew("location1",Location::port());
+    StatsPtr stat = nwk->StatsNew("stat1");
+
+    ASSERT_TRUE(stat->locationCount(Location::port()) == 1);
+    ASSERT_TRUE(stat->segmentCount(truck_) == 1);
 }
 
