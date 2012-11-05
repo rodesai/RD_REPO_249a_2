@@ -14,14 +14,14 @@ static void badTruckSegment();
 int main(int argc, char *argv[]) {
     Ptr<Instance::Manager> manager = shippingInstanceManager();
 
-    if (!manager) {
+    if (manager == NULL) {
         badInstanceManager();
         return 1;
     }
 
     Ptr<Instance> a = manager->instanceNew("terminal1", "Truck terminal");
 
-    if (!a) {
+    if (a == NULL) {
         badTruckTerminal();
         return 1;
     }
@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
     Ptr<Instance> b = manager->instanceNew("seg1", "Truck segment");
     Ptr<Instance> c = manager->instanceNew("seg2", "Truck segment");
 
-    if ( !b || !c ) {
+    if (b == NULL || c == NULL) {
         badTruckSegment();
 	return 1;
     }

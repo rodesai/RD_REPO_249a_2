@@ -105,18 +105,47 @@ public:
     TransportMode() : Nominal<TransportMode,transport_mode>(undef_){}
 };*/
 
-// Core Types
-
+// Client Types
 class Segment;
-class SegmentReactor;
+class Location;
 class ShippingNetwork;
+class Path;
+class Conn;
 class Fleet;
+class Stats;
+
+// Reactors
+class SegmentReactor;
+class ShippingNetworkReactor;
+class StatsReactor;
+
+// Pointers
+typedef Fwk::Ptr<Segment> SegmentPtr;
+typedef Fwk::Ptr<Location> LocationPtr;
+typedef Fwk::Ptr<ShippingNetwork> ShippingNetworkPtr;
+typedef Fwk::Ptr<Path> PathPtr;
+typedef Fwk::Ptr<Conn> ConnPtr;
+typedef Fwk::Ptr<Fleet> FleetPtr;
+typedef Fwk::Ptr<Stats> StatsPtr;
+typedef Fwk::Ptr<SegmentReactor> SegmentReactorPtr;
+typedef Fwk::Ptr<ShippingNetworkReactor> ShippingNetworkReactorPtr;
+typedef Fwk::Ptr<StatsReactor> StatsReactorPtr;
+
+// Const Pointers
+typedef Fwk::Ptr<Segment const> SegmentPtrConst;
+typedef Fwk::Ptr<Location const > LocationPtrConst;
+typedef Fwk::Ptr<ShippingNetwork const> ShippingNetworkPtrConst;
+typedef Fwk::Ptr<Path const> PathPtrConst;
+typedef Fwk::Ptr<Conn const> ConnPtrConst;
+typedef Fwk::Ptr<Fleet const> FleetPtrConst;
+typedef Fwk::Ptr<Stats const> StatsPtrConst;
+typedef Fwk::Ptr<SegmentReactor const> SegmentReactorPtrConst;
+typedef Fwk::Ptr<ShippingNetworkReactor const> ShippingNetworkReactorPtrConst;
+typedef Fwk::Ptr<StatsReactor const> StatsReactorPtrConst;
+
 class Location : public Fwk::NamedInterface {
 
 public:
-
-    typedef Fwk::Ptr<Location> Ptr;
-    typedef Fwk::Ptr<Location const> PtrConst;
 
     enum SegmentSourceOK{
         yes_=0,
@@ -141,11 +170,16 @@ public:
     static inline SegmentSourceOK no(){ return no_; }
 
     uint32_t segmentCount() const { return segments_.size(); }
-    EntityID segmentID(uint32_t index) const {
+    /*EntityID segmentID(uint32_t index) const {
         // TODO: it would be better to return a null pointer instead of an empty string
         if (index < 1 || index > segments_.size())
             return "";
-        return segments_[index - 1];
+        return (segments_[index - 1])->name();
+    }*/
+    SegmentPtr segment(uint32_t index) const {
+        if (index < 1 || index > segments_.size())
+            return NULL;
+         return segments_[index-1];
     }
 
     inline EntityType entityType() const { return entityType_; }
@@ -165,12 +199,12 @@ private:
     void entityTypeIs(EntityType et);
     // note: per the instructions, segments_ is read-only
 
-    void segmentIs(EntityID segmentID);
+    void segmentIs(SegmentPtr segment);
 
-    void segmentDel(EntityID segmentID);
+    void segmentDel(SegmentPtr segment);
 
     EntityType entityType_;
-    typedef std::vector<EntityID> SegmentList;
+    typedef std::vector<SegmentPtr> SegmentList;
     SegmentList segments_;
 };
 
@@ -181,36 +215,28 @@ public:
 
     // Class Types
 
-    typedef Fwk::Ptr<Segment> Ptr;
-    typedef Fwk::Ptr<Segment const> PtrConst;
-
     enum ExpediteSupport {
         expediteUnsupported_ = 0,
         expediteSupported_ = 1,
         expediteUnspecified_ = 2,
     };
 
-    // Notifiees
+    // Notifiee Class
 
     class Notifiee : public virtual Fwk::NamedInterface::Notifiee {
-
     public:
-
-        typedef Fwk::Ptr<Segment::Notifiee> Ptr;
-        typedef Fwk::Ptr<Segment::Notifiee const> PtrConst;
-
         // Events
         virtual void onSource(){}
         virtual void onReturnSegment(){}
         virtual void onExpediteSupport(){}
-
-        void notifierIs(Segment::Ptr notifier){ notifier_=notifier; }
-        Segment::Ptr notifier() const { return notifier_; }
-
+        void notifierIs(SegmentPtr notifier){ notifier_=notifier; }
+        SegmentPtr notifier() const { return notifier_; }
     protected:
         Notifiee(){}
-        Segment::Ptr notifier_;
+        SegmentPtr notifier_;
     };
+    typedef Fwk::Ptr<Segment::Notifiee> NotifieePtr;
+    typedef Fwk::Ptr<Segment::Notifiee const> NotifieePtrConst;
 
     // Accesors
 
@@ -220,16 +246,16 @@ public:
     static inline ExpediteSupport expediteUnspecified() { return expediteUnspecified_; }
 
     inline TransportMode mode() const { return mode_; }
-    inline Location::Ptr source() const { return source_; }
+    inline LocationPtr source() const { return source_; }
     inline Mile length() const { return length_; }
-    inline Segment::Ptr returnSegment() const { return returnSegment_; }
+    inline SegmentPtr returnSegment() const { return returnSegment_; }
     inline Difficulty difficulty() const { return difficulty_; }
     inline ExpediteSupport expediteSupport() const { return expediteSupport_; }
 
     // mutators
-    void sourceIs(Location::Ptr source);
+    void sourceIs(LocationPtr source);
     void lengthIs(Mile l);
-    void returnSegmentIs(Segment::Ptr s); 
+    void returnSegmentIs(SegmentPtr s); 
     void difficultyIs(Difficulty d); 
     void expediteSupportIs(ExpediteSupport es);
     void notifieeIs(Segment::Notifiee* notifiee);
@@ -242,26 +268,23 @@ private:
     Segment(EntityID name, TransportMode mode) : Fwk::NamedInterface(name), length_(0), difficulty_(1.0), expediteSupport_(expediteUnsupported_), mode_(mode){}
 
     void returnSegmentRm();
-    void returnSegmentSet(Segment::Ptr returnSegment);
+    void returnSegmentSet(SegmentPtr returnSegment);
 
     // attributes
     Mile length_;
     Difficulty difficulty_;
     ExpediteSupport expediteSupport_;
     TransportMode mode_;
-    Segment::Ptr returnSegment_;
-    Location::Ptr source_;
+    SegmentPtr returnSegment_;
+    LocationPtr source_;
 
-    typedef std::vector<Segment::Notifiee::Ptr> NotifieeList;
+    typedef std::vector<Segment::NotifieePtr> NotifieeList;
     NotifieeList notifieeList_;
 };
 
 class Fleet : public Fwk::NamedInterface {
 
 public:
-
-    typedef Fwk::Ptr<Fleet> Ptr;
-    typedef Fwk::Ptr<Fleet const> PtrConst;
 
     MilePerHour speed(TransportMode segmentType) { return speed_[segmentType]; }
     PackageNum capacity(TransportMode segmentType) { return capacity_[segmentType]; }
@@ -290,59 +313,47 @@ class Path : public Fwk::PtrInterface<Path>{
 
 public:
 
-    typedef Fwk::Ptr<Path> Ptr;
-    typedef Fwk::Ptr<Path const> PtrConst;
-
+    class PathElement;
+    typedef Fwk::Ptr<PathElement> PathElementPtr;
+    typedef Fwk::Ptr<PathElement const> PathElementPtrConst;
     class PathElement : public Fwk::PtrInterface<Path::PathElement> {
-
     public:
-
-        typedef Fwk::Ptr<PathElement> Ptr;
-        typedef Fwk::Ptr<PathElement const> PtrConst;
-
         // accessors
-        inline Location::Ptr source() const { return segment_->source(); }
-        inline Segment::Ptr segment() const { return segment_; }
-
+        inline LocationPtr source() const { return segment_->source(); }
+        inline SegmentPtr segment() const { return segment_; }
         // mutators
-        void segmentIs(Segment::Ptr s); 
-
+        void segmentIs(SegmentPtr s); 
         // Constructor
-        static PathElement::Ptr PathElementIs(Segment::Ptr segment);
+        static PathElementPtr PathElementIs(SegmentPtr segment);
         // Copy Constructor 
-        static PathElement::Ptr PathElementIs(PathElement::Ptr pathElement);
-
+        static PathElementPtr PathElementIs(PathElementPtr pathElement);
     private:
-
-        PathElement(Segment::Ptr segment) : segment_(segment){}
+        PathElement(SegmentPtr segment) : segment_(segment){}
         PathElement(PathElement* pathElement){
             segment_ = pathElement->segment();
         }
-
-        Segment::Ptr segment_;
+        SegmentPtr segment_;
     };
 
-
-    typedef std::vector<PathElement::Ptr> PathList;
+    typedef std::vector<PathElementPtr> PathList;
 
     // accessors
     Dollar cost() const { return cost_; }
     Hour time() const { return time_; }
     Mile distance() const{ return distance_; }
     Segment::ExpediteSupport expedited() const { return expedited_; }
-    PathElement::Ptr pathElement(uint32_t index);
+    PathElementPtr pathElement(uint32_t index);
     uint32_t pathElementCount(){ return path_.size(); }
-    Fleet::Ptr fleet(){ return fleet_; }
-    Location::Ptr lastLocation();
-    Location::Ptr location(Location::Ptr location);
+    FleetPtr fleet(){ return fleet_; }
+    LocationPtr lastLocation();
+    LocationPtr location(LocationPtr location);
 
     // mutators
 
-    void pathElementEnq(PathElement::Ptr element);
-    //PathElement::Ptr pathElementDeq();
+    void pathElementEnq(PathElementPtr element);
 
-    static Path::Ptr PathIs(Fleet::Ptr fleet);
-    static Path::Ptr PathIs(Path::Ptr path);
+    static PathPtr PathIs(FleetPtr fleet);
+    static PathPtr PathIs(PathPtr path);
     
 private:
 
@@ -351,7 +362,7 @@ private:
     Mile distance_;
     Segment::ExpediteSupport expedited_;
 
-    Fleet::Ptr fleet_;
+    FleetPtr fleet_;
 
     std::set<EntityID> locations_;
     PathList path_;
@@ -365,45 +376,35 @@ class Conn : public Fwk::NamedInterface {
 
 public:
 
-    typedef Fwk::Ptr<Conn> Ptr;
-    typedef Fwk::Ptr<Conn const> PtrConst;
-
     typedef std::set<EntityID> LocationSet;
-    typedef std::vector<Path::Ptr> PathList;
-
-    /*
-    std::vector<Path::Ptr> connect(Location::Ptr start, Location::Ptr end, 
-                                       ShippingNetwork* network, Fleet* fleet) const; 
-    std::vector<Path::Ptr> explore(Location::Ptr start,
-                                       Mile distance, Dollar cost, Hour time, Segment::ExpediteSupport expedited,
-                                       ShippingNetwork* network, Fleet* fleet) const; 
-    */
+    typedef std::vector<PathPtr> PathList;
 
     /* Constraint Classes */
 
+    class Constraint;
+    typedef Fwk::Ptr<Conn::Constraint> ConstraintPtr;
+    typedef Fwk::Ptr<Conn::Constraint const> ConstraintPtrConst;
     class Constraint : public Fwk::PtrInterface<Conn::Constraint>{
     public:
-        typedef Fwk::Ptr<Conn::Constraint> Ptr;
-        typedef Fwk::Ptr<Conn::Constraint const> PtrConst;
         enum EvalOutput{
             fail_=0,
             pass_=1
         };
         static EvalOutput fail(){ return fail_; }
         static EvalOutput pass(){ return pass_; }
-        void pathIs(Path::Ptr path){ path_=path; }
-        void nextIs(Constraint::Ptr next){ nxt_=next; }
-        Path::Ptr path() const { return path_; }
-        Constraint::Ptr next() const { return nxt_; }
+        void pathIs(PathPtr path){ path_=path; }
+        void nextIs(ConstraintPtr next){ nxt_=next; }
+        PathPtr path() const { return path_; }
+        ConstraintPtr next() const { return nxt_; }
         virtual EvalOutput evalOutput()=0;
     protected:
         Constraint() : path_(NULL),nxt_(NULL){}
-        Path::Ptr path_;
-        Constraint::Ptr nxt_;
+        PathPtr path_;
+        ConstraintPtr nxt_;
     };
 
-    PathList paths(ShippingNetwork* network,Fleet* fleet, Constraint::Ptr constraints,EntityID start) const ;
-    PathList paths(ShippingNetwork* network,Fleet* fleet, Constraint::Ptr constraints,EntityID start,EntityID end) const ;
+    PathList paths(ConstraintPtr constraints,EntityID start);
+    PathList paths(ConstraintPtr constraints,EntityID start,EntityID end);
 
     class DistanceConstraint : public Conn::Constraint{
     public:
@@ -412,7 +413,7 @@ public:
                 return Constraint::fail();
             return Constraint::pass();
         }
-        Constraint::Ptr DistanceConstraintIs(Mile distance){
+        ConstraintPtr DistanceConstraintIs(Mile distance){
             return new DistanceConstraint(distance);
         }
     private:
@@ -427,7 +428,7 @@ public:
                 return Constraint::fail();
             return Constraint::pass();
         }
-        Constraint::Ptr CostConstraintIs(Dollar cost){
+        ConstraintPtr CostConstraintIs(Dollar cost){
             return new CostConstraint(cost);
         }
     private:
@@ -442,7 +443,7 @@ public:
                 return Constraint::fail();
             return Constraint::pass();
         }
-        Constraint::Ptr TimeConstraintIs(Hour time){
+        ConstraintPtr TimeConstraintIs(Hour time){
             return new TimeConstraint(time);
         } 
     private:
@@ -457,7 +458,7 @@ public:
                 return Constraint::fail();
             return Constraint::pass();
         }
-        Constraint::Ptr ExpediteConstraintIs(Segment::ExpediteSupport expediteSupport){
+        ConstraintPtr ExpediteConstraintIs(Segment::ExpediteSupport expediteSupport){
             return new ExpediteConstraint(expediteSupport);
         }
     private:
@@ -467,11 +468,14 @@ public:
 
 private:
 
-    PathList paths(ShippingNetwork* network,Fleet* fleet,Constraint::Ptr constraints,Location::Ptr start,Location::Ptr endpoint) const ;
+    PathList paths(ShippingNetworkPtr network,FleetPtr fleet,ConstraintPtr constraints,LocationPtr start,LocationPtr endpoint) const ;
 
     friend class ShippingNetwork;
 
-    Conn(std::string name) : NamedInterface(name){}
+    Conn(std::string name,ShippingNetworkPtr shippingNetwork, FleetPtr fleet) : NamedInterface(name), shippingNetwork_(shippingNetwork), fleet_(fleet){}
+
+    ShippingNetworkPtr shippingNetwork_;
+    FleetPtr fleet_;
 };
 
 class Stats : public Fwk::NamedInterface {
@@ -479,9 +483,6 @@ class Stats : public Fwk::NamedInterface {
     // TODO: this needs to be updated via notification
 
 public:
-
-    typedef Fwk::Ptr<Stats> Ptr;
-    typedef Fwk::Ptr<Stats const> PtrConst;
 
     // accessors
     inline uint32_t locationCount(Location::EntityType et) 
@@ -529,106 +530,80 @@ class ShippingNetwork : public Fwk::NamedInterface {
 
 public:
 
-    // class types
-
-    typedef Fwk::Ptr<ShippingNetwork> Ptr;
-    typedef Fwk::Ptr<ShippingNetwork const> PtrConst;
-
-    // notifiee
-
+    // notifiee class
     class Notifiee : public virtual Fwk::NamedInterface::Notifiee {
     public:
-
-        typedef Fwk::Ptr<ShippingNetwork::Notifiee> Ptr;
-        typedef Fwk::Ptr<ShippingNetwork::Notifiee const> PtrConst;
-
         // Segments
         virtual void onSegmentNew(EntityID segmentID){}
-        virtual void onSegmentDel(Segment::Ptr segment){}
-
+        virtual void onSegmentDel(SegmentPtr segment){}
         // Locations
         virtual void onLocationNew(EntityID locationID){}
-        virtual void onLocationDel(Location::Ptr location){}
-
-        void notifierIs(ShippingNetwork::Ptr notifier){ notifier_=notifier; }
-        ShippingNetwork::Ptr notifier() const { return notifier_; }
- 
+        virtual void onLocationDel(LocationPtr location){}
+        void notifierIs(ShippingNetworkPtr notifier){ notifier_=notifier; }
+        ShippingNetworkPtr notifier() const { return notifier_; }
     protected:
-
         Notifiee() {}
-
-        ShippingNetwork::Ptr notifier_;
+        ShippingNetworkPtr notifier_;
     };
+    typedef Fwk::Ptr<ShippingNetwork::Notifiee> NotifieePtr;
+    typedef Fwk::Ptr<ShippingNetwork::Notifiee const> NotifieePtrConst;
 
     // accessor
-
-    Segment::Ptr segment(EntityID name) { return segmentMap_[name]; }
-    Location::Ptr location(EntityID name) { return locationMap_[name]; }
-    Conn::Ptr conn(EntityID name) { return conn_[name]; }
-    Stats::Ptr stats(EntityID name) { return stat_[name]; }
-    Fleet::Ptr fleet(EntityID name) { return fleet_[name]; }
+    SegmentPtr segment(EntityID name) { return segmentMap_[name]; }
+    LocationPtr location(EntityID name) { return locationMap_[name]; }
+    ConnPtr conn(EntityID name) { return conn_[name]; }
+    StatsPtr stats(EntityID name) { return stat_[name]; }
+    FleetPtr fleet(EntityID name) { return fleet_[name]; }
 
     // mutators
-
     // Instance Creators
     // These instance creators create an instance, add it to the map, 
     // and set up any needed reactors;
-
-    Segment::Ptr SegmentNew(EntityID name, TransportMode mode); 
-    Segment::Ptr segmentDel(EntityID name);
-
-    Location::Ptr LocationNew(EntityID name, Location::EntityType entityType);
-    Location::Ptr locationDel(EntityID name);
-
+    SegmentPtr SegmentNew(EntityID name, TransportMode mode); 
+    SegmentPtr segmentDel(EntityID name);
+    LocationPtr LocationNew(EntityID name, Location::EntityType entityType);
+    LocationPtr locationDel(EntityID name);
     // These instance creators should only create instance on first call
-
-    Conn::Ptr ConnNew(EntityID name);
-    Conn::Ptr connDel(EntityID name);
-
-    Stats::Ptr StatsNew(EntityID name);
-    Stats::Ptr statsDel(EntityID name);
-
-    Fleet::Ptr FleetNew(EntityID name);
-    Fleet::Ptr fleetDel(EntityID name);
-
-    void notifieeIs(ShippingNetwork::Notifiee::Ptr notifiee);
-
-    static ShippingNetwork::Ptr ShippingNetworkIs(EntityID name);
+    ConnPtr ConnNew(EntityID name);
+    ConnPtr connDel(EntityID name);
+    StatsPtr StatsNew(EntityID name);
+    StatsPtr statsDel(EntityID name);
+    FleetPtr FleetNew(EntityID name);
+    FleetPtr fleetDel(EntityID name);
+    void notifieeIs(ShippingNetwork::NotifieePtr notifiee);
+    static ShippingNetworkPtr ShippingNetworkIs(EntityID name);
 
 private:
 
     ShippingNetwork(EntityID name) : Fwk::NamedInterface(name){}
 
     // attributes
-    typedef std::map<EntityID, Location::Ptr> LocationMap;
+    typedef std::map<EntityID, LocationPtr> LocationMap;
     LocationMap locationMap_;
 
-    typedef std::map<EntityID, Segment::Ptr> SegmentMap;
+    typedef std::map<EntityID, SegmentPtr> SegmentMap;
     SegmentMap segmentMap_;
 
-    typedef std::map<EntityID,Conn::Ptr> ConnMap;
+    typedef std::map<EntityID,ConnPtr> ConnMap;
     ConnMap conn_;
-    Conn::Ptr connPtr_;
+    ConnPtr connPtr_;
 
-    typedef std::map<EntityID,Fleet::Ptr> FleetMap;
+    typedef std::map<EntityID,FleetPtr> FleetMap;
     FleetMap fleet_;
-    Fleet::Ptr fleetPtr_;
+    FleetPtr fleetPtr_;
 
-    typedef std::map<EntityID,Stats::Ptr> StatMap;
+    typedef std::map<EntityID,StatsPtr> StatMap;
     StatMap stat_;
-    Stats::Ptr statPtr_;
+    StatsPtr statPtr_;
 
     // notifiees
-    typedef std::vector<ShippingNetwork::Notifiee::Ptr> NotifieeList;
+    typedef std::vector<ShippingNetwork::NotifieePtr> NotifieeList;
     NotifieeList notifieeList_;
 };
 
 class SegmentReactor : public Segment::Notifiee {
 
 public:
-
-    typedef Fwk::Ptr<SegmentReactor> Ptr;
-    typedef Fwk::Ptr<SegmentReactor const> PtrConst;
 
     /* Remove owner from the current source
      * Add owner to the new source
@@ -649,27 +624,24 @@ private:
 
     friend class ShippingNetwork;
 
-    SegmentReactor(ShippingNetwork::Ptr network,Stats::Ptr stats);
+    SegmentReactor(ShippingNetworkPtr network,StatsPtr stats);
 
-    Location::Ptr currentSource_;
-    Segment::Ptr  currentReturnSegment_;
+    LocationPtr currentSource_;
+    SegmentPtr  currentReturnSegment_;
 
-    ShippingNetwork::Ptr network_;
-    Stats::Ptr stats_;
+    ShippingNetworkPtr network_;
+    StatsPtr stats_;
 };
 
 class ShippingNetworkReactor : public ShippingNetwork::Notifiee{
 
 public:
 
-    typedef Fwk::Ptr<ShippingNetworkReactor> Ptr;
-    typedef Fwk::Ptr<ShippingNetworkReactor const> PtrConst;
+    void onSegmentDel(SegmentPtr segment); 
 
-    void onSegmentDel(Segment::Ptr segment); 
+    void onLocationDel(LocationPtr location);
 
-    void onLocationDel(Location::Ptr location);
-
-    static ShippingNetworkReactor::Ptr ShippingNetworkReactorIs(){
+    static ShippingNetworkReactorPtr ShippingNetworkReactorIs(){
         return new ShippingNetworkReactor();
     }
 
@@ -685,21 +657,18 @@ class StatsReactor : public ShippingNetwork::Notifiee{
 
 public:
 
-    typedef Fwk::Ptr<StatsReactor> Ptr;
-    typedef Fwk::Ptr<StatsReactor const> PtrConst;
-
     void onSegmentNew(EntityID segmentID);
-    void onSegmentDel(Segment::Ptr segment);
+    void onSegmentDel(SegmentPtr segment);
     void onLocationNew(EntityID locationID);
-    void onLocationDel(Location::Ptr location);
+    void onLocationDel(LocationPtr location);
 
 private:
 
     friend class ShippingNetwork;
 
-    StatsReactor(Stats::Ptr stats);
+    StatsReactor(StatsPtr stats);
 
-    Stats::Ptr stats_;
+    StatsPtr stats_;
 };
 
 } /* end namespace */

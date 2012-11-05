@@ -15,25 +15,25 @@ void Location::entityTypeIs(Location::EntityType et){
     entityType_=et;
 }
 
-void Location::segmentIs(std::string segmentID){
+void Location::segmentIs(SegmentPtr segment){
 
     // Make sure this segment is not already listed
-    std::vector<std::string>::iterator it;
+    std::vector<SegmentPtr>::iterator it;
     for ( it=segments_.begin() ; it < segments_.end(); it++ ){
-        if(*it == segmentID) return;
+        if(*it == segment) return;
     }
 
     // Add the segment to the end of the list
-    segments_.push_back(segmentID);
+    segments_.push_back(segment);
 }
 
 /* segmentDel(): Remove a Segment from this Location 
  */
-void Location::segmentDel(std::string segmentID){
+void Location::segmentDel(SegmentPtr segment){
     // Find this segment and erase it from the list
-    std::vector<std::string>::iterator it;
+    std::vector<SegmentPtr>::iterator it;
     for ( it=segments_.begin() ; it < segments_.end(); it++ ){
-        if(*it == segmentID){
+        if(*it == segment){
             segments_.erase(it);
             return;
         }
@@ -45,7 +45,7 @@ void Location::segmentDel(std::string segmentID){
  *
  */
 
-void Segment::sourceIs(Location::Ptr source){
+void Segment::sourceIs(LocationPtr source){
 
     // Ensure idempotency
     if(source == source_){
@@ -67,7 +67,7 @@ void Segment::sourceIs(Location::Ptr source){
     }
 }
 
-void Segment::returnSegmentIs(Segment::Ptr returnSegment){
+void Segment::returnSegmentIs(SegmentPtr returnSegment){
 
     // Ensure idempotency
     if(returnSegment == returnSegment_){
@@ -112,7 +112,7 @@ void Segment::expediteSupportIs(Segment::ExpediteSupport expediteSupport){
 void Segment::notifieeIs(Segment::Notifiee* notifiee){
 
     // Ensure idempotency
-    std::vector<Segment::Notifiee::Ptr>::iterator it;
+    std::vector<Segment::NotifieePtr>::iterator it;
     for ( it=notifieeList_.begin(); it < notifieeList_.end(); it++ ){
         if( (*it) == notifiee ) return;
     }
@@ -135,7 +135,7 @@ void Segment::difficultyIs(Difficulty difficulty){
  *
  */
 
-void Path::PathElement::segmentIs(Segment::Ptr segment){
+void Path::PathElement::segmentIs(SegmentPtr segment){
     segment_=segment;
 }
 
@@ -192,15 +192,15 @@ void Stats::totalSegmentCountIncr(){
  *
  */
 
-ShippingNetwork::Ptr ShippingNetwork::ShippingNetworkIs(EntityID name){
+ShippingNetworkPtr ShippingNetwork::ShippingNetworkIs(EntityID name){
 
     // Construct the network
-    ShippingNetwork::Ptr retval = new ShippingNetwork(name);
+    ShippingNetworkPtr retval = new ShippingNetwork(name);
 
     // Initialize Singletons (fleet info, stats, conn objects)
-    retval->connPtr_ = new Conn("The Conn");
     retval->fleetPtr_ = new Fleet("The Fleet");
     retval->statPtr_ = new Stats("The Stat");
+    retval->connPtr_ = new Conn("The Conn",retval,retval->fleetPtr_);
 
     // Setup my reactors
     retval->notifieeIs(new StatsReactor(retval->statPtr_));
@@ -209,7 +209,7 @@ ShippingNetwork::Ptr ShippingNetwork::ShippingNetworkIs(EntityID name){
     return retval;
 }
 
-void ShippingNetwork::notifieeIs(ShippingNetwork::Notifiee::Ptr notifiee){
+void ShippingNetwork::notifieeIs(ShippingNetwork::NotifieePtr notifiee){
 
     // Ensure idempotency
     ShippingNetwork::NotifieeList::iterator it;
@@ -222,14 +222,14 @@ void ShippingNetwork::notifieeIs(ShippingNetwork::Notifiee::Ptr notifiee){
     notifieeList_.push_back(notifiee);
 }
 
-Segment::Ptr ShippingNetwork::SegmentNew(EntityID name, TransportMode entityType){
+SegmentPtr ShippingNetwork::SegmentNew(EntityID name, TransportMode entityType){
 
     // If Segment with this name already exists, just return it
-    Segment::Ptr existing = segment(name);
+    SegmentPtr existing = segment(name);
     if(existing) return existing;
 
     // Create a New Segment
-    Segment::Ptr retval(new Segment(name,entityType));
+    SegmentPtr retval(new Segment(name,entityType));
     segmentMap_[name]=retval;
 
     // Setup Reactor
@@ -249,9 +249,9 @@ Segment::Ptr ShippingNetwork::SegmentNew(EntityID name, TransportMode entityType
     return retval;
 }
 
-Segment::Ptr ShippingNetwork::segmentDel(EntityID name){
+SegmentPtr ShippingNetwork::segmentDel(EntityID name){
 
-    Segment::Ptr retval;
+    SegmentPtr retval;
 
     ShippingNetwork::SegmentMap::iterator segmentPos = segmentMap_.find(name);
     if(segmentPos == segmentMap_.end())
@@ -275,14 +275,14 @@ Segment::Ptr ShippingNetwork::segmentDel(EntityID name){
     return retval;
 }
 
-Location::Ptr ShippingNetwork::LocationNew(EntityID name, Location::EntityType entityType){
+LocationPtr ShippingNetwork::LocationNew(EntityID name, Location::EntityType entityType){
     
     // If Segment with this name already exists, just return it
-    Location::Ptr existing = location(name);
+    LocationPtr existing = location(name);
     if(existing) return existing;
 
     // Create a New Segment
-    Location::Ptr retval(new Location(name,entityType));
+    LocationPtr retval(new Location(name,entityType));
     locationMap_[name]=retval;
 
     // Issue Notifications
@@ -299,9 +299,9 @@ Location::Ptr ShippingNetwork::LocationNew(EntityID name, Location::EntityType e
     return retval;
 }
 
-Location::Ptr ShippingNetwork::locationDel(EntityID name){
+LocationPtr ShippingNetwork::locationDel(EntityID name){
 
-    Location::Ptr retval;
+    LocationPtr retval;
 
     ShippingNetwork::LocationMap::iterator locationPos = locationMap_.find(name);
     if(locationPos == locationMap_.end())
@@ -325,12 +325,12 @@ Location::Ptr ShippingNetwork::locationDel(EntityID name){
     return retval;
 }
 
-Stats::Ptr ShippingNetwork::StatsNew(EntityID name){
+StatsPtr ShippingNetwork::StatsNew(EntityID name){
     stat_[name] = statPtr_;
     return statPtr_;
 }
 
-Stats::Ptr ShippingNetwork::statsDel(EntityID name){
+StatsPtr ShippingNetwork::statsDel(EntityID name){
     StatMap::iterator it = stat_.find(name);
     if(it == stat_.end())
         return NULL;
@@ -338,12 +338,12 @@ Stats::Ptr ShippingNetwork::statsDel(EntityID name){
     return it->second;
 }
 
-Conn::Ptr ShippingNetwork::ConnNew(EntityID name){
+ConnPtr ShippingNetwork::ConnNew(EntityID name){
     conn_[name] = connPtr_;
     return connPtr_;
 }
 
-Conn::Ptr ShippingNetwork::connDel(EntityID name){
+ConnPtr ShippingNetwork::connDel(EntityID name){
     ConnMap::iterator it = conn_.find(name);
     if(it == conn_.end())
         return NULL;
@@ -351,12 +351,12 @@ Conn::Ptr ShippingNetwork::connDel(EntityID name){
     return it->second;
 }
 
-Fleet::Ptr ShippingNetwork::FleetNew(EntityID name){
+FleetPtr ShippingNetwork::FleetNew(EntityID name){
     fleet_[name]=fleetPtr_;
     return fleetPtr_;
 }
 
-Fleet::Ptr ShippingNetwork::fleetDel(EntityID name){
+FleetPtr ShippingNetwork::fleetDel(EntityID name){
     FleetMap::iterator it = fleet_.find(name);
     if(it == fleet_.end())
         return NULL;
@@ -369,7 +369,7 @@ Fleet::Ptr ShippingNetwork::fleetDel(EntityID name){
  * 
  */
 
-SegmentReactor::SegmentReactor(ShippingNetwork::Ptr network, Stats::Ptr stats){
+SegmentReactor::SegmentReactor(ShippingNetworkPtr network, StatsPtr stats){
     currentSource_ = NULL;
     currentReturnSegment_ = NULL;
     network_=network;
@@ -379,13 +379,13 @@ SegmentReactor::SegmentReactor(ShippingNetwork::Ptr network, Stats::Ptr stats){
 void SegmentReactor::onSource(){
     // Remove the notifier from the old source
     if(currentSource_){
-        currentSource_->segmentDel(notifier_->name());
+        currentSource_->segmentDel(notifier_);
     }
     // Update the source reference
     currentSource_ = notifier_->source();
     // Add the notifier to the new source
     if(currentSource_){
-        currentSource_->segmentIs(notifier_->name());
+        currentSource_->segmentIs(notifier_);
     }
 }
 
@@ -425,17 +425,17 @@ void SegmentReactor::onExpediteSupport(){
 
 ShippingNetworkReactor::ShippingNetworkReactor(){}
 
-void ShippingNetworkReactor::onSegmentDel(Segment::Ptr segment){
+void ShippingNetworkReactor::onSegmentDel(SegmentPtr segment){
     // Clean up this Segment's source
     segment->sourceIs(NULL);
     // Clean up this Segment's return segment
     segment->returnSegmentIs(NULL);
 }
 
-void ShippingNetworkReactor::onLocationDel(Location::Ptr location){
+void ShippingNetworkReactor::onLocationDel(LocationPtr location){
     // Clean up this Location from all its Segments
     for(uint32_t i = 0;i < location->segmentCount(); i++){
-        Segment::Ptr segment = notifier_->segment(location->segmentID(i));
+        SegmentPtr segment = location->segment(i);
         segment->sourceIs(NULL);
     }
 }
@@ -445,12 +445,12 @@ void ShippingNetworkReactor::onLocationDel(Location::Ptr location){
  *
  */
 
-StatsReactor::StatsReactor(Stats::Ptr stats){
+StatsReactor::StatsReactor(StatsPtr stats){
     stats_=stats;
 }
 
 void StatsReactor::onSegmentNew(EntityID segmentID){
-    Segment::Ptr segment = notifier_->segment(segmentID);
+    SegmentPtr segment = notifier_->segment(segmentID);
     if(segment){
         stats_->segmentCountIncr(segment->mode());
         stats_->totalSegmentCountIncr();
@@ -460,7 +460,7 @@ void StatsReactor::onSegmentNew(EntityID segmentID){
     }
 }
 
-void StatsReactor::onSegmentDel(Segment::Ptr segment){
+void StatsReactor::onSegmentDel(SegmentPtr segment){
     stats_->segmentCountDecr(segment->mode());
     stats_->totalSegmentCountDecr();
     if(segment->expediteSupport() == segment->expediteSupported()){
@@ -469,11 +469,11 @@ void StatsReactor::onSegmentDel(Segment::Ptr segment){
 }
 
 void StatsReactor::onLocationNew(EntityID locationID){
-    Location::Ptr location = notifier_->location(locationID);
+    LocationPtr location = notifier_->location(locationID);
     stats_->locationCountIncr(location->entityType());    
 }
 
-void StatsReactor::onLocationDel(Location::Ptr location){
+void StatsReactor::onLocationDel(LocationPtr location){
     stats_->locationCountDecr(location->entityType());
 }
 
@@ -482,36 +482,36 @@ void StatsReactor::onLocationDel(Location::Ptr location){
  * 
  */
 
-Conn::PathList Conn::paths(ShippingNetwork* network,Fleet* fleet, Constraint::Ptr constraints,EntityID start, EntityID end) const {
+Conn::PathList Conn::paths(ConstraintPtr constraints,EntityID start, EntityID end) {
 
-    Location::Ptr startPtr = network->location(start);
-    Location::Ptr endPtr = network->location(end);
+    LocationPtr startPtr = shippingNetwork_->location(start);
+    LocationPtr endPtr = shippingNetwork_->location(end);
     if(startPtr){
-        return paths(network,fleet,constraints,startPtr,endPtr);
+        return paths(shippingNetwork_,fleet_,constraints,startPtr,endPtr);
     }
     return PathList();
 }
 
-Conn::PathList Conn::paths(ShippingNetwork* network,Fleet* fleet, Constraint::Ptr constraints,EntityID start) const {
+Conn::PathList Conn::paths(ConstraintPtr constraints,EntityID start) {
 
-    Location::Ptr startPtr = network->location(start);
+    LocationPtr startPtr = shippingNetwork_->location(start);
     if(startPtr){
-        return paths(network,fleet,constraints,startPtr,NULL);
+        return paths(shippingNetwork_,fleet_,constraints,startPtr,NULL);
     }
     return PathList();
 }
 
-Conn::PathList Conn::paths(ShippingNetwork* network,Fleet* fleet, Constraint::Ptr constraints,Location::Ptr start, Location::Ptr endpoint) const {
+Conn::PathList Conn::paths(ShippingNetworkPtr network,FleetPtr fleet, ConstraintPtr constraints,LocationPtr start, LocationPtr endpoint) const {
 
     Conn::PathList retval;
 
-    std::stack<Path::Ptr> pathStack;
+    std::stack<PathPtr> pathStack;
 
     // Load Starting Paths
     for(uint32_t i = 1; i <= start->segmentCount(); i++){
-        Path::Ptr path = Path::PathIs(fleet);
-        DEBUG_LOG << "Adding segment: " << start->segmentID(i) << std::endl;
-        Path::PathElement::Ptr startElement = Path::PathElement::PathElementIs(network->segment(start->segmentID(i)));
+        PathPtr path = Path::PathIs(fleet);
+        DEBUG_LOG << "Adding segment: " << start->segment(i)->name() << std::endl;
+        Path::PathElementPtr startElement = Path::PathElement::PathElementIs(start->segment(i));
         path->pathElementEnq(startElement);
         pathStack.push(path);
     }
@@ -521,7 +521,7 @@ Conn::PathList Conn::paths(ShippingNetwork* network,Fleet* fleet, Constraint::Pt
 
     while(pathStack.size() > 0){
 
-        Path::Ptr currentPath = pathStack.top();
+        PathPtr currentPath = pathStack.top();
         pathStack.pop();
 
         DEBUG_LOG << "Visiting location: " << currentPath->lastLocation()->name() << std::endl;
@@ -531,7 +531,7 @@ Conn::PathList Conn::paths(ShippingNetwork* network,Fleet* fleet, Constraint::Pt
 
         // Evaluate constraints
         Conn::Constraint::EvalOutput evalOutput = Conn::Constraint::pass();
-        Constraint::Ptr constraint = constraints;
+        ConstraintPtr constraint = constraints;
         while(constraint){ 
             constraint->pathIs(currentPath);
             evalOutput = constraint->evalOutput();
@@ -555,16 +555,15 @@ Conn::PathList Conn::paths(ShippingNetwork* network,Fleet* fleet, Constraint::Pt
         if(!endpoint || endpoint->name() != currentPath->lastLocation()->name()){
         for(uint32_t i = 1; i <= currentPath->lastLocation()->segmentCount(); i++){
 
-            EntityID segmentID = currentPath->lastLocation()->segmentID(i);
-            Segment::Ptr segment = network->segment(segmentID);
-            Location::Ptr destination = segment->returnSegment()->source();
+            SegmentPtr segment = currentPath->lastLocation()->segment(i); 
+            LocationPtr destination = segment->returnSegment()->source();
 
             DEBUG_LOG << "Destination of potential path: " << destination->name() << std::endl;
 
             // If the segment has a valid end point that doesnt cause a cycle, push onto stack
             if( destination
                 && !(currentPath->location(destination))){
-                Path::Ptr pathCopy = Path::PathIs(currentPath);
+                PathPtr pathCopy = Path::PathIs(currentPath);
                 pathCopy->pathElementEnq(Path::PathElement::PathElementIs(segment));
                 pathStack.push(pathCopy);
             }
@@ -579,13 +578,13 @@ Conn::PathList Conn::paths(ShippingNetwork* network,Fleet* fleet, Constraint::Pt
 }
 
 /*
-std::vector<Path::Ptr> Conn::connect(Location::Ptr start, Location::Ptr end, ShippingNetwork* network, Fleet* fleet) const {
+std::vector<PathPtr> Conn::connect(LocationPtr start, LocationPtr end, ShippingNetwork* network, Fleet* fleet) const {
     Conn::LocationSet ls;
     ls.insert(end->name());
     return paths(NULL,ls,start,network,fleet);
 }
 
-std::vector<Path::Ptr> explore(Location::Ptr start,
+std::vector<PathPtr> explore(LocationPtr start,
                                        Mile distance, Dollar cost, Hour time, Segment::ExpediteSupport expedited
                                        ShippingNetwork* network, Fleet* fleet) const;
 */
@@ -611,18 +610,18 @@ void Fleet::costIs(TransportMode m, DollarPerMile d){
  *
  */
 
-Path::Ptr Path::PathIs(Fleet::Ptr fleet){
+PathPtr Path::PathIs(FleetPtr fleet){
     return new Path(fleet.ptr());
 }
 
-Path::Ptr Path::PathIs(Path::Ptr path){
+PathPtr Path::PathIs(PathPtr path){
     return new Path(path.ptr());
 }
 
 Path::Path(Path* path) : cost_(0),time_(0),distance_(0),expedited_(Segment::expediteSupported()){
     fleet_ = path->fleet();
     for(uint32_t i = 0; i < path->pathElementCount(); i++){
-        Path::PathElement::Ptr elementCpy = Path::PathElement::PathElementIs(path->pathElement(i));
+        Path::PathElementPtr elementCpy = Path::PathElement::PathElementIs(path->pathElement(i));
         pathElementEnq(elementCpy);
     }
 }
@@ -631,20 +630,20 @@ Path::Path(Fleet* fleet) : cost_(0),time_(0),distance_(0),expedited_(Segment::ex
     fleet_ = fleet; 
 }
 
-Path::PathElement::Ptr Path::PathElement::PathElementIs(Segment::Ptr segment){
+Path::PathElementPtr Path::PathElement::PathElementIs(SegmentPtr segment){
     return new Path::PathElement(segment);
 }
 
-Path::PathElement::Ptr Path::PathElement::PathElementIs(Path::PathElement::Ptr pathElement){
+Path::PathElementPtr Path::PathElement::PathElementIs(Path::PathElementPtr pathElement){
     return new Path::PathElement(pathElement.ptr());
 }
 
-Path::PathElement::Ptr Path::pathElement(uint32_t index){
+Path::PathElementPtr Path::pathElement(uint32_t index){
     if(index >= path_.size()) return NULL;
     return path_[index];
 }
 
-void Path::pathElementEnq(Path::PathElement::Ptr element){
+void Path::pathElementEnq(Path::PathElementPtr element){
 
     /* Add Element */
     path_.push_back(element);
@@ -670,14 +669,14 @@ void Path::pathElementEnq(Path::PathElement::Ptr element){
     locations_.insert(element->segment()->returnSegment()->source()->name());
 }
 
-Location::Ptr Path::lastLocation(){
+LocationPtr Path::lastLocation(){
     if(path_.size() == 0) return NULL;
-    Segment::Ptr lastReturnSegment = path_.back()->segment()->returnSegment();
+    SegmentPtr lastReturnSegment = path_.back()->segment()->returnSegment();
     if(!lastReturnSegment) return NULL;
     return lastReturnSegment->source();
 }
 
-Location::Ptr Path::location(Location::Ptr location){
+LocationPtr Path::location(LocationPtr location){
     if(locations_.count(location->name()) == 0){ return NULL; }
     return location;
 }

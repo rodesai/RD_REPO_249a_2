@@ -31,11 +31,11 @@ public:
     Ptr<Instance> instanceNew(const string& name, const string& type);
     Ptr<Instance> instance(const string& name);
     void instanceDel(const string& name);
-    Shipping::ShippingNetwork::Ptr shippingNetwork()
+    Shipping::ShippingNetworkPtr shippingNetwork()
         { return shippingNetwork_; }
 private:
     map<string,Ptr<Instance> > instance_;
-    Shipping::ShippingNetwork::Ptr shippingNetwork_;
+    Shipping::ShippingNetworkPtr shippingNetwork_;
 };
 
 Ptr<Instance> ManagerImpl::instance(const string& name) {
@@ -59,7 +59,7 @@ public:
     }
 
     // Instance method
-    Shipping::Location::Ptr representee() { return representee_; }
+    Shipping::LocationPtr representee() { return representee_; }
     string attribute(const string& name) {
         int i = segmentNumber(name);
         if (i != 0) {
@@ -70,7 +70,7 @@ public:
     void attributeIs(const string& name, const string& v) {}
 protected:
     Ptr<ManagerImpl> manager_;
-    Shipping::Location::Ptr representee_;
+    Shipping::LocationPtr representee_;
     int segmentNumber(const string& name) {
         if (name.substr(0, segmentStrlen) == segmentStr) {
             const char* t = name.c_str() + segmentStrlen;
@@ -191,7 +191,7 @@ public:
     }
 
     // Instance method
-    Shipping::Segment::Ptr representee() { return representee_; }
+    Shipping::SegmentPtr representee() { return representee_; }
     string attribute(const string& name) {
         if (name == "source" && representee_->source()) {
             return representee_->source()->name();
@@ -213,7 +213,7 @@ public:
         if (name == "source") {
             Ptr<LocationRep> sr = dynamic_cast<LocationRep *> (manager_->instance(v).ptr());
             if (sr) {
-                Location::Ptr loc = sr->representee();
+                LocationPtr loc = sr->representee();
                 if (sourceOK(loc->entityType())) {
                     representee_->sourceIs(loc);
                 }
@@ -234,7 +234,7 @@ protected:
     virtual bool sourceOK(Location::EntityType et) { return false; }
     Ptr<ManagerImpl> manager_;
     int segmentNumber(const string& name);
-    Shipping::Segment::Ptr representee_;
+    Shipping::SegmentPtr representee_;
 };
 
 // TODO: check that segments are right
@@ -351,7 +351,7 @@ private:
         return result;
     }
     Ptr<ManagerImpl> manager_;
-    Shipping::Fleet::Ptr fleet_;
+    Shipping::FleetPtr fleet_;
 };
 
 
@@ -413,7 +413,7 @@ public:
     }
 private:
     Ptr<ManagerImpl> manager_;
-    Shipping::Stats::Ptr stats_;
+    Shipping::StatsPtr stats_;
 };
 
 class ConnRep : public Instance {
@@ -429,7 +429,7 @@ public:
     string attribute(const string& name) {
         stringstream ss;
         bool explore = false;
-        std::vector<Shipping::Path::Ptr> paths;
+        std::vector<Shipping::PathPtr> paths;
 
         // TODO: is there a better way to tokenize?
         char* tokenString = strdup(name.data());
@@ -458,7 +458,7 @@ public:
 
         unsigned int numPaths = paths.size();
         for (int i = 0; i < numPaths; i++) {
-            Shipping::Path::Ptr path = paths[i];
+            Shipping::PathPtr path = paths[i];
             if (!explore) {
                 // TODO: the setting of precision here is inconsistent
                 ss << DollarToStr(path->cost()) << " ";
@@ -492,7 +492,7 @@ public:
     }
 private:
     Ptr<ManagerImpl> manager_;
-    Shipping::Conn::Ptr conn_;
+    Shipping::ConnPtr conn_;
 };
 
 ManagerImpl::ManagerImpl() {
