@@ -63,7 +63,7 @@ public:
     string attribute(const string& name) {
         int i = segmentNumber(name);
         if (i != 0) {
-            return representee_->segmentID(i);
+            return representee_->segment(i)->name();
         }
         return "";
     }
@@ -243,7 +243,7 @@ public:
     TruckSegmentRep(const string& name, ManagerImpl *manager) :
         SegmentRep(name, manager) {
         representee_ = manager->shippingNetwork()->SegmentNew(name,
-            Shipping::Segment::truckSegment());
+            truck_);
     }
 protected:
     bool sourceOK(Location::EntityType et) {
@@ -261,7 +261,7 @@ public:
     BoatSegmentRep(const string& name, ManagerImpl *manager) :
         SegmentRep(name, manager) {
         representee_ = manager->shippingNetwork()->SegmentNew(name,
-            Shipping::Segment::boatSegment());
+            boat_);
 
     }
 protected:
@@ -280,7 +280,7 @@ public:
     PlaneSegmentRep(const string& name, ManagerImpl *manager) :
         SegmentRep(name, manager) {
         representee_ = manager->shippingNetwork()->SegmentNew(name,
-            Shipping::Segment::planeSegment());
+            plane_);
     }
 protected:
     bool sourceOK(Location::EntityType et) {
@@ -328,20 +328,20 @@ public:
 private:
     typedef struct FleetAttribute_t {
         string attribute;
-        Shipping::Fleet::Mode mode;
+        TransportMode mode;
     } FleetAttribute;
     FleetAttribute fleetAttribute(const string& str) {
-        FleetAttribute result = {"", Shipping::Fleet::boat()};
+        FleetAttribute result = {"", boat_};
 
         // TODO: this doesn't seem efficient
         char* tokenString = strdup(str.data());
         char* namePtr = strtok(tokenString, ", ");
         if (strcmp(namePtr, "Boat") == 0) {
-            result.mode = Shipping::Fleet::boat();
+            result.mode = boat_;
         } else if (strcmp(namePtr, "Truck") == 0) {
-            result.mode = Shipping::Fleet::truck();
+            result.mode = truck_;
         } else if (strcmp(namePtr, "Plane") == 0) {
-            result.mode = Shipping::Fleet::plane();
+            result.mode = plane_;
         } else {
             delete tokenString;
             return result;
@@ -391,13 +391,13 @@ public:
         // return segment stats
         else if (name == boatSegmentStr) {
             ss << stats_->segmentCount(
-                Shipping::Segment::boatSegment());
+                boat_);
         } else if (name == truckSegmentStr) {
             ss << stats_->segmentCount(
-                Shipping::Segment::truckSegment());
+                truck_);
         } else if (name == planeSegmentStr) {
             ss << stats_->segmentCount(
-                Shipping::Segment::planeSegment());
+                plane_);
         }
 
         // expedite percentage
@@ -441,7 +441,7 @@ public:
             Ptr<LocationRep> loc2 = dynamic_cast<LocationRep*> (manager_->instance(namePtr).ptr());
             delete tokenString;
             if (!loc1 && !loc2) return "";
-            paths = conn_->connect(loc1->representee(), loc2->representee());
+            paths = conn_->paths(NULL,loc1->representee()->name(), loc2->representee()->name());
         } else if (strcmp(namePtr, "explore") == 0) {
             explore = true;
             Shipping::Mile distance = -1;
@@ -453,7 +453,7 @@ public:
             Ptr<LocationRep> loc = dynamic_cast<LocationRep*> (manager_->instance(namePtr).ptr());
             delete tokenString;
             if (!loc) return "";
-            paths = conn_->explore(loc->representee(), distance, cost, hour, es);
+            //paths = conn_->explore(loc->representee(), distance, cost, hour, es);
         }
 
         unsigned int numPaths = paths.size();
