@@ -538,6 +538,7 @@ Conn::PathList Conn::paths(ShippingNetworkPtr network,FleetPtr fleet, Constraint
             if(evalOutput == Conn::Constraint::fail()){
                 break;
             }
+            constraint=constraint->next();
         }
         if(evalOutput==Conn::Constraint::fail()){
             DEBUG_LOG << "Failed to pass constraints, discarding path" << std::endl;
@@ -653,9 +654,9 @@ void Path::pathElementEnq(Path::PathElementPtr element){
     //TODO
     TransportMode mode = element->segment()->mode();
     // Update cost
-    cost_ = cost_.value() + difficulty.value()*length.value()*(fleet_->cost(element->segment()->mode())).value();
+    cost_ = cost_.value() + difficulty.value()*length.value()*(fleet_->cost(mode)).value();
     // Update time
-    time_ = time_.value() + length.value()*(fleet_->speed(mode)).value();
+    time_ = time_.value() + (length.value())/((fleet_->speed(mode)).value());
     // Update distance
     distance_ = distance_.value() + length.value();
     // Update expedite status

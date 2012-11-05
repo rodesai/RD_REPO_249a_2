@@ -9,6 +9,7 @@
 #include <set>
 #include <map>
 #include <exception>
+#include <iostream>
 
 #include "fwk/Ptr.h"
 #include "fwk/NamedInterface.h"
@@ -27,71 +28,77 @@ class ArgumentException : public std::exception {
 
 // Primitive Types
 
-class Mile : public Ordinal<Mile, uint64_t> {
+class Mile : public Ordinal<Mile, double> {
 public:
-    Mile(int64_t num) : Ordinal<Mile, uint64_t>(num) {
+    Mile(double num) : Ordinal<Mile, double>(num) {
+        if (num < 0.0 && num != -1.0) throw ArgumentException();
+    }
+    Mile() : Ordinal<Mile,double>(defaultValue_){}
+private:
+    static const double defaultValue_ = 1.0;
+};
+
+
+class MilePerHour : public Nominal<MilePerHour, double> {
+public:
+    MilePerHour(double num) : Nominal<MilePerHour, double>(num) {
+        if(num < 0) throw ArgumentException();
+    }
+    MilePerHour() : Nominal<MilePerHour, double>(defaultValue_) {}
+private:
+    static const double defaultValue_ = 1.0;
+};
+
+
+class Dollar : public Ordinal<Dollar, double> {
+public:
+    Dollar(double num) : Ordinal<Dollar, double>(num) {
         if (num < 0 && num != -1) throw ArgumentException();
     }
+    Dollar() : Ordinal<Dollar,double>(defaultValue_){}
+private:
+    static const double defaultValue_ = 1.0;
 };
 
 
-class MilePerHour : public Nominal<MilePerHour, uint64_t> {
+class DollarPerMile : public Nominal<DollarPerMile, double> {
 public:
-    enum {min_ = 0,max_ = 10000};
-    MilePerHour(uint64_t num) : Nominal<MilePerHour, uint64_t>(num) {
-        if(num < min_ || num > max_) throw ArgumentException();
+    DollarPerMile(double num) : Nominal<DollarPerMile, double>(num) {
+        if(num < 0.0) throw ArgumentException();
     }
-    MilePerHour() : Nominal<MilePerHour, uint64_t>(max()) {}
-    static MilePerHour max(){ return max_; }
-    static MilePerHour min(){ return min_; }
+    DollarPerMile() : Nominal<DollarPerMile, double>(defaultValue_) {}
+private:
+    static const double defaultValue_ = 1.0;
 };
 
 
-class Dollar : public Ordinal<Dollar, float> {
+class Hour : public Ordinal<Hour, double> {
 public:
-    Dollar(float num) : Ordinal<Dollar, float>(num) {
+    Hour(double num) : Ordinal<Hour, double>(num) {
         if (num < 0 && num != -1) throw ArgumentException();
     }
+    Hour() : Ordinal<Hour,double>(defaultValue_){}
+private:
+    static const double defaultValue_ = 1.0;
 };
 
 
-class DollarPerMile : public Nominal<DollarPerMile, uint64_t> {
+class Difficulty : public Nominal<Difficulty, double> {
 public:
-    enum {min_ = 0,max_ = 1000000};
-    DollarPerMile(uint64_t num) : Nominal<DollarPerMile, uint64_t>(num) {
-        if(num < min_ || num > max_) throw ArgumentException();
-    }
-    DollarPerMile() : Nominal<DollarPerMile, uint64_t>(max()) {}
-    static DollarPerMile max(){ return max_; }
-    static DollarPerMile min(){ return min_; }
-};
-
-
-class Hour : public Ordinal<Hour, float> {
-public:
-    Hour(float num) : Ordinal<Hour, float>(num) {
-        if (num < 0 && num != -1) throw ArgumentException();
-    }
-};
-
-
-class Difficulty : public Nominal<Difficulty, float> {
-public:
-    Difficulty(float num) : Nominal<Difficulty, float>(num) {
+    Difficulty(double num) : Nominal<Difficulty, double>(num) {
         if (num < 1.0 || num > 5.0) throw ArgumentException();
     }
+private:
+    static const double defaultValue_ = 1.0;
 };
 
 
 class PackageNum : public Ordinal<PackageNum, uint64_t> {
 public:
-    enum {min_ = 0,max_ = 1000000};
-    PackageNum(uint64_t num) : Ordinal<PackageNum, uint64_t>(num) {
-        if(num < min_ || num > max_) throw ArgumentException();
-    }
-    PackageNum() : Ordinal<PackageNum, uint64_t>(max()) {}
-    static PackageNum max(){ return max_; }
-    static PackageNum min(){ return min_; }
+    PackageNum(uint64_t num) : Ordinal<PackageNum, uint64_t>(num) {}
+    PackageNum() : Ordinal<PackageNum, uint64_t>(defaultValue_) {}
+private:
+    static const uint64_t defaultValue_ = 1;
 };
 
 enum TransportMode{
@@ -170,12 +177,6 @@ public:
     static inline SegmentSourceOK no(){ return no_; }
 
     uint32_t segmentCount() const { return segments_.size(); }
-    /*EntityID segmentID(uint32_t index) const {
-        // TODO: it would be better to return a null pointer instead of an empty string
-        if (index < 1 || index > segments_.size())
-            return "";
-        return (segments_[index - 1])->name();
-    }*/
     SegmentPtr segment(uint32_t index) const {
         if (index < 1 || index > segments_.size())
             return NULL;
@@ -413,7 +414,7 @@ public:
                 return Constraint::fail();
             return Constraint::pass();
         }
-        ConstraintPtr DistanceConstraintIs(Mile distance){
+        static ConstraintPtr DistanceConstraintIs(Mile distance){
             return new DistanceConstraint(distance);
         }
     private:
@@ -428,7 +429,7 @@ public:
                 return Constraint::fail();
             return Constraint::pass();
         }
-        ConstraintPtr CostConstraintIs(Dollar cost){
+        static ConstraintPtr CostConstraintIs(Dollar cost){
             return new CostConstraint(cost);
         }
     private:
@@ -443,7 +444,7 @@ public:
                 return Constraint::fail();
             return Constraint::pass();
         }
-        ConstraintPtr TimeConstraintIs(Hour time){
+        static ConstraintPtr TimeConstraintIs(Hour time){
             return new TimeConstraint(time);
         } 
     private:
@@ -458,7 +459,7 @@ public:
                 return Constraint::fail();
             return Constraint::pass();
         }
-        ConstraintPtr ExpediteConstraintIs(Segment::ExpediteSupport expediteSupport){
+        static ConstraintPtr ExpediteConstraintIs(Segment::ExpediteSupport expediteSupport){
             return new ExpediteConstraint(expediteSupport);
         }
     private:
@@ -489,7 +490,7 @@ public:
         { return locationCount_[et]; }
     inline uint32_t segmentCount(TransportMode et) 
         { return segmentCount_[et]; }
-    inline float expeditePercentage() const {
+    inline double expeditePercentage() const {
         if (totalSegmentCount_ == 0)
             return 0;
         return expediteSegmentCount_ * 100.0 / totalSegmentCount_;
