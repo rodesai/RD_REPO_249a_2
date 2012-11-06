@@ -45,6 +45,14 @@ void Location::segmentDel(SegmentPtr segment){
  *
  */
 
+void Segment::sourceIs(EntityID source){
+    sourceIs(network_->location(source));
+}
+
+void Segment::returnSegmentIs(EntityID segment){
+    returnSegmentIs(network_->segment(segment));
+}
+
 void Segment::sourceIs(LocationPtr source){
 
     // Ensure idempotency
@@ -229,7 +237,7 @@ SegmentPtr ShippingNetwork::SegmentNew(EntityID name, TransportMode entityType){
     if(existing) return existing;
 
     // Create a New Segment
-    SegmentPtr retval(new Segment(name,entityType));
+    SegmentPtr retval(new Segment(this,name,entityType));
     segmentMap_[name]=retval;
 
     // Setup Reactor
@@ -395,7 +403,7 @@ void SegmentReactor::onReturnSegment(){
      * this reactor's segment is its return segment
      */
     if(currentReturnSegment_ && currentReturnSegment_->returnSegment() == notifier_){
-        currentReturnSegment_->returnSegmentIs(NULL);
+        currentReturnSegment_->returnSegmentIs((SegmentPtr)NULL);
     }
 
     /* Update return segment ref */
@@ -427,16 +435,16 @@ ShippingNetworkReactor::ShippingNetworkReactor(){}
 
 void ShippingNetworkReactor::onSegmentDel(SegmentPtr segment){
     // Clean up this Segment's source
-    segment->sourceIs(NULL);
+    segment->sourceIs((LocationPtr)NULL);
     // Clean up this Segment's return segment
-    segment->returnSegmentIs(NULL);
+    segment->returnSegmentIs((SegmentPtr)NULL);
 }
 
 void ShippingNetworkReactor::onLocationDel(LocationPtr location){
     // Clean up this Location from all its Segments
     for(uint32_t i = 0;i < location->segmentCount(); i++){
         SegmentPtr segment = location->segment(i);
-        segment->sourceIs(NULL);
+        segment->sourceIs((LocationPtr)NULL);
     }
 }
 
@@ -487,7 +495,7 @@ Conn::PathList Conn::paths(ConstraintPtr constraints,EntityID start, EntityID en
     LocationPtr startPtr = shippingNetwork_->location(start);
     LocationPtr endPtr = shippingNetwork_->location(end);
     if(startPtr){
-        return paths(shippingNetwork_,fleet_,constraints,startPtr,endPtr);
+        return paths(fleet_,constraints,startPtr,endPtr);
     }
     return PathList();
 }
@@ -496,12 +504,16 @@ Conn::PathList Conn::paths(ConstraintPtr constraints,EntityID start) {
 
     LocationPtr startPtr = shippingNetwork_->location(start);
     if(startPtr){
-        return paths(shippingNetwork_,fleet_,constraints,startPtr,NULL);
+        return paths(fleet_,constraints,startPtr,NULL);
     }
     return PathList();
 }
 
-Conn::PathList Conn::paths(ShippingNetworkPtr network,FleetPtr fleet, ConstraintPtr constraints,LocationPtr start, LocationPtr endpoint) const {
+bool validSegment(SegmentPtr segment){
+    return (segment && segment->source() && segment->returnSegment() && segment->returnSegment()->source());
+}
+
+Conn::PathList Conn::paths(FleetPtr fleet, ConstraintPtr constraints,LocationPtr start, LocationPtr endpoint) const {
 
     Conn::PathList retval;
 
@@ -509,11 +521,13 @@ Conn::PathList Conn::paths(ShippingNetworkPtr network,FleetPtr fleet, Constraint
 
     // Load Starting Paths
     for(uint32_t i = 1; i <= start->segmentCount(); i++){
-        PathPtr path = Path::PathIs(fleet);
-        DEBUG_LOG << "Adding segment: " << start->segment(i)->name() << std::endl;
-        Path::PathElementPtr startElement = Path::PathElement::PathElementIs(start->segment(i));
-        path->pathElementEnq(startElement);
-        pathStack.push(path);
+        if(validSegment(start->segment(i))){
+            PathPtr path = Path::PathIs(fleet);
+            DEBUG_LOG << "Adding segment: " << start->segment(i)->name() << std::endl;
+            Path::PathElementPtr startElement = Path::PathElement::PathElementIs(start->segment(i));
+            path->pathElementEnq(startElement);
+            pathStack.push(path);
+        }
     }
 
     DEBUG_LOG << "Starting stack size: " << pathStack.size() << std::endl;
@@ -555,21 +569,20 @@ Conn::PathList Conn::paths(ShippingNetworkPtr network,FleetPtr fleet, Constraint
         // Only continue iterating if we havent the endpoint (THIS IS AN OPTIMIZATION)
         if(!endpoint || endpoint->name() != currentPath->lastLocation()->name()){
         for(uint32_t i = 1; i <= currentPath->lastLocation()->segmentCount(); i++){
-
             SegmentPtr segment = currentPath->lastLocation()->segment(i); 
-            LocationPtr destination = segment->returnSegment()->source();
-
-            DEBUG_LOG << "Destination of potential path: " << destination->name() << std::endl;
-
-            // If the segment has a valid end point that doesnt cause a cycle, push onto stack
-            if( destination
-                && !(currentPath->location(destination))){
-                PathPtr pathCopy = Path::PathIs(currentPath);
-                pathCopy->pathElementEnq(Path::PathElement::PathElementIs(segment));
-                pathStack.push(pathCopy);
-            }
-            else{
-                DEBUG_LOG << "Found a looped path, discard" << std::endl;
+            if(validSegment(segment)){
+                LocationPtr destination = segment->returnSegment()->source();
+                DEBUG_LOG << "Destination of potential path: " << destination->name() << std::endl;
+                // If the segment has a valid end point that doesnt cause a cycle, push onto stack
+                if( destination
+                    && !(currentPath->location(destination))){
+                    PathPtr pathCopy = Path::PathIs(currentPath);
+                    pathCopy->pathElementEnq(Path::PathElement::PathElementIs(segment));
+                    pathStack.push(pathCopy);
+                }
+                else{
+                    DEBUG_LOG << "Found a looped path, discard" << std::endl;
+                }
             }
         }
         }

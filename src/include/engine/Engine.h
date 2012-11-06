@@ -34,6 +34,7 @@ public:
         if (num < 0.0 && num != -1.0) throw ArgumentException();
     }
     Mile() : Ordinal<Mile,double>(defaultValue_){}
+    static Mile defaultValue(){ return defaultValue_; }
 private:
     static const double defaultValue_ = 1.0;
 };
@@ -45,6 +46,7 @@ public:
         if(num < 0) throw ArgumentException();
     }
     MilePerHour() : Nominal<MilePerHour, double>(defaultValue_) {}
+    static MilePerHour defaultValue(){ return defaultValue_; }
 private:
     static const double defaultValue_ = 1.0;
 };
@@ -56,6 +58,7 @@ public:
         if (num < 0 && num != -1) throw ArgumentException();
     }
     Dollar() : Ordinal<Dollar,double>(defaultValue_){}
+    static Dollar defaultValue(){ return defaultValue_; }
 private:
     static const double defaultValue_ = 1.0;
 };
@@ -67,6 +70,7 @@ public:
         if(num < 0.0) throw ArgumentException();
     }
     DollarPerMile() : Nominal<DollarPerMile, double>(defaultValue_) {}
+    static DollarPerMile defaultValue(){ return defaultValue_; }
 private:
     static const double defaultValue_ = 1.0;
 };
@@ -78,6 +82,7 @@ public:
         if (num < 0 && num != -1) throw ArgumentException();
     }
     Hour() : Ordinal<Hour,double>(defaultValue_){}
+    static Hour defaultValue(){ return defaultValue_; }
 private:
     static const double defaultValue_ = 1.0;
 };
@@ -88,6 +93,7 @@ public:
     Difficulty(double num) : Nominal<Difficulty, double>(num) {
         if (num < 1.0 || num > 5.0) throw ArgumentException();
     }
+    static Difficulty defaultValue(){ return defaultValue_; }
 private:
     static const double defaultValue_ = 1.0;
 };
@@ -97,6 +103,7 @@ class PackageNum : public Ordinal<PackageNum, uint64_t> {
 public:
     PackageNum(uint64_t num) : Ordinal<PackageNum, uint64_t>(num) {}
     PackageNum() : Ordinal<PackageNum, uint64_t>(defaultValue_) {}
+    static PackageNum defaultValue(){ return defaultValue_; }
 private:
     static const uint64_t defaultValue_ = 1;
 };
@@ -106,11 +113,6 @@ enum TransportMode{
     boat_,
     plane_
 };
-/*class TransportMode : public Nominal<TransportMode, transport_mode>{
-public:
-    TransportMode(transport_mode mode) : Nominal<TransportMode,transport_mode>(mode){}
-    TransportMode() : Nominal<TransportMode,transport_mode>(undef_){}
-};*/
 
 // Client Types
 class Segment;
@@ -247,9 +249,9 @@ public:
     inline ExpediteSupport expediteSupport() const { return expediteSupport_; }
 
     // mutators
-    void sourceIs(LocationPtr source);
+    void sourceIs(EntityID source);
     void lengthIs(Mile l);
-    void returnSegmentIs(SegmentPtr s); 
+    void returnSegmentIs(EntityID segment); 
     void difficultyIs(Difficulty d); 
     void expediteSupportIs(ExpediteSupport es);
     void notifieeIs(Segment::Notifiee* notifiee);
@@ -257,12 +259,13 @@ public:
 private:
 
     friend class ShippingNetwork;
+    friend class ShippingNetworkReactor;
     friend class SegmentReactor;
 
-    Segment(EntityID name, TransportMode mode) : Fwk::NamedInterface(name), length_(0), difficulty_(1.0), expediteSupport_(expediteUnsupported_), mode_(mode){}
+    Segment(ShippingNetworkPtr network, EntityID name, TransportMode mode) : Fwk::NamedInterface(name), length_(1.0), difficulty_(1.0), expediteSupport_(expediteUnsupported_), mode_(mode), network_(network){}
 
-    void returnSegmentRm();
-    void returnSegmentSet(SegmentPtr returnSegment);
+    void sourceIs(LocationPtr source);
+    void returnSegmentIs(SegmentPtr returnSegment);
 
     // attributes
     Mile length_;
@@ -274,6 +277,8 @@ private:
 
     typedef std::vector<Segment::NotifieePtr> NotifieeList;
     NotifieeList notifieeList_;
+
+    ShippingNetworkPtr network_;
 };
 
 class Fleet : public Fwk::NamedInterface {
@@ -462,7 +467,7 @@ public:
 
 private:
 
-    PathList paths(ShippingNetworkPtr network,FleetPtr fleet,ConstraintPtr constraints,LocationPtr start,LocationPtr endpoint) const ;
+    PathList paths(FleetPtr fleet,ConstraintPtr constraints,LocationPtr start,LocationPtr endpoint) const ;
 
     friend class ShippingNetwork;
 
@@ -486,7 +491,7 @@ public:
     inline double expeditePercentage() const {
         if (totalSegmentCount_ == 0)
             return 0;
-        return expediteSegmentCount_ * 100.0 / totalSegmentCount_;
+        return ((double)expediteSegmentCount_ * 100.0) / ((double)totalSegmentCount_);
     }
 
 private:

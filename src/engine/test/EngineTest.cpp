@@ -14,9 +14,9 @@ void connectLocations(LocationPtr l1,LocationPtr l2,ShippingNetworkPtr nwk,Mile 
     segmentR->lengthIs(length);
     segmentR->difficultyIs(d);
     segmentR->expediteSupportIs(expediteSupport);
-    segment->sourceIs(l1);
-    segmentR->sourceIs(l2);
-    segment->returnSegmentIs(segmentR);
+    segment->sourceIs(l1->name());
+    segmentR->sourceIs(l2->name());
+    segment->returnSegmentIs(segmentR->name());
 }
 
 void connectLocations(LocationPtr l1,LocationPtr l2,ShippingNetworkPtr nwk,Mile length,Difficulty d){
@@ -29,87 +29,6 @@ void connectLocations(LocationPtr l1,LocationPtr l2,ShippingNetworkPtr nwk, Mile
 
 void connectLocations(LocationPtr l1,LocationPtr l2,ShippingNetworkPtr nwk){
     connectLocations(l1,l2,nwk,100,1.0);
-}
-
-TEST(Engine, SegmentNew){
-
-    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
-    SegmentPtr segment = nwk->SegmentNew("segment1",truck_);
-
-    ASSERT_TRUE(segment);
-    ASSERT_TRUE(nwk->segment("segment1"));
-}
-
-TEST(Engine, LocationNew){
-
-    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
-    LocationPtr location = nwk->LocationNew("location1",Location::port());
-
-    ASSERT_TRUE(location);
-    ASSERT_TRUE(nwk->location("location1"));
-}
-
-TEST(Engine, SegmentSource){
-
-    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
-
-    SegmentPtr segment1 = nwk->SegmentNew("segment1",truck_);
-    SegmentPtr segment2 = nwk->SegmentNew("segment2",truck_);
-    SegmentPtr segment3 = nwk->SegmentNew("segment3",truck_);
-
-    LocationPtr location = nwk->LocationNew("location1",Location::port());
-
-    segment1->sourceIs(location);
-
-    ASSERT_TRUE(segment1->source() == location);
-    ASSERT_TRUE(location->segment(1)->name() == "segment1");
-
-    segment2->sourceIs(location);
-
-    ASSERT_TRUE(segment2->source() == location);
-    ASSERT_TRUE(location->segment(2)->name() == "segment2");
-
-    segment3->sourceIs(location);
-
-    ASSERT_TRUE(segment3->source() == location);
-    ASSERT_TRUE(location->segment(3)->name() == "segment3");
-
-    segment2->sourceIs(NULL);
-
-    ASSERT_TRUE(location->segmentCount() == 2);
-    ASSERT_TRUE(location->segment(1)->name() == "segment1");
-    ASSERT_TRUE(location->segment(2)->name() == "segment3");
-}
-
-TEST(Engine, SegmentReturnSegment){
-
-    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
-
-    SegmentPtr segment1 = nwk->SegmentNew("segment1",truck_);
-    SegmentPtr segment2 = nwk->SegmentNew("segment2",truck_);
-
-    segment1->returnSegmentIs(segment2);
-
-    ASSERT_TRUE(segment1->returnSegment()==segment2);
-    ASSERT_TRUE(segment2->returnSegment()==segment1);
-
-    segment1->returnSegmentIs(NULL);
-    
-    ASSERT_FALSE(segment1->returnSegment());
-    ASSERT_FALSE(segment2->returnSegment());
-
-    SegmentPtr segment3 = nwk->SegmentNew("segment3",truck_);
-
-    segment1->returnSegmentIs(segment2);
-    
-    ASSERT_TRUE(segment1->returnSegment()==segment2);
-    ASSERT_TRUE(segment2->returnSegment()==segment1);
-
-    segment2->returnSegmentIs(segment3);
-
-    ASSERT_FALSE(segment1->returnSegment());
-    ASSERT_TRUE(segment2->returnSegment()==segment3);
-    ASSERT_TRUE(segment3->returnSegment()==segment2);
 }
 
 TEST(Engine, conn_endpoint_basic){
@@ -511,49 +430,266 @@ TEST(Engine, conn_no_endpoint_distance_time_constraint){
     ASSERT_TRUE(paths[3]->pathElement(0)->segment()->name() == "l1-l2");
 }
 
+
+TEST(Engine, SegmentNew){
+
+    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
+    SegmentPtr segment = nwk->SegmentNew("segment1",truck_);
+
+    ASSERT_TRUE(segment);
+    ASSERT_TRUE(nwk->segment("segment1"));
+}
+
+TEST(Engine, LocationNew){
+
+    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
+    LocationPtr location = nwk->LocationNew("location1",Location::port());
+
+    ASSERT_TRUE(location);
+    ASSERT_TRUE(nwk->location("location1"));
+}
+
+TEST(Engine, SegmentSource){
+
+    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
+
+    SegmentPtr segment1 = nwk->SegmentNew("segment1",truck_);
+    SegmentPtr segment2 = nwk->SegmentNew("segment2",truck_);
+    SegmentPtr segment3 = nwk->SegmentNew("segment3",truck_);
+
+    LocationPtr location = nwk->LocationNew("location1",Location::port());
+
+    segment1->sourceIs(location->name());
+
+    ASSERT_TRUE(segment1->source() == location);
+    ASSERT_TRUE(location->segment(1)->name() == "segment1");
+
+    segment2->sourceIs(location->name());
+
+    ASSERT_TRUE(segment2->source() == location);
+    ASSERT_TRUE(location->segment(2)->name() == "segment2");
+
+    segment3->sourceIs(location->name());
+
+    ASSERT_TRUE(segment3->source() == location);
+    ASSERT_TRUE(location->segment(3)->name() == "segment3");
+
+    segment2->sourceIs("");
+
+    ASSERT_TRUE(location->segmentCount() == 2);
+    ASSERT_TRUE(location->segment(1)->name() == "segment1");
+    ASSERT_TRUE(location->segment(2)->name() == "segment3");
+}
+
+TEST(Engine, SegmentReturnSegment){
+
+    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
+
+    SegmentPtr segment1 = nwk->SegmentNew("segment1",truck_);
+    SegmentPtr segment2 = nwk->SegmentNew("segment2",truck_);
+
+    segment1->returnSegmentIs(segment2->name());
+
+    ASSERT_TRUE(segment1->returnSegment()==segment2);
+    ASSERT_TRUE(segment2->returnSegment()==segment1);
+
+    segment1->returnSegmentIs("");
+
+    ASSERT_FALSE(segment1->returnSegment());
+    ASSERT_FALSE(segment2->returnSegment());
+
+    SegmentPtr segment3 = nwk->SegmentNew("segment3",truck_);
+
+    segment1->returnSegmentIs(segment2->name());
+
+    ASSERT_TRUE(segment1->returnSegment()==segment2);
+    ASSERT_TRUE(segment2->returnSegment()==segment1);
+
+    segment2->returnSegmentIs(segment3->name());
+
+    ASSERT_FALSE(segment1->returnSegment());
+    ASSERT_TRUE(segment2->returnSegment()==segment3);
+    ASSERT_TRUE(segment3->returnSegment()==segment2);
+}
+
 TEST(Engine, Location_segmentCount){
-//TODO
+
+    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
+
+    SegmentPtr segment1 = nwk->SegmentNew("segment1",truck_);
+    SegmentPtr segment2 = nwk->SegmentNew("segment2",truck_);
+    SegmentPtr segment3 = nwk->SegmentNew("segment3",truck_);
+
+    LocationPtr location = nwk->LocationNew("location1",Location::port());
+
+    ASSERT_TRUE(location->segmentCount()==0);
+
+    segment1->sourceIs("location1");
+    ASSERT_TRUE(location->segmentCount()==1);
+
+    segment2->sourceIs("location1");
+    ASSERT_TRUE(location->segmentCount()==2);
+
+    segment3->sourceIs("location1");
+    ASSERT_TRUE(location->segmentCount()==3);
+
+    segment2->sourceIs("nil");
+    ASSERT_TRUE(location->segmentCount()==2);
 }
 
 TEST(Engine, Location_segment){
-//TODO
+
+    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
+
+    SegmentPtr segment1 = nwk->SegmentNew("segment1",truck_);
+    SegmentPtr segment2 = nwk->SegmentNew("segment2",truck_);
+    SegmentPtr segment3 = nwk->SegmentNew("segment3",truck_);
+
+    LocationPtr location = nwk->LocationNew("location1",Location::port());
+
+    ASSERT_TRUE(location->segmentCount()==0);
+
+    segment1->sourceIs("location1");
+    ASSERT_TRUE(location->segment(1) == segment1);
+
+    segment2->sourceIs("location1");
+    ASSERT_TRUE(location->segment(1) == segment1);
+    ASSERT_TRUE(location->segment(2) == segment2);
+
+    segment3->sourceIs("location1");
+    ASSERT_TRUE(location->segment(1) == segment1);
+    ASSERT_TRUE(location->segment(2) == segment2);
+    ASSERT_TRUE(location->segment(3) == segment3);
+
+    segment2->sourceIs("nil");
+    ASSERT_TRUE(location->segment(1) == segment1);
+    ASSERT_TRUE(location->segment(2) == segment3);
 }
 
 TEST(Engine, Location_entityType){
-//TODO
+
+    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
+
+    LocationPtr location = nwk->LocationNew("location1",Location::port());
+    ASSERT_TRUE(location->entityType() == Location::port());
+
+    location = nwk->LocationNew("location2",Location::customer());
+    ASSERT_TRUE(location->entityType() == Location::customer());
+
+    location = nwk->LocationNew("location3",Location::truckTerminal());
+    ASSERT_TRUE(location->entityType() == Location::truckTerminal());
+
+    location = nwk->LocationNew("location4",Location::boatTerminal());
+    ASSERT_TRUE(location->entityType() == Location::boatTerminal());
+
+    location = nwk->LocationNew("location5",Location::planeTerminal());
+    ASSERT_TRUE(location->entityType() == Location::planeTerminal());
 }
 
 TEST(Engine, Segment_length){
-//TODO
+    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
+    SegmentPtr segment = nwk->SegmentNew("segment",boat_);
+    ASSERT_TRUE(segment->length() == 1.0);
+    segment->lengthIs(2.0);
+    ASSERT_TRUE(segment->length() == 2.0);
 }
 
 TEST(Engine, Segment_difficulty){
-//TODO
+    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
+    SegmentPtr segment = nwk->SegmentNew("segment",boat_);
+    ASSERT_TRUE(segment->difficulty() == 1.0);
+    segment->difficultyIs(2.0);
+    ASSERT_TRUE(segment->difficulty() == 2.0);
 }
 
 TEST(Engine, Segment_expediteSupport){
-//TODO: note-make sure to test that stats get updated if expedite support changes
+    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
+    SegmentPtr segment = nwk->SegmentNew("segment",boat_);
+    ASSERT_TRUE(segment->expediteSupport() == Segment::expediteUnsupported());
+    StatsPtr stats = nwk->StatsNew("stats");
+    ASSERT_TRUE(stats->expeditePercentage() == 0.0);
+    segment->expediteSupportIs(Segment::expediteSupported());
+    ASSERT_TRUE(stats->expeditePercentage() == 100.0);
 }
 
 TEST(Engine, Fleet){
-//TODO: test all the attributes
+    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
+    FleetPtr fleet = nwk->FleetNew("fleet");
+    ASSERT_TRUE(fleet->cost(truck_) == DollarPerMile::defaultValue());
+    ASSERT_TRUE(fleet->speed(truck_) == MilePerHour::defaultValue());
+    ASSERT_TRUE(fleet->capacity(truck_) == PackageNum::defaultValue());
+    fleet->costIs(truck_,2.0);
+    fleet->speedIs(truck_,3.0);
+    fleet->capacityIs(truck_,4.0);
+    ASSERT_TRUE(fleet->cost(truck_) == 2.0);
+    ASSERT_TRUE(fleet->speed(truck_) == 3.0);
+    ASSERT_TRUE(fleet->capacity(truck_) == 4.0);
+    fleet->costIs(plane_,2.5);
+    fleet->speedIs(plane_,3.5);
+    fleet->capacityIs(plane_,4.5);
+    ASSERT_TRUE(fleet->cost(plane_) == 2.5);
+    ASSERT_TRUE(fleet->speed(plane_) == 3.5);
+    ASSERT_TRUE(fleet->capacity(plane_) == 4.5);
+    fleet->costIs(boat_,2.5);
+    fleet->speedIs(boat_,3.5);
+    fleet->capacityIs(boat_,4.5);
+    ASSERT_TRUE(fleet->cost(boat_) == 2.5);
+    ASSERT_TRUE(fleet->speed(boat_) == 3.5);
+    ASSERT_TRUE(fleet->capacity(boat_) == 4.5);
 }
 
 TEST(Engine, Path_emptyPath){
-//TODO
+    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
+    PathPtr path = Path::PathIs(nwk->FleetNew("fleet"));
+    ASSERT_TRUE(path->cost() == 0.0);
+    ASSERT_TRUE(path->time() == 0.0);
+    ASSERT_TRUE(path->distance() == 0.0);
+    ASSERT_TRUE(path->expedited() == Segment::expediteSupported());
 }
 
 TEST(Engine, Path_pathEnq){
-//TODO: test all accessors after enqueing some elements
+    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
+    PathPtr path = Path::PathIs(nwk->FleetNew("fleet"));
+    ASSERT_TRUE(path->cost() == 0.0);
+    ASSERT_TRUE(path->time() == 0.0);
+    ASSERT_TRUE(path->distance() == 0.0);
+    ASSERT_TRUE(path->expedited() == Segment::expediteSupported());
+
+    FleetPtr fleet = nwk->FleetNew("fleet");
+
+    nwk->SegmentNew("s1",truck_);
+    nwk->SegmentNew("s1r",truck_);
+    nwk->LocationNew("l1",Location::port());
+    nwk->LocationNew("l2",Location::port());
+    nwk->segment("s1")->sourceIs("l1");
+    nwk->segment("s1r")->sourceIs("l2");
+    nwk->segment("s1")->returnSegmentIs("s1r");
+    nwk->segment("s1")->lengthIs(10.0);
+    fleet->costIs(truck_,3.3);
+    fleet->speedIs(truck_,2.5);
+    Path::PathElementPtr pathElement = Path::PathElement::PathElementIs(nwk->segment("s1"));
+    path->pathElementEnq(pathElement);
+    ASSERT_TRUE(path->cost() == 33.0);
+    ASSERT_TRUE(path->time() == 4.0);
+    ASSERT_TRUE(path->distance() == 10.0);
+
+    nwk->SegmentNew("s2",truck_);
+    nwk->SegmentNew("s2r",truck_);
+    nwk->LocationNew("l3",Location::port());
+    nwk->LocationNew("l4",Location::port());
+    nwk->segment("s2")->sourceIs("l3");
+    nwk->segment("s2r")->sourceIs("l4");
+    nwk->segment("s2")->returnSegmentIs("s2r");
+    nwk->segment("s2")->lengthIs(10.0);
+    nwk->segment("s2")->lengthIs(20.0);
+    pathElement = Path::PathElement::PathElementIs(nwk->segment("s2"));
+    path->pathElementEnq(pathElement);
+    ASSERT_TRUE(path->cost() == 99.0);
+    ASSERT_TRUE(path->time() == 12.0);
+    ASSERT_TRUE(path->distance() == 30.0);
 }
 
 TEST(Engine, Stats){
-//TODO: test that all stats maintained correctly
-}
-
-
-
-TEST(Engine, Stat){
 
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
 
@@ -561,7 +697,70 @@ TEST(Engine, Stat){
     LocationPtr location = nwk->LocationNew("location1",Location::port());
     StatsPtr stat = nwk->StatsNew("stat1");
 
+    ASSERT_TRUE(stat->locationCount(Location::boatTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::planeTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::truckTerminal()) == 0); 
+    ASSERT_TRUE(stat->locationCount(Location::customer()) == 0);
     ASSERT_TRUE(stat->locationCount(Location::port()) == 1);
     ASSERT_TRUE(stat->segmentCount(truck_) == 1);
+    ASSERT_TRUE(stat->segmentCount(plane_) == 0);
+    ASSERT_TRUE(stat->segmentCount(boat_) == 0);
+
+    segment = nwk->SegmentNew("segment2",plane_);
+
+    ASSERT_TRUE(stat->locationCount(Location::boatTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::planeTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::truckTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::customer()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::port()) == 1);
+    ASSERT_TRUE(stat->segmentCount(truck_) == 1);
+    ASSERT_TRUE(stat->segmentCount(plane_) == 1);
+    ASSERT_TRUE(stat->segmentCount(boat_) == 0);
+
+    segment = nwk->SegmentNew("segment3",boat_);
+
+    ASSERT_TRUE(stat->locationCount(Location::boatTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::planeTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::truckTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::customer()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::port()) == 1);
+    ASSERT_TRUE(stat->segmentCount(truck_) == 1);
+    ASSERT_TRUE(stat->segmentCount(plane_) == 1);
+    ASSERT_TRUE(stat->segmentCount(boat_) == 1);
+
+    segment = nwk->SegmentNew("segment4",plane_);
+
+    ASSERT_TRUE(stat->locationCount(Location::boatTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::planeTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::truckTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::customer()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::port()) == 1);
+    ASSERT_TRUE(stat->segmentCount(truck_) == 1);
+    ASSERT_TRUE(stat->segmentCount(plane_) == 2);
+    ASSERT_TRUE(stat->segmentCount(boat_) == 1);
+
+    nwk->segment("segment3")->expediteSupportIs(Segment::expediteSupported());
+
+    ASSERT_TRUE(stat->expeditePercentage() == 25.0);
+
+    nwk->segment("segment4")->expediteSupportIs(Segment::expediteSupported());
+
+    ASSERT_TRUE(stat->expeditePercentage() == 50.0);
+
+    nwk->segment("segment4")->expediteSupportIs(Segment::expediteUnsupported());
+
+    ASSERT_TRUE(stat->expeditePercentage() == 25.0);
+
+    nwk->segmentDel("segment3");
+
+    ASSERT_TRUE(stat->locationCount(Location::boatTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::planeTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::truckTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::customer()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::port()) == 1);
+    ASSERT_TRUE(stat->segmentCount(truck_) == 1);
+    ASSERT_TRUE(stat->segmentCount(plane_) == 2);
+    ASSERT_TRUE(stat->segmentCount(boat_) == 0);
+    ASSERT_TRUE(stat->expeditePercentage() == 0);
 }
 
