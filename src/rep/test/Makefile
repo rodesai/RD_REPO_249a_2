@@ -47,6 +47,8 @@ CXX = g++
 # ##################
 # Targets for each file you are testing.
 # ##################
+all: main
+
 RepTest: RepTest.cpp $(SRC_PATH)/include/rep/Instance.h $(SRC_PATH)/rep/Instance.o 
 	$(CXX) -I../../include $(PREPROCESSOR_FLAGS) $(COMPILER_FLAGS) -c RepTest.cpp
 
@@ -59,8 +61,6 @@ RepTest: RepTest.cpp $(SRC_PATH)/include/rep/Instance.h $(SRC_PATH)/rep/Instance
 # pulls in our tests and runs them.
 main: $(FILES)
 	$(CXX) $(PREPROCESSOR_FLAGS) $(COMPILER_FLAGS) $(MAIN_OBJ_PATH) $(SECONDARY_OBJ_PATH) $(GUNIT_BASE)/make/gtest_main.a -lpthread $(OBJS) -o UnitTest
-
-all: main
 
 test: 
 	./UnitTest

@@ -4,6 +4,7 @@
 #include <vector>
 #include "rep/Instance.h"
 #include "engine/Engine.h"
+#include "logging.h"
 
 namespace Shipping {
 
@@ -62,8 +63,9 @@ public:
     Shipping::LocationPtr representee() { return representee_; }
     string attribute(const string& name) {
         int i = segmentNumber(name);
-        if (i != 0) {
-            return representee_->segment(i)->name();
+        SegmentPtr sp;
+        if ((sp = representee_->segment(i))) {
+            return sp->name();
         }
         return "";
     }
@@ -134,21 +136,23 @@ public:
 // TODO: are these the correct types?
 // TODO: should we move these into the types?
 // int based types
-string MileToStr(Mile x) {
-    stringstream s;
-    s << x.value();
-    return s.str();
-}
-
 string PackageNumToStr(PackageNum x) {
     stringstream s;
     s << x.value();
     return s.str();
 }
 
+string MileToStr(Mile x) {
+    stringstream s;
+    s.precision(2);
+    s << fixed << x.value();
+    return s.str();
+}
+
 string MilePerHourToStr(MilePerHour x) {
     stringstream s;
-    s << x.value();
+    s.precision(2);
+    s << fixed << x.value();
     return s.str();
 }
 
@@ -443,24 +447,35 @@ public:
             if (!loc1 && !loc2) return "";
             paths = conn_->paths(NULL,loc1->representee()->name(), loc2->representee()->name());
         } else if (strcmp(namePtr, "explore") == 0) {
+
+            std::cout << "Starting explore.\n";
+
             explore = true;
-            Shipping::Mile distance = -1;
-            Shipping::Hour hour = -1;
-            Shipping::Dollar cost = -1;
-            Shipping::Segment::ExpediteSupport es =
-                Shipping::Segment::expediteUnspecified();
             namePtr = strtok(NULL, ", :");
             Ptr<LocationRep> loc = dynamic_cast<LocationRep*> (manager_->instance(namePtr).ptr());
+
+            std::cout << "Starting explore.\n";
+
+            Conn::ConstraintPtr constraints = parseConstraints(namePtr);
+
+            std::cout << "Constraints ready.\n";
+
+            if (!constraints) std::cout << "No constraints.\n";
+            std::cout << loc->representee()->name() << "\n";
             delete tokenString;
             if (!loc) return "";
-            //paths = conn_->explore(loc->representee(), distance, cost, hour, es);
+            paths = conn_->paths(constraints,loc->representee()->name());
+            
+            // TODO: destructor needs to be defined
+            // delete constraints;
         }
+
+        std::cout << "Reading path.\n";
 
         unsigned int numPaths = paths.size();
         for (int i = 0; i < numPaths; i++) {
             Shipping::PathPtr path = paths[i];
             if (!explore) {
-                // TODO: the setting of precision here is inconsistent
                 ss << DollarToStr(path->cost()) << " ";
                 ss << HourToStr(path->time()) << " ";
                 ss << (path->expedited() == 
@@ -469,18 +484,14 @@ public:
                 ss << "; ";
             }
 
-            // TODO: This is incomplete since the paths aren't ready
-
-            // Shipping::Path::LocationIterator li = path->pathIterator();
-            // // TODO: is this where the iterator stops?
-            // for (; li != NULL; i++) {
-            //     ss << li->source().name()
-            //     if (li + 1 != li.end()) {
-            //         ss << "(" << li->segment()->name() << ":";
-            //         ss << MileToStr(li->segment().length());
-            //         ss << ":" li->segment().returnSegment()->name() << ") ";
-            //     }
-            // }
+            uint32_t numLocs = path->pathElementCount();
+            for (i = 0; ; i++) {
+                ss << path->pathElement(i)->source()->name();
+                if (i + 1 == numLocs) break;
+                ss << "(" << path->pathElement(i)->segment()->name() << ":";
+                ss << MileToStr(path->pathElement(i)->segment()->length());
+                ss << ":" << path->pathElement(i)->segment()->returnSegment()->name() << ") ";
+            }
 
             ss << "\n";
         }
@@ -491,6 +502,35 @@ public:
         // nothing to do here
     }
 private:
+    Conn::ConstraintPtr parseConstraints(char* s) {
+        Conn::ConstraintPtr result = NULL;
+        while ((s = strtok(NULL, ": "))) {
+            Conn::ConstraintPtr lastPtr = result;
+            Conn::ConstraintPtr newPtr = NULL;
+            if (strcmp(s, "distance")) {
+                s = strtok(NULL, ": ");
+                newPtr = Conn::DistanceConstraint::DistanceConstraintIs(Mile(atoi(s)));
+            } else if (strcmp(s, "cost")) {
+                s = strtok(NULL, ": ");
+                newPtr = Conn::CostConstraint::CostConstraintIs(Dollar(atoi(s)));
+            } else if (strcmp(s, "time")) {
+                s = strtok(NULL, ": ");
+                newPtr = Conn::TimeConstraint::TimeConstraintIs(Hour(atoi(s)));
+            } else if (strcmp(s, "expedited")) {
+                newPtr = Conn::ExpediteConstraint::ExpediteConstraintIs(Segment::expediteSupported());
+            } else {
+                DEBUG_LOG << "Incorrect input for explore constraint." << std::endl;
+                break;
+            }
+            if (!result) {
+                result = newPtr;
+            } else {
+                lastPtr->nextIs(newPtr);
+                lastPtr = lastPtr->next();
+            }
+        }
+        return result;
+    }
     Ptr<ManagerImpl> manager_;
     Shipping::ConnPtr conn_;
 };
