@@ -11,6 +11,17 @@ using namespace Shipping;
  *
  */
 
+uint32_t Location::segmentCount() const { 
+    return segments_.size(); 
+}
+
+SegmentPtr Location::segment(uint32_t index) const {
+    if (index < 1 || index > segments_.size())
+        return NULL;
+    return segments_[index-1];
+}
+
+
 void Location::entityTypeIs(Location::EntityType et){
     entityType_=et;
 }
@@ -147,6 +158,27 @@ void Path::PathElement::segmentIs(SegmentPtr segment){
     segment_=segment;
 }
 
+/*
+ * Stats
+ *
+ */
+
+uint32_t Stats::locationCount(Location::EntityType et) const {
+    Stats::LocationCountMap::const_iterator pos = locationCount_.find(et);
+    if(pos == locationCount_.end()){
+        return 0;
+    }
+    return pos->second;
+}
+
+uint32_t Stats::segmentCount(TransportMode et) const {
+    Stats::SegmentCountMap::const_iterator pos = segmentCount_.find(et);
+    if(pos == segmentCount_.end()){
+        return 0;
+    }
+    return pos->second;
+}
+
 void Stats::locationCountDecr(Location::EntityType type){
     if(locationCount_.count(type) == 0){
         locationCount_[type]=0;
@@ -199,6 +231,46 @@ void Stats::totalSegmentCountIncr(){
  * ShippingNetwork 
  *
  */
+
+SegmentPtr ShippingNetwork::segment(EntityID name) const {
+    ShippingNetwork::SegmentMap::const_iterator pos = segmentMap_.find(name);
+    if(pos == segmentMap_.end()){
+        return NULL;
+    }
+    return pos->second;
+}
+
+LocationPtr ShippingNetwork::location(EntityID name) const {
+    ShippingNetwork::LocationMap::const_iterator pos = locationMap_.find(name);
+    if(pos == locationMap_.end()){
+        return NULL;
+    }
+    return pos->second;
+}
+
+ConnPtrConst ShippingNetwork::conn(EntityID name) const {
+    ShippingNetwork::ConnMap::const_iterator pos = conn_.find(name);
+    if(pos == conn_.end()){
+        return NULL;
+    }
+    return pos->second;
+}
+
+FleetPtr ShippingNetwork::fleet(EntityID name) const {
+    ShippingNetwork::FleetMap::const_iterator pos = fleet_.find(name);
+    if(pos == fleet_.end()){
+        return NULL;
+    }
+    return pos->second;
+}
+
+StatsPtrConst ShippingNetwork::stats(EntityID name) const {
+    ShippingNetwork::StatMap::const_iterator pos = stat_.find(name);
+    if(pos == stat_.end()){
+        return NULL;
+    }
+    return pos->second;
+}
 
 ShippingNetworkPtr ShippingNetwork::ShippingNetworkIs(EntityID name){
 
@@ -490,7 +562,7 @@ void StatsReactor::onLocationDel(LocationPtr location){
  * 
  */
 
-Conn::PathList Conn::paths(ConstraintPtr constraints,EntityID start, EntityID end) {
+Conn::PathList Conn::paths(ConstraintPtr constraints,EntityID start, EntityID end) const {
 
     LocationPtr startPtr = shippingNetwork_->location(start);
     LocationPtr endPtr = shippingNetwork_->location(end);
@@ -500,7 +572,7 @@ Conn::PathList Conn::paths(ConstraintPtr constraints,EntityID start, EntityID en
     return PathList();
 }
 
-Conn::PathList Conn::paths(ConstraintPtr constraints,EntityID start) {
+Conn::PathList Conn::paths(ConstraintPtr constraints,EntityID start) const {
 
     LocationPtr startPtr = shippingNetwork_->location(start);
     if(startPtr){
@@ -607,12 +679,36 @@ std::vector<PathPtr> explore(LocationPtr start,
  *
  */
 
+MilePerHour Fleet::speed(TransportMode m) const {
+    Fleet::SpeedMap::const_iterator pos = speed_.find(m);
+    if(pos == speed_.end()){
+        return MilePerHour();
+    }
+    return pos->second;
+}
+
 void Fleet::speedIs(TransportMode m, MilePerHour s){
     speed_[m]=s;
 }
 
+PackageNum Fleet::capacity(TransportMode m) const {
+    Fleet::CapacityMap::const_iterator pos = capacity_.find(m);
+    if(pos == capacity_.end()){
+        return PackageNum();
+    }
+    return pos->second;
+}
+
 void Fleet::capacityIs(TransportMode m, PackageNum p){
     capacity_[m]=p;
+}
+
+DollarPerMile Fleet::cost(TransportMode m) const {
+    Fleet::CostMap::const_iterator pos = cost_.find(m);
+    if(pos == cost_.end()){
+        return DollarPerMile();
+    }
+    return pos->second;
 }
 
 void Fleet::costIs(TransportMode m, DollarPerMile d){
