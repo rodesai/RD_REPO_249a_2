@@ -13,6 +13,7 @@ TEST(Instance, CreateInstanceManager) {
     - add tests for
         - stats / conn / fleet
         - check defaults (i.e. what if i ask for the difficulty without defining it?)
+        - invalid input
 */
 
 TEST(Instance, CreateSegment) {
@@ -22,7 +23,7 @@ TEST(Instance, CreateSegment) {
     ASSERT_TRUE(seg1);
 
     // check defaults
-    EXPECT_EQ(seg1->attribute("length"), "0");
+    EXPECT_EQ(seg1->attribute("length"), "0.00");
     EXPECT_EQ(seg1->attribute("difficulty"), "1.00");
     EXPECT_EQ(seg1->attribute("expedite support"), "no");
     EXPECT_EQ(seg1->attribute("source"), "");
@@ -30,7 +31,7 @@ TEST(Instance, CreateSegment) {
 
     // test changing of attribute values
     seg1->attributeIs("length", "400");
-    EXPECT_EQ(seg1->attribute("length"), "400");
+    EXPECT_EQ(seg1->attribute("length"), "400.00");
     seg1->attributeIs("difficulty", "3.20");
     EXPECT_EQ(seg1->attribute("difficulty"), "3.20");
     seg1->attributeIs("difficulty", "3.20");
@@ -165,9 +166,9 @@ TEST(Instance, CreateFleet) {
     ASSERT_TRUE(fleet);
 
     // check defaults
-    string speedDefault = "10000";
-    string capacityDefault = "1000000";
-    string costDefault = "1000000";
+    string speedDefault = "1.00";
+    string capacityDefault = "1";
+    string costDefault = "1.00";
     EXPECT_EQ(fleet->attribute("Boat, speed"), speedDefault);
     EXPECT_EQ(fleet->attribute("Boat, capacity"), capacityDefault);
     EXPECT_EQ(fleet->attribute("Boat, cost"), costDefault);
@@ -181,27 +182,27 @@ TEST(Instance, CreateFleet) {
 
     // check boat attributes
     fleet->attributeIs("Boat, speed", "10");
-    EXPECT_EQ(fleet->attribute("Boat, speed"), "10");
+    EXPECT_EQ(fleet->attribute("Boat, speed"), "10.00");
     fleet->attributeIs("Boat, capacity", "20");
     EXPECT_EQ(fleet->attribute("Boat, capacity"), "20");
     fleet->attributeIs("Boat, cost", "30");
-    EXPECT_EQ(fleet->attribute("Boat, cost"), "30");
+    EXPECT_EQ(fleet->attribute("Boat, cost"), "30.00");
 
     // check truck attributes
     fleet->attributeIs("Truck, speed", "14");
-    EXPECT_EQ(fleet->attribute("Truck, speed"), "14");
+    EXPECT_EQ(fleet->attribute("Truck, speed"), "14.00");
     fleet->attributeIs("Truck, capacity", "24");
     EXPECT_EQ(fleet->attribute("Truck, capacity"), "24");
     fleet->attributeIs("Truck, cost", "34");
-    EXPECT_EQ(fleet->attribute("Truck, cost"), "34");
+    EXPECT_EQ(fleet->attribute("Truck, cost"), "34.00");
 
     // check plane attributes
     fleet->attributeIs("Plane, speed", "15");
-    EXPECT_EQ(fleet->attribute("Plane, speed"), "15");
+    EXPECT_EQ(fleet->attribute("Plane, speed"), "15.00");
     fleet->attributeIs("Plane, capacity", "25");
     EXPECT_EQ(fleet->attribute("Plane, capacity"), "25");
     fleet->attributeIs("Plane, cost", "35");
-    EXPECT_EQ(fleet->attribute("Plane, cost"), "35");
+    EXPECT_EQ(fleet->attribute("Plane, cost"), "35.00");
 }
 
 TEST(Instance, StatsTest) {
@@ -243,4 +244,28 @@ TEST(Instance, StatsTest) {
     // add a location
     Ptr<Instance> loc1 = m->instanceNew("loc1", "Plane terminal");
     EXPECT_EQ(stats->attribute("Plane terminal"), "1");
+}
+
+TEST(Instance, ConnTest) {
+    // create manager and conn
+    Ptr<Instance::Manager> m = shippingInstanceManager();
+    ASSERT_TRUE(m);
+    Ptr<Instance> conn = m->instanceNew("conn", "Conn");
+    ASSERT_TRUE(conn);
+
+    // add two segments and connect them
+    Ptr<Instance> loc1 = m->instanceNew("loc1", "Customer");
+    ASSERT_TRUE(loc1);
+    Ptr<Instance> loc2 = m->instanceNew("loc2", "Customer");
+    ASSERT_TRUE(loc2);
+    Ptr<Instance> seg1 = m->instanceNew("seg1", "Truck segment");
+    ASSERT_TRUE(seg1);
+    Ptr<Instance> seg2 = m->instanceNew("seg2", "Truck segment");
+    ASSERT_TRUE(seg2);
+    seg1->attributeIs("source", "loc1");
+    seg2->attributeIs("source", "loc2");
+    seg1->attributeIs("return segment", "seg2");
+
+    std::cout << "Made it this far.\n";
+    std::cout << conn->attribute("explore loc1 :");
 }
