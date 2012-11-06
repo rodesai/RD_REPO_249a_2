@@ -14,6 +14,10 @@ TEST(Instance, CreateInstanceManager) {
         - stats / conn / fleet
         - check defaults (i.e. what if i ask for the difficulty without defining it?)
         - invalid input
+        - conn if segment does not have return segment
+        - set return segment as segment that doesn't exist (wrong name)
+        - set source to location that doesn't exist
+        - create a case where there are two paths and one is expedited
 */
 
 TEST(Instance, CreateSegment) {
@@ -23,7 +27,7 @@ TEST(Instance, CreateSegment) {
     ASSERT_TRUE(seg1);
 
     // check defaults
-    EXPECT_EQ(seg1->attribute("length"), "0.00");
+    EXPECT_EQ(seg1->attribute("length"), "1.00");
     EXPECT_EQ(seg1->attribute("difficulty"), "1.00");
     EXPECT_EQ(seg1->attribute("expedite support"), "no");
     EXPECT_EQ(seg1->attribute("source"), "");
@@ -45,11 +49,18 @@ TEST(Instance, CreateSegment) {
     ASSERT_FALSE(seg2);
 
     // create new segment and set return segment
-    seg2 = m->instanceNew("seg2", "Plane segment");
+    seg2 = m->instanceNew("seg2", "Boat segment");
     ASSERT_TRUE(seg2);
     seg1->attributeIs("return segment", "seg2");
     EXPECT_EQ(seg1->attribute("return segment"), "seg2");
     EXPECT_EQ(seg2->attribute("return segment"), "seg1");
+
+    // create segment of the wrong mode
+    Ptr<Instance> seg3 = m->instanceNew("seg3", "Boat segment");
+    ASSERT_TRUE(seg3);
+    seg3->attributeIs("return segment", "seg2");
+    EXPECT_NE(seg1->attribute("return segment"), "seg3");
+
 }
 
 
@@ -253,11 +264,15 @@ TEST(Instance, ConnTest) {
     Ptr<Instance> conn = m->instanceNew("conn", "Conn");
     ASSERT_TRUE(conn);
 
-    // add two segments and connect them
+    // add three locations
     Ptr<Instance> loc1 = m->instanceNew("loc1", "Customer");
     ASSERT_TRUE(loc1);
     Ptr<Instance> loc2 = m->instanceNew("loc2", "Customer");
     ASSERT_TRUE(loc2);
+    Ptr<Instance> loc3 = m->instanceNew("loc3", "Customer");
+    ASSERT_TRUE(loc3);
+
+    // add intermediate segments between first two locations
     Ptr<Instance> seg1 = m->instanceNew("seg1", "Truck segment");
     ASSERT_TRUE(seg1);
     Ptr<Instance> seg2 = m->instanceNew("seg2", "Truck segment");
@@ -265,7 +280,21 @@ TEST(Instance, ConnTest) {
     seg1->attributeIs("source", "loc1");
     seg2->attributeIs("source", "loc2");
     seg1->attributeIs("return segment", "seg2");
+    EXPECT_EQ(seg2->attribute("return segment"), "seg1");
 
-    std::cout << "Made it this far.\n";
-    std::cout << conn->attribute("explore loc1 :");
+    std::cout << conn->attribute("explore loc1 :") << "\n";
+
+    // add intermediate segments between second two locations
+    Ptr<Instance> seg3 = m->instanceNew("seg3", "Truck segment");
+    ASSERT_TRUE(seg3);
+    Ptr<Instance> seg4 = m->instanceNew("seg4", "Truck segment");
+    ASSERT_TRUE(seg4);
+    seg3->attributeIs("source", "loc2");
+    seg4->attributeIs("source", "loc3");
+    seg3->attributeIs("return segment", "seg4");
+    EXPECT_EQ(seg4->attribute("return segment"), "seg3");
+
+    std::cout << conn->attribute("explore loc1 :") << "\n";
+
+    std::cout << conn->attribute("connect loc1 : loc2") << "\n";
 }

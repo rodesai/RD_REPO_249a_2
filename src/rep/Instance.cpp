@@ -215,16 +215,16 @@ public:
     }
     void attributeIs(const string& name, const string& v) {
         if (name == "source") {
+            // TODO: we are looking this up TWICE!
             Ptr<LocationRep> sr = dynamic_cast<LocationRep *> (manager_->instance(v).ptr());
-            if (sr) {
-                LocationPtr loc = sr->representee();
-                if (sourceOK(loc->entityType())) {
-                    representee_->sourceIs(loc);
-                }
-            }
+            if (!sr) return;
+            if (!sourceOK(sr->representee()->entityType())) return;
+            representee_->sourceIs(v);
         } else if (name == "return segment") {
-            Ptr<SegmentRep> sr= dynamic_cast<SegmentRep *> (manager_->instance(v).ptr());
-            if (sr) representee_->returnSegmentIs(sr->representee());
+            Ptr<SegmentRep> sr = dynamic_cast<SegmentRep *> (manager_->instance(v).ptr());
+            if (!sr) return;
+            if (representee_->mode() != sr->representee()->mode()) return;
+            representee_->returnSegmentIs(v);
         } else if (name == "length") {
             representee_->lengthIs(Shipping::Mile(atoi(v.data())));
         } else if (name == "difficulty") {
@@ -436,6 +436,7 @@ public:
         std::vector<Shipping::PathPtr> paths;
 
         // TODO: is there a better way to tokenize?
+        DEBUG_LOG << "Submitting query.\n";
         char* tokenString = strdup(name.data());
         char* namePtr = strtok(tokenString, ", :");
         if (strcmp(namePtr, "connect") == 0) {
@@ -447,32 +448,21 @@ public:
             if (!loc1 && !loc2) return "";
             paths = conn_->paths(NULL,loc1->representee()->name(), loc2->representee()->name());
         } else if (strcmp(namePtr, "explore") == 0) {
-
-            std::cout << "Starting explore.\n";
-
             explore = true;
             namePtr = strtok(NULL, ", :");
             Ptr<LocationRep> loc = dynamic_cast<LocationRep*> (manager_->instance(namePtr).ptr());
-
-            std::cout << "Starting explore.\n";
-
             Conn::ConstraintPtr constraints = parseConstraints(namePtr);
-
-            std::cout << "Constraints ready.\n";
-
-            if (!constraints) std::cout << "No constraints.\n";
-            std::cout << loc->representee()->name() << "\n";
             delete tokenString;
             if (!loc) return "";
             paths = conn_->paths(constraints,loc->representee()->name());
-            
+
             // TODO: destructor needs to be defined
             // delete constraints;
         }
 
-        std::cout << "Reading path.\n";
-
+        DEBUG_LOG << "Reading path.\n";
         unsigned int numPaths = paths.size();
+        DEBUG_LOG << numPaths << " path(s) found.\n";
         for (int i = 0; i < numPaths; i++) {
             Shipping::PathPtr path = paths[i];
             if (!explore) {
@@ -485,15 +475,16 @@ public:
             }
 
             uint32_t numLocs = path->pathElementCount();
-            for (i = 0; ; i++) {
-                ss << path->pathElement(i)->source()->name();
-                if (i + 1 == numLocs) break;
-                ss << "(" << path->pathElement(i)->segment()->name() << ":";
-                ss << MileToStr(path->pathElement(i)->segment()->length());
-                ss << ":" << path->pathElement(i)->segment()->returnSegment()->name() << ") ";
+            DEBUG_LOG << numLocs << " location(s) in path.\n";
+            for (int j = 0; j < numLocs; j++) {
+                ss << path->pathElement(j)->source()->name();
+                ss << "(" << path->pathElement(j)->segment()->name() << ":";
+                ss << MileToStr(path->pathElement(j)->segment()->length());
+                ss << ":" << path->pathElement(j)->segment()->returnSegment()->name() << ") ";
             }
 
-            ss << "\n";
+            ss << path->lastLocation()->name() << "\n";
+            // TODO: destroy paths?
         }
 
         return ss.str();
