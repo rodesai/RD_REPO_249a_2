@@ -171,12 +171,8 @@ public:
     static inline EntityType boatTerminal() { return boatTerminal_; } 
     static inline EntityType planeTerminal() { return planeTerminal_; } 
 
-    uint32_t segmentCount() const { return segments_.size(); }
-    SegmentPtr segment(uint32_t index) const {
-        if (index < 1 || index > segments_.size())
-            return NULL;
-         return segments_[index-1];
-    }
+    uint32_t segmentCount() const; 
+    SegmentPtr segment(uint32_t index) const; 
 
     inline EntityType entityType() const { return entityType_; }
 
@@ -262,7 +258,7 @@ private:
     friend class ShippingNetworkReactor;
     friend class SegmentReactor;
 
-    Segment(ShippingNetworkPtr network, EntityID name, TransportMode mode) : Fwk::NamedInterface(name), length_(1.0), difficulty_(1.0), expediteSupport_(expediteUnsupported_), mode_(mode), network_(network){}
+    Segment(ShippingNetworkPtrConst network, EntityID name, TransportMode mode) : Fwk::NamedInterface(name), length_(1.0), difficulty_(1.0), expediteSupport_(expediteUnsupported_), mode_(mode), network_(network){}
 
     void sourceIs(LocationPtr source);
     void returnSegmentIs(SegmentPtr returnSegment);
@@ -278,16 +274,16 @@ private:
     typedef std::vector<Segment::NotifieePtr> NotifieeList;
     NotifieeList notifieeList_;
 
-    ShippingNetworkPtr network_;
+    ShippingNetworkPtrConst network_;
 };
 
 class Fleet : public Fwk::NamedInterface {
 
 public:
 
-    MilePerHour speed(TransportMode segmentType) { return speed_[segmentType]; }
-    PackageNum capacity(TransportMode segmentType) { return capacity_[segmentType]; }
-    DollarPerMile cost(TransportMode segmentType) { return cost_[segmentType]; }
+    MilePerHour speed(TransportMode segmentType) const; 
+    PackageNum capacity(TransportMode segmentType) const; 
+    DollarPerMile cost(TransportMode segmentType) const; 
 
     void speedIs(TransportMode m, MilePerHour s);
     void capacityIs(TransportMode m, PackageNum p);
@@ -402,8 +398,8 @@ public:
         ConstraintPtr nxt_;
     };
 
-    PathList paths(ConstraintPtr constraints,EntityID start);
-    PathList paths(ConstraintPtr constraints,EntityID start,EntityID end);
+    PathList paths(ConstraintPtr constraints,EntityID start) const;
+    PathList paths(ConstraintPtr constraints,EntityID start,EntityID end) const;
 
     class DistanceConstraint : public Conn::Constraint{
     public:
@@ -471,9 +467,9 @@ private:
 
     friend class ShippingNetwork;
 
-    Conn(std::string name,ShippingNetworkPtr shippingNetwork, FleetPtr fleet) : NamedInterface(name), shippingNetwork_(shippingNetwork), fleet_(fleet){}
+    Conn(std::string name,ShippingNetworkPtrConst shippingNetwork, FleetPtr fleet) : NamedInterface(name), shippingNetwork_(shippingNetwork), fleet_(fleet){}
 
-    ShippingNetworkPtr shippingNetwork_;
+    ShippingNetworkPtrConst shippingNetwork_;
     FleetPtr fleet_;
 };
 
@@ -484,10 +480,8 @@ class Stats : public Fwk::NamedInterface {
 public:
 
     // accessors
-    inline uint32_t locationCount(Location::EntityType et) 
-        { return locationCount_[et]; }
-    inline uint32_t segmentCount(TransportMode et) 
-        { return segmentCount_[et]; }
+    uint32_t locationCount(Location::EntityType et) const; 
+    uint32_t segmentCount(TransportMode et) const;
     inline double expeditePercentage() const {
         if (totalSegmentCount_ == 0)
             return 0;
@@ -548,11 +542,11 @@ public:
     typedef Fwk::Ptr<ShippingNetwork::Notifiee const> NotifieePtrConst;
 
     // accessor
-    SegmentPtr segment(EntityID name) { return segmentMap_[name]; }
-    LocationPtr location(EntityID name) { return locationMap_[name]; }
-    ConnPtr conn(EntityID name) { return conn_[name]; }
-    StatsPtr stats(EntityID name) { return stat_[name]; }
-    FleetPtr fleet(EntityID name) { return fleet_[name]; }
+    SegmentPtr segment(EntityID name) const; 
+    LocationPtr location(EntityID name) const;
+    ConnPtrConst conn(EntityID name) const; 
+    StatsPtrConst stats(EntityID name) const; 
+    FleetPtr fleet(EntityID name) const;
 
     // mutators
     // Instance Creators

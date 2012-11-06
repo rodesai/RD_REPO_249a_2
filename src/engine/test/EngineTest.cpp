@@ -31,6 +31,40 @@ void connectLocations(LocationPtr l1,LocationPtr l2,ShippingNetworkPtr nwk){
     connectLocations(l1,l2,nwk,100,1.0);
 }
 
+TEST(Engine, conn_invalid_start){
+
+    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
+
+    LocationPtr l1 = nwk->LocationNew("l1",Location::port());
+    LocationPtr l2 = nwk->LocationNew("l2",Location::port());
+
+    connectLocations(l1,l2,nwk);
+
+    ConnPtr conn = nwk->ConnNew("conn");
+
+    Conn::PathList paths = conn->paths(NULL,"doesnt_exist");
+
+    ASSERT_TRUE(paths.size()==0);
+}
+
+TEST(Engine, conn_invalid_end){
+
+    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
+
+    LocationPtr l1 = nwk->LocationNew("l1",Location::port());
+    LocationPtr l2 = nwk->LocationNew("l2",Location::port());
+    
+    connectLocations(l1,l2,nwk);
+    
+    ConnPtr conn = nwk->ConnNew("conn");
+
+    Conn::PathList paths = conn->paths(NULL,"l1","doesnt_exist");
+
+    ASSERT_TRUE(paths.size()==1);
+    ASSERT_TRUE(paths[0]->pathElementCount() == 1);
+    ASSERT_TRUE(paths[0]->pathElement(0)->segment()->name() == "l1-l2");
+}
+
 TEST(Engine, conn_endpoint_basic){
 
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
@@ -479,6 +513,7 @@ TEST(Engine, SegmentSource){
     ASSERT_TRUE(location->segmentCount() == 2);
     ASSERT_TRUE(location->segment(1)->name() == "segment1");
     ASSERT_TRUE(location->segment(2)->name() == "segment3");
+    ASSERT_FALSE(segment2->source());
 }
 
 TEST(Engine, SegmentReturnSegment){
