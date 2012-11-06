@@ -65,6 +65,27 @@ TEST(Engine, conn_invalid_end){
     ASSERT_TRUE(paths[0]->pathElement(0)->segment()->name() == "l1-l2");
 }
 
+TEST(Engine, conn_line){
+    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
+
+    LocationPtr l1 = nwk->LocationNew("l1",Location::port());
+    LocationPtr l2 = nwk->LocationNew("l2",Location::port());
+    LocationPtr l3 = nwk->LocationNew("l3",Location::port());
+
+    connectLocations(l1,l2,nwk);
+    connectLocations(l2,l3,nwk);
+
+    ConnPtr conn = nwk->ConnNew("conn");
+    FleetPtr fleet = nwk->FleetNew("fleet");
+    fleet->speedIs(truck_,100);
+    fleet->capacityIs(truck_,100);
+    fleet->costIs(truck_,100);
+
+    Conn::PathList paths = conn->paths(NULL,"l1");
+
+    ASSERT_TRUE(paths.size()==2);
+}
+
 TEST(Engine, conn_endpoint_basic){
 
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
@@ -675,7 +696,7 @@ TEST(Engine, Fleet){
 
 TEST(Engine, Path_emptyPath){
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
-    PathPtr path = Path::PathIs(nwk->FleetNew("fleet"));
+    PathPtr path = Path::PathIs();
     ASSERT_TRUE(path->cost() == 0.0);
     ASSERT_TRUE(path->time() == 0.0);
     ASSERT_TRUE(path->distance() == 0.0);
@@ -684,13 +705,11 @@ TEST(Engine, Path_emptyPath){
 
 TEST(Engine, Path_pathEnq){
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
-    PathPtr path = Path::PathIs(nwk->FleetNew("fleet"));
+    PathPtr path = Path::PathIs();
     ASSERT_TRUE(path->cost() == 0.0);
     ASSERT_TRUE(path->time() == 0.0);
     ASSERT_TRUE(path->distance() == 0.0);
     ASSERT_TRUE(path->expedited() == Segment::expediteSupported());
-
-    FleetPtr fleet = nwk->FleetNew("fleet");
 
     nwk->SegmentNew("s1",truck_);
     nwk->SegmentNew("s1r",truck_);
@@ -699,14 +718,12 @@ TEST(Engine, Path_pathEnq){
     nwk->segment("s1")->sourceIs("l1");
     nwk->segment("s1r")->sourceIs("l2");
     nwk->segment("s1")->returnSegmentIs("s1r");
-    nwk->segment("s1")->lengthIs(10.0);
-    fleet->costIs(truck_,3.3);
-    fleet->speedIs(truck_,2.5);
-    Path::PathElementPtr pathElement = Path::PathElement::PathElementIs(nwk->segment("s1"));
+    nwk->segment("s1")->lengthIs(10.1);
+    Path::PathElementPtr pathElement = Path::PathElement::PathElementIs(nwk->segment("s1"),11.1,22.2);
     path->pathElementEnq(pathElement);
-    ASSERT_TRUE(path->cost() == 33.0);
-    ASSERT_TRUE(path->time() == 4.0);
-    ASSERT_TRUE(path->distance() == 10.0);
+    ASSERT_TRUE(path->cost() == 11.1);
+    ASSERT_TRUE(path->time() == 22.2);
+    ASSERT_TRUE(path->distance() == 10.1);
 
     nwk->SegmentNew("s2",truck_);
     nwk->SegmentNew("s2r",truck_);
@@ -715,13 +732,12 @@ TEST(Engine, Path_pathEnq){
     nwk->segment("s2")->sourceIs("l3");
     nwk->segment("s2r")->sourceIs("l4");
     nwk->segment("s2")->returnSegmentIs("s2r");
-    nwk->segment("s2")->lengthIs(10.0);
     nwk->segment("s2")->lengthIs(20.0);
-    pathElement = Path::PathElement::PathElementIs(nwk->segment("s2"));
+    pathElement = Path::PathElement::PathElementIs(nwk->segment("s2"),33.3,55.5);
     path->pathElementEnq(pathElement);
-    ASSERT_TRUE(path->cost() == 99.0);
-    ASSERT_TRUE(path->time() == 12.0);
-    ASSERT_TRUE(path->distance() == 30.0);
+    ASSERT_TRUE(path->cost() == 44.4);
+    ASSERT_TRUE(path->time() == 77.7);
+    ASSERT_TRUE(path->distance() == 30.1);
 }
 
 TEST(Engine, Stats){

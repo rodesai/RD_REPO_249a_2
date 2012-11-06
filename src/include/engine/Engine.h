@@ -316,18 +316,24 @@ public:
         // accessors
         inline LocationPtr source() const { return segment_->source(); }
         inline SegmentPtr segment() const { return segment_; }
+        inline Dollar cost() const { return cost_; }
+        inline Hour time() const { return time_; }
         // mutators
         void segmentIs(SegmentPtr s); 
         // Constructor
-        static PathElementPtr PathElementIs(SegmentPtr segment);
+        static PathElementPtr PathElementIs(SegmentPtr segment,Dollar cost,Hour time);
         // Copy Constructor 
         static PathElementPtr PathElementIs(PathElementPtr pathElement);
     private:
-        PathElement(SegmentPtr segment) : segment_(segment){}
+        PathElement(SegmentPtr segment,Dollar cost,Hour time) : segment_(segment),cost_(cost),time_(time){}
         PathElement(PathElement* pathElement){
             segment_ = pathElement->segment();
+            cost_=pathElement->cost();
+            time_=pathElement->time();
         }
         SegmentPtr segment_;
+        Dollar cost_;
+        Hour time_;
     };
 
     typedef std::vector<PathElementPtr> PathList;
@@ -337,17 +343,16 @@ public:
     Hour time() const { return time_; }
     Mile distance() const{ return distance_; }
     Segment::ExpediteSupport expedited() const { return expedited_; }
-    PathElementPtr pathElement(uint32_t index);
-    uint32_t pathElementCount(){ return path_.size(); }
-    FleetPtr fleet(){ return fleet_; }
-    LocationPtr lastLocation();
-    LocationPtr location(LocationPtr location);
+    PathElementPtr pathElement(uint32_t index) const;
+    uint32_t pathElementCount() const; 
+    LocationPtr lastLocation() const; ;
+    LocationPtr location(LocationPtr location) const;
 
     // mutators
 
     void pathElementEnq(PathElementPtr element);
 
-    static PathPtr PathIs(FleetPtr fleet);
+    static PathPtr PathIs();
     static PathPtr PathIs(PathPtr path);
     
 private:
@@ -357,12 +362,10 @@ private:
     Mile distance_;
     Segment::ExpediteSupport expedited_;
 
-    FleetPtr fleet_;
-
     std::set<EntityID> locations_;
     PathList path_;
 
-    Path(Fleet* fleet);
+    Path();
     Path(Path* path); 
 };
 
@@ -463,7 +466,11 @@ public:
 
 private:
 
+    // Graph Traversal
     PathList paths(FleetPtr fleet,ConstraintPtr constraints,LocationPtr start,LocationPtr endpoint) const ;
+    // Helper Functions for paths
+    bool validSegment(SegmentPtr segment) const;
+    Path::PathElementPtr constructPathElement(SegmentPtr segment, FleetPtr fleet) const;
 
     friend class ShippingNetwork;
 

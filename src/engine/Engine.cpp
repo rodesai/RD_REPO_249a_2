@@ -150,15 +150,6 @@ void Segment::difficultyIs(Difficulty difficulty){
 }
 
 /*
- * Path 
- *
- */
-
-void Path::PathElement::segmentIs(SegmentPtr segment){
-    segment_=segment;
-}
-
-/*
  * Stats
  *
  */
@@ -581,8 +572,16 @@ Conn::PathList Conn::paths(ConstraintPtr constraints,EntityID start) const {
     return PathList();
 }
 
-bool validSegment(SegmentPtr segment){
+bool Conn::validSegment(SegmentPtr segment) const{
     return (segment && segment->source() && segment->returnSegment() && segment->returnSegment()->source());
+}
+
+Path::PathElementPtr Conn::constructPathElement(SegmentPtr segment, FleetPtr fleet) const{
+    Dollar cost;
+    Hour time;
+    cost = (segment->length()).value() * (fleet->cost(segment->mode())).value() * (segment->difficulty()).value();
+    time = (segment->length()).value() / (fleet->speed(segment->mode())).value();
+    return Path::PathElement::PathElementIs(segment,cost,time);
 }
 
 Conn::PathList Conn::paths(FleetPtr fleet, ConstraintPtr constraints,LocationPtr start, LocationPtr endpoint) const {
@@ -594,10 +593,9 @@ Conn::PathList Conn::paths(FleetPtr fleet, ConstraintPtr constraints,LocationPtr
     // Load Starting Paths
     for(uint32_t i = 1; i <= start->segmentCount(); i++){
         if(validSegment(start->segment(i))){
-            PathPtr path = Path::PathIs(fleet);
             DEBUG_LOG << "Adding segment: " << start->segment(i)->name() << std::endl;
-            Path::PathElementPtr startElement = Path::PathElement::PathElementIs(start->segment(i));
-            path->pathElementEnq(startElement);
+            PathPtr path = Path::PathIs();
+            path->pathElementEnq(constructPathElement(start->segment(i),fleet)); 
             pathStack.push(path);
         }
     }
@@ -646,10 +644,9 @@ Conn::PathList Conn::paths(FleetPtr fleet, ConstraintPtr constraints,LocationPtr
                 LocationPtr destination = segment->returnSegment()->source();
                 DEBUG_LOG << "Destination of potential path: " << destination->name() << std::endl;
                 // If the segment has a valid end point that doesnt cause a cycle, push onto stack
-                if( destination
-                    && !(currentPath->location(destination))){
+                if( destination && !(currentPath->location(destination))){
                     PathPtr pathCopy = Path::PathIs(currentPath);
-                    pathCopy->pathElementEnq(Path::PathElement::PathElementIs(segment));
+                    pathCopy->pathElementEnq(constructPathElement(segment,fleet));
                     pathStack.push(pathCopy);
                 }
                 else{
@@ -720,8 +717,8 @@ void Fleet::costIs(TransportMode m, DollarPerMile d){
  *
  */
 
-PathPtr Path::PathIs(FleetPtr fleet){
-    return new Path(fleet.ptr());
+PathPtr Path::PathIs(){
+    return new Path();
 }
 
 PathPtr Path::PathIs(PathPtr path){
@@ -729,64 +726,57 @@ PathPtr Path::PathIs(PathPtr path){
 }
 
 Path::Path(Path* path) : cost_(0),time_(0),distance_(0),expedited_(Segment::expediteSupported()){
-    fleet_ = path->fleet();
     for(uint32_t i = 0; i < path->pathElementCount(); i++){
         Path::PathElementPtr elementCpy = Path::PathElement::PathElementIs(path->pathElement(i));
         pathElementEnq(elementCpy);
     }
 }
 
-Path::Path(Fleet* fleet) : cost_(0),time_(0),distance_(0),expedited_(Segment::expediteSupported()){
-    fleet_ = fleet; 
-}
+Path::Path() : cost_(0),time_(0),distance_(0),expedited_(Segment::expediteSupported()){}
 
-Path::PathElementPtr Path::PathElement::PathElementIs(SegmentPtr segment){
-    return new Path::PathElement(segment);
+Path::PathElementPtr Path::PathElement::PathElementIs(SegmentPtr segment,Dollar cost,Hour time){
+    return new Path::PathElement(segment,cost,time);
 }
 
 Path::PathElementPtr Path::PathElement::PathElementIs(Path::PathElementPtr pathElement){
     return new Path::PathElement(pathElement.ptr());
 }
 
-Path::PathElementPtr Path::pathElement(uint32_t index){
+Path::PathElementPtr Path::pathElement(uint32_t index) const{
     if(index >= path_.size()) return NULL;
     return path_[index];
 }
 
-void Path::pathElementEnq(Path::PathElementPtr element){
+uint32_t Path::pathElementCount() const {
+    return path_.size();
+}
 
+void Path::pathElementEnq(Path::PathElementPtr element){
     /* Add Element */
     path_.push_back(element);
     /* Update Metadata */
-    Difficulty difficulty = element->segment()->difficulty();
-    Mile length = element->segment()->length();
-    //TODO
-    TransportMode mode = element->segment()->mode();
-    // Update cost
-    cost_ = cost_.value() + difficulty.value()*length.value()*(fleet_->cost(mode)).value();
-    // Update time
-    time_ = time_.value() + (length.value())/((fleet_->speed(mode)).value());
-    // Update distance
-    distance_ = distance_.value() + length.value();
-    // Update expedite status
+    cost_ = cost_.value() + (element->cost()).value();
+    time_ = time_.value() + (element->time()).value(); 
+    distance_ = distance_.value() + (element->segment()->length()).value();
     if(expedited_ == Segment::expediteSupported() && element->segment()->expediteSupport() == Segment::expediteUnsupported()){
         expedited_ = Segment::expediteUnsupported();
     }
-
-    DEBUG_LOG << "Adding source to segment set: " << element->segment()->source()->name() << " ptr: " << element->segment()->source().ptr() << std::endl;
     locations_.insert(element->segment()->source()->name());
-    DEBUG_LOG << "Adding dst to segment set: " << element->segment()->returnSegment()->source()->name() << " ptr: " << element->segment()->returnSegment()->source().ptr() << std::endl;
     locations_.insert(element->segment()->returnSegment()->source()->name());
 }
 
-LocationPtr Path::lastLocation(){
+LocationPtr Path::lastLocation() const{
     if(path_.size() == 0) return NULL;
     SegmentPtr lastReturnSegment = path_.back()->segment()->returnSegment();
     if(!lastReturnSegment) return NULL;
     return lastReturnSegment->source();
 }
 
-LocationPtr Path::location(LocationPtr location){
+LocationPtr Path::location(LocationPtr location) const{
     if(locations_.count(location->name()) == 0){ return NULL; }
     return location;
+}
+
+void Path::PathElement::segmentIs(SegmentPtr segment){
+    segment_=segment;
 }
