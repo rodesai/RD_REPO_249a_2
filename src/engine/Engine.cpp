@@ -667,11 +667,13 @@ Conn::PathList Conn::paths(FleetPtr fleet, ConstraintPtr constraints,LocationPtr
                     PathPtr pathCopy;
                     if(currentPath->expedited() == Path::expeditedPath() && segment->expediteSupport() == Segment::expediteSupported()){
                         pathCopy = copyPath(currentPath,Path::expeditedPath(),fleet);
-                    } else if(currentPath->expedited() == Path::unexpeditedPath) {
+                        pathElementEnque(segment,pathCopy,fleet);
+                        pathStack.push(pathCopy);
+                    } else if(currentPath->expedited() == Path::unexpeditedPath()) {
                         pathCopy = copyPath(currentPath,Path::unexpeditedPath(),fleet);
+                        pathElementEnque(segment,pathCopy,fleet);
+                        pathStack.push(pathCopy);
                     }
-                    pathElementEnque(segment,pathCopy,fleet);
-                    pathStack.push(pathCopy);
                 }
                 else{
                     DEBUG_LOG << "Found a looped path, discard" << std::endl;
