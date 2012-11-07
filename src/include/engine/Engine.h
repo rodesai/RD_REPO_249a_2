@@ -108,17 +108,10 @@ private:
     static const uint64_t defaultValue_ = 1;
 };
 
-class TransportMode : public Ordinal<TransportMode,uint8_t> {
-    enum Mode{
-        truck_=0,
-        boat_=1,
-        plane_=2
-    };
-public:
-    static Mode truck(){ return truck_; }
-    static Mode boat(){ return boat_; }
-    static Mode plane(){ return plane_; }
-    TransportMode(Mode m) : Ordinal<TransportMode,uint8_t>(m){}
+enum TransportMode{
+    truck_=0,
+    boat_,
+    plane_
 };
 
 // Client Types
@@ -191,7 +184,7 @@ private:
 
     // Factory Class
     friend class ShippingNetwork;
-    // Internal Reactor Classes 
+    // Needs access to private mutators to add/remove segments
     friend class SegmentReactor;
 
     // mutators
@@ -261,9 +254,7 @@ public:
 
 private:
 
-    // Factory Class
     friend class ShippingNetwork;
-    // Internal Reactor Classes
     friend class ShippingNetworkReactor;
     friend class SegmentReactor;
 
@@ -298,8 +289,7 @@ public:
     void capacityIs(TransportMode m, PackageNum p);
     void costIs(TransportMode m, DollarPerMile d);
 private:
- 
-    // Factory Class
+
     friend class ShippingNetwork;
 
     Fleet(std::string name) : NamedInterface(name){};
@@ -318,13 +308,6 @@ class Path : public Fwk::PtrInterface<Path>{
 
 public:
 
-    enum Expedited{
-        expeditedPath_=0,
-        unexpeditedPath_
-    };
-    static Expedited expeditedPath(){ return expeditedPath_; }
-    static Expedited unexpeditedPath(){ return unexpeditedPath_; }
-
     class PathElement;
     typedef Fwk::Ptr<PathElement> PathElementPtr;
     typedef Fwk::Ptr<PathElement const> PathElementPtrConst;
@@ -333,13 +316,24 @@ public:
         // accessors
         inline LocationPtr source() const { return segment_->source(); }
         inline SegmentPtr segment() const { return segment_; }
+        inline Dollar cost() const { return cost_; }
+        inline Hour time() const { return time_; }
         // mutators
         void segmentIs(SegmentPtr s); 
         // Constructor
-        static PathElementPtr PathElementIs(SegmentPtr segment);
+        static PathElementPtr PathElementIs(SegmentPtr segment,Dollar cost,Hour time);
+        // Copy Constructor 
+        static PathElementPtr PathElementIs(PathElementPtr pathElement);
     private:
-        PathElement(SegmentPtr segment) : segment_(segment){}
+        PathElement(SegmentPtr segment,Dollar cost,Hour time) : segment_(segment),cost_(cost),time_(time){}
+        PathElement(PathElement* pathElement){
+            segment_ = pathElement->segment();
+            cost_=pathElement->cost();
+            time_=pathElement->time();
+        }
         SegmentPtr segment_;
+        Dollar cost_;
+        Hour time_;
     };
 
     typedef std::vector<PathElementPtr> PathList;
@@ -348,7 +342,7 @@ public:
     Dollar cost() const { return cost_; }
     Hour time() const { return time_; }
     Mile distance() const{ return distance_; }
-    Expedited expedited() const { return expedited_; }
+    Segment::ExpediteSupport expedited() const { return expedited_; }
     PathElementPtr pathElement(uint32_t index) const;
     uint32_t pathElementCount() const; 
     LocationPtr lastLocation() const; ;
@@ -356,21 +350,23 @@ public:
 
     // mutators
 
-    void pathElementEnq(PathElementPtr element,Dollar cost_,Hour time_,Mile distance_);
+    void pathElementEnq(PathElementPtr element);
 
-    static PathPtr PathIs(Expedited expedited);
+    static PathPtr PathIs();
+    static PathPtr PathIs(PathPtr path);
     
 private:
 
     Dollar cost_;
     Hour time_;
     Mile distance_;
-    Expedited expedited_;
+    Segment::ExpediteSupport expedited_;
 
     std::set<EntityID> locations_;
     PathList path_;
 
-    Path(Expedited expedited);
+    Path();
+    Path(Path* path); 
 };
 
 
@@ -456,16 +452,16 @@ public:
     class ExpediteConstraint : public Constraint{
     public:
         EvalOutput evalOutput(){
-            if( !path_ || path_->expedited() != expedited_ )
+            if( !path_ || path_->expedited() != expediteSupport_ )
                 return Constraint::fail();
             return Constraint::pass();
         }
-        static ConstraintPtr ExpediteConstraintIs(Path::Expedited expedited){
-            return new ExpediteConstraint(expedited);
+        static ConstraintPtr ExpediteConstraintIs(Segment::ExpediteSupport expediteSupport){
+            return new ExpediteConstraint(expediteSupport);
         }
     private:
-        ExpediteConstraint(Path::Expedited expedited) : Constraint(), expedited_(expedited){}
-        Path::Expedited expedited_;
+        ExpediteConstraint(Segment::ExpediteSupport expediteSupport) : Constraint(), expediteSupport_(expediteSupport){}
+        Segment::ExpediteSupport expediteSupport_;
     };
 
 private:
@@ -474,10 +470,8 @@ private:
     PathList paths(FleetPtr fleet,ConstraintPtr constraints,LocationPtr start,LocationPtr endpoint) const ;
     // Helper Functions for paths
     bool validSegment(SegmentPtr segment) const;
-    void pathElementEnque(SegmentPtr segment, PathPtr path, FleetPtr fleet) const;
-    PathPtr copyPath(PathPtr path, Path::Expedited expedited, FleetPtr fleet) const;
+    Path::PathElementPtr constructPathElement(SegmentPtr segment, FleetPtr fleet) const;
 
-    // Factory Class
     friend class ShippingNetwork;
 
     Conn(std::string name,ShippingNetworkPtrConst shippingNetwork, FleetPtr fleet) : NamedInterface(name), shippingNetwork_(shippingNetwork), fleet_(fleet){}
@@ -503,9 +497,7 @@ public:
 
 private:
 
-    // Factory Class
     friend class ShippingNetwork;
-    // Internal Reactor Class
     friend class SegmentReactor;
     friend class StatsReactor;
 
@@ -630,7 +622,6 @@ public:
 
 private:
 
-    // Factory Class
     friend class ShippingNetwork;
 
     SegmentReactor(ShippingNetworkPtr network,StatsPtr stats);
@@ -656,7 +647,6 @@ public:
 
 private:
 
-    // Factory Class
     friend class ShippingNetwork;
 
     ShippingNetworkReactor();
@@ -674,7 +664,6 @@ public:
 
 private:
 
-    // Factory Class
     friend class ShippingNetwork;
 
     StatsReactor(StatsPtr stats);
