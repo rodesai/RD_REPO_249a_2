@@ -11,13 +11,21 @@ TEST(Instance, CreateInstanceManager) {
     - do we have the right float/decimal types?
     - is "0" the right percentage if there are no segments?
     - add tests for
-        - stats / conn / fleet
-        - check defaults (i.e. what if i ask for the difficulty without defining it?)
+        x- stats / conn / fleet
+        x- if the stats object is created late, is it up-to-date?
+        x- check defaults (i.e. what if i ask for the difficulty without defining it?)
+        x- if the conn already exits, and you try to create new, do you get null?
+        - is there any order to the list of paths?
         - invalid input
         - conn if segment does not have return segment
         - set return segment as segment that doesn't exist (wrong name)
         - set source to location that doesn't exist
         - create a case where there are two paths and one is expedited
+*/
+
+/* TODO: design questions
+    - the name Path::location() is confusing
+    - all of the expedited types are confusing
 */
 
 TEST(Instance, CreateSegment) {
@@ -257,12 +265,47 @@ TEST(Instance, StatsTest) {
     EXPECT_EQ(stats->attribute("Plane terminal"), "1");
 }
 
+TEST(Instance, StatsCreatedLate) {
+    Ptr<Instance::Manager> m = shippingInstanceManager();
+    ASSERT_TRUE(m);
+
+    // add a segment
+    Ptr<Instance> seg1 = m->instanceNew("seg1", "Boat segment");
+    ASSERT_TRUE(seg1);
+    seg1->attributeIs("expedite support", "yes");
+
+    // test example provided by teacher
+    Ptr<Instance> seg2 = m->instanceNew("seg2", "Boat segment");
+    seg2->attributeIs("expedite support", "yes");
+    Ptr<Instance> seg3 = m->instanceNew("seg3", "Boat segment");
+    seg3->attributeIs("expedite support", "yes");
+    Ptr<Instance> seg4 = m->instanceNew("seg4", "Boat segment");
+    Ptr<Instance> seg5 = m->instanceNew("seg5", "Boat segment");
+    Ptr<Instance> seg6 = m->instanceNew("seg6", "Boat segment");
+    Ptr<Instance> seg7 = m->instanceNew("seg7", "Boat segment");
+
+    // add a location
+    Ptr<Instance> loc1 = m->instanceNew("loc1", "Plane terminal");
+
+    // create stats object late
+    Ptr<Instance> stats = m->instanceNew("stats", "Stats");
+    ASSERT_TRUE(stats);
+    EXPECT_EQ(stats->attribute("Boat segment"), "7");
+    EXPECT_EQ(stats->attribute("expedite percentage"), "42.86");
+    EXPECT_EQ(stats->attribute("Plane terminal"), "1");
+}
+
 TEST(Instance, ConnTest) {
     // create manager and conn
     Ptr<Instance::Manager> m = shippingInstanceManager();
     ASSERT_TRUE(m);
     Ptr<Instance> conn = m->instanceNew("conn", "Conn");
     ASSERT_TRUE(conn);
+
+    // return NULL if trying to create another Conn by the same name
+    EXPECT_FALSE(m->instanceNew("conn", "Conn"));
+    // return the same conn if trying to create a new one
+    EXPECT_TRUE(m->instanceNew("notconn", "Conn"));
 
     // add three locations
     Ptr<Instance> loc1 = m->instanceNew("loc1", "Customer");
@@ -282,7 +325,8 @@ TEST(Instance, ConnTest) {
     seg1->attributeIs("return segment", "seg2");
     EXPECT_EQ(seg2->attribute("return segment"), "seg1");
 
-    std::cout << conn->attribute("explore loc1 :") << "\n";
+    // test explore
+    EXPECT_EQ(conn->attribute("explore loc1 :"), "loc1(seg1:1.00:seg2) loc2\n");
 
     // add intermediate segments between second two locations
     Ptr<Instance> seg3 = m->instanceNew("seg3", "Truck segment");
@@ -294,7 +338,41 @@ TEST(Instance, ConnTest) {
     seg3->attributeIs("return segment", "seg4");
     EXPECT_EQ(seg4->attribute("return segment"), "seg3");
 
-    std::cout << conn->attribute("explore loc1 :") << "\n";
+    // test explore
+    EXPECT_EQ(conn->attribute("explore loc1 :"), "loc1(seg1:1.00:seg2) loc2\nloc1(seg1:1.00:seg2) loc2(seg3:1.00:seg4) loc3\n");
 
-    std::cout << conn->attribute("connect loc1 : loc2") << "\n";
+    // test connect
+    EXPECT_EQ(conn->attribute("connect loc1 : loc2"), "1.00 1.00 no; loc1(seg1:1.00:seg2) loc2\n");
 }
+
+TEST(Instance, ConnNotConnected) {
+    Ptr<Instance::Manager> m = shippingInstanceManager();
+    ASSERT_TRUE(m);
+    Ptr<Instance> conn = m->instanceNew("conn", "Conn");
+    ASSERT_TRUE(conn);
+
+    // add two locations
+    Ptr<Instance> loc1 = m->instanceNew("loc1", "Customer");
+    ASSERT_TRUE(loc1);
+    Ptr<Instance> loc2 = m->instanceNew("loc2", "Customer");
+    ASSERT_TRUE(loc2);
+
+    // add one segment
+    Ptr<Instance> seg1 = m->instanceNew("seg1", "Truck segment");
+    ASSERT_TRUE(seg1);
+    seg1->attributeIs("source", "loc1");
+    EXPECT_EQ(loc1->attribute("segment1"), "seg1");
+
+    // shouldn't find any path
+    EXPECT_EQ(conn->attribute("explore loc1 :"), "");
+
+    // shouldn't find any connection
+    EXPECT_EQ(conn->attribute("connect loc1 : loc2"), "");
+}
+
+TEST(Instance, ConnTwoRoutes) {
+
+}
+
+// test: too slow when not expedited, too costly when expedited
+// go for 
