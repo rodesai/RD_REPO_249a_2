@@ -576,12 +576,26 @@ bool Conn::validSegment(SegmentPtr segment) const{
     return (segment && segment->source() && segment->returnSegment() && segment->returnSegment()->source());
 }
 
-Path::PathElementPtr Conn::constructPathElement(SegmentPtr segment, FleetPtr fleet) const{
+void Conn::pathElementEnque(SegmentPtr segment, PathPtr path, FleetPtr fleet) const{
     Dollar cost;
     Hour time;
-    cost = (segment->length()).value() * (fleet->cost(segment->mode())).value() * (segment->difficulty()).value();
-    time = (segment->length()).value() / (fleet->speed(segment->mode())).value();
-    return Path::PathElement::PathElementIs(segment,cost,time);
+    double cost_multiplier = 1.0;
+    double speed_multiplier = 1.0;
+    if(path->expedited() == Path::expeditedPath()){
+        cost_multiplier = 1.5;
+        speed_multiplier = 1/(1.3);
+    }
+    cost = cost_multiplier * ((segment->length()).value() * (fleet->cost(segment->mode())).value() * (segment->difficulty()).value());
+    time = (segment->length()).value() / (speed_multiplier * (fleet->speed(segment->mode())).value());
+    path->pathElementEnq(Path::PathElement::PathElementIs(segment),cost,time,segment->length());
+}
+
+PathPtr Conn::copyPath(PathPtr path, Path::Expedited expedited, FleetPtr fleet) const {
+    PathPtr copy = Path::PathIs(expedited);
+    for(uint32_t i = 0; i < path->pathElementCount(); i++){
+        pathElementEnque(path->pathElement(i)->segment(), copy, fleet);
+    }
+    return copy;
 }
 
 Conn::PathList Conn::paths(FleetPtr fleet, ConstraintPtr constraints,LocationPtr start, LocationPtr endpoint) const {
@@ -594,8 +608,13 @@ Conn::PathList Conn::paths(FleetPtr fleet, ConstraintPtr constraints,LocationPtr
     for(uint32_t i = 1; i <= start->segmentCount(); i++){
         if(validSegment(start->segment(i))){
             DEBUG_LOG << "Adding segment: " << start->segment(i)->name() << std::endl;
-            PathPtr path = Path::PathIs();
-            path->pathElementEnq(constructPathElement(start->segment(i),fleet)); 
+            PathPtr path;
+            if(start->segment(i)->expediteSupport() == Segment::expediteSupported()){
+               path = Path::PathIs(Path::expeditedPath());
+            } else {
+               path = Path::PathIs(Path::unexpeditedPath());
+            }
+            pathElementEnque(start->segment(i),path,fleet);
             pathStack.push(path);
         }
     }
@@ -632,6 +651,11 @@ Conn::PathList Conn::paths(FleetPtr fleet, ConstraintPtr constraints,LocationPtr
         // Should we output the segment?
         if( !endpoint || endpoint->name() == currentPath->lastLocation()->name() ){
             retval.push_back(currentPath);
+            // If we are outputting an expedited path, add an unexpedited path onto stack
+            if(currentPath->expedited() == Path::expeditedPath()){
+                PathPtr pathCopy = copyPath(currentPath,Path::unexpeditedPath(),fleet);
+                pathStack.push(pathCopy);
+            }
         }
 
         /* Iterate over next set of segments
@@ -645,8 +669,13 @@ Conn::PathList Conn::paths(FleetPtr fleet, ConstraintPtr constraints,LocationPtr
                 DEBUG_LOG << "Destination of potential path: " << destination->name() << std::endl;
                 // If the segment has a valid end point that doesnt cause a cycle, push onto stack
                 if( destination && !(currentPath->location(destination))){
-                    PathPtr pathCopy = Path::PathIs(currentPath);
-                    pathCopy->pathElementEnq(constructPathElement(segment,fleet));
+                    PathPtr pathCopy;
+                    if(currentPath->expedited() == Path::expeditedPath() && segment->expediteSupport() == Segment::expediteSupported()){
+                        pathCopy = copyPath(currentPath,Path::expeditedPath(),fleet);
+                    } else {
+                        pathCopy = copyPath(currentPath,Path::unexpeditedPath(),fleet);
+                    }
+                    pathElementEnque(segment,pathCopy,fleet);
                     pathStack.push(pathCopy);
                 }
                 else{
@@ -717,29 +746,14 @@ void Fleet::costIs(TransportMode m, DollarPerMile d){
  *
  */
 
-PathPtr Path::PathIs(){
-    return new Path();
+PathPtr Path::PathIs(Path::Expedited expedited){
+    return new Path(expedited);
 }
 
-PathPtr Path::PathIs(PathPtr path){
-    return new Path(path.ptr());
-}
+Path::Path(Path::Expedited expedited) : cost_(0),time_(0),distance_(0),expedited_(expedited){}
 
-Path::Path(Path* path) : cost_(0),time_(0),distance_(0),expedited_(Segment::expediteSupported()){
-    for(uint32_t i = 0; i < path->pathElementCount(); i++){
-        Path::PathElementPtr elementCpy = Path::PathElement::PathElementIs(path->pathElement(i));
-        pathElementEnq(elementCpy);
-    }
-}
-
-Path::Path() : cost_(0),time_(0),distance_(0),expedited_(Segment::expediteSupported()){}
-
-Path::PathElementPtr Path::PathElement::PathElementIs(SegmentPtr segment,Dollar cost,Hour time){
-    return new Path::PathElement(segment,cost,time);
-}
-
-Path::PathElementPtr Path::PathElement::PathElementIs(Path::PathElementPtr pathElement){
-    return new Path::PathElement(pathElement.ptr());
+Path::PathElementPtr Path::PathElement::PathElementIs(SegmentPtr segment){
+    return new Path::PathElement(segment);
 }
 
 Path::PathElementPtr Path::pathElement(uint32_t index) const{
@@ -751,16 +765,13 @@ uint32_t Path::pathElementCount() const {
     return path_.size();
 }
 
-void Path::pathElementEnq(Path::PathElementPtr element){
+void Path::pathElementEnq(Path::PathElementPtr element, Dollar cost, Hour time,Mile distance){
     /* Add Element */
     path_.push_back(element);
     /* Update Metadata */
-    cost_ = cost_.value() + (element->cost()).value();
-    time_ = time_.value() + (element->time()).value(); 
-    distance_ = distance_.value() + (element->segment()->length()).value();
-    if(expedited_ == Segment::expediteSupported() && element->segment()->expediteSupport() == Segment::expediteUnsupported()){
-        expedited_ = Segment::expediteUnsupported();
-    }
+    cost_ = cost_.value() + cost.value();
+    time_ = time_.value() + time.value(); 
+    distance_ = distance_.value() + distance.value(); 
     locations_.insert(element->segment()->source()->name());
     locations_.insert(element->segment()->returnSegment()->source()->name());
 }
