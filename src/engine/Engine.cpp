@@ -575,7 +575,13 @@ bool Conn::validSegment(SegmentPtr segment) const{
     return (segment && segment->source() && segment->returnSegment() && segment->returnSegment()->source());
 }
 
-void Conn::pathElementEnque(SegmentPtr segment, PathPtr path, FleetPtr fleet) const{
+PathPtr Conn::pathElementEnque(SegmentPtr segment, PathPtr path, FleetPtr fleet) const{
+    /* Check Path Validity */
+    if(path->expedited() == Path::expeditedPath() && segment->expediteSupport() != Segment::expediteSupported()){
+        DEBUG_LOG << "Invalid path, path expedited but segment doesn't support expediting" << std::endl;
+        return NULL;
+    }
+    /* Update Metrics */
     Dollar cost;
     Hour time;
     double cost_multiplier = 1.0;
@@ -587,10 +593,11 @@ void Conn::pathElementEnque(SegmentPtr segment, PathPtr path, FleetPtr fleet) co
     cost = cost_multiplier * ((segment->length()).value() * (fleet->cost(segment->mode())).value() * (segment->difficulty()).value());
     time = (segment->length()).value() / (speed_multiplier * (fleet->speed(segment->mode())).value());
     path->pathElementEnq(Path::PathElement::PathElementIs(segment),cost,time,segment->length());
+    return path;
 }
 
-PathPtr Conn::copyPath(PathPtr path, Path::Expedited expedited, FleetPtr fleet) const {
-    PathPtr copy = Path::PathIs(expedited);
+PathPtr Conn::copyPath(PathPtr path, FleetPtr fleet) const {
+    PathPtr copy = Path::PathIs(path->expedited(),path->firstLocation());
     for(uint32_t i = 0; i < path->pathElementCount(); i++){
         pathElementEnque(path->pathElement(i)->segment(), copy, fleet);
     }
@@ -604,20 +611,8 @@ Conn::PathList Conn::paths(FleetPtr fleet, ConstraintPtr constraints,LocationPtr
     std::stack<PathPtr> pathStack;
 
     // Load Starting Paths
-    for(uint32_t i = 1; i <= start->segmentCount(); i++){
-        if(validSegment(start->segment(i))){
-            DEBUG_LOG << "Adding segment: " << start->segment(i)->name() << std::endl;
-            PathPtr path;
-            if(start->segment(i)->expediteSupport() == Segment::expediteSupported()){
-               path = Path::PathIs(Path::expeditedPath());
-               pathElementEnque(start->segment(i),path,fleet);
-               pathStack.push(path);
-            }
-            path = Path::PathIs(Path::unexpeditedPath());
-            pathElementEnque(start->segment(i),path,fleet);
-            pathStack.push(path);
-        }
-    }
+    pathStack.push(Path::PathIs(Path::expeditedPath(),start));
+    pathStack.push(Path::PathIs(Path::unexpeditedPath(),start));
 
     DEBUG_LOG << "Starting stack size: " << pathStack.size() << std::endl;
     DEBUG_LOG << "Starting location: " << start->name() << std::endl;
@@ -648,8 +643,11 @@ Conn::PathList Conn::paths(FleetPtr fleet, ConstraintPtr constraints,LocationPtr
             continue;
         }
 
-        // Should we output the segment?
-        if( !endpoint || endpoint->name() == currentPath->lastLocation()->name() ){
+        // Should we output the path?
+        if(    (!endpoint || endpoint->name() == currentPath->lastLocation()->name()) // We have reached an endpoint
+            && (currentPath->pathElementCount() > 0)                                  // Don't ouput 0-hop path (Instructor's Requirement)
+          ){
+            DEBUG_LOG << "Output path" << std::endl;
             retval.push_back(currentPath);
         }
 
@@ -665,13 +663,8 @@ Conn::PathList Conn::paths(FleetPtr fleet, ConstraintPtr constraints,LocationPtr
                 // If the segment has a valid end point that doesnt cause a cycle, push onto stack
                 if( destination && !(currentPath->location(destination))){
                     PathPtr pathCopy;
-                    if(currentPath->expedited() == Path::expeditedPath() && segment->expediteSupport() == Segment::expediteSupported()){
-                        pathCopy = copyPath(currentPath,Path::expeditedPath(),fleet);
-                        pathElementEnque(segment,pathCopy,fleet);
-                        pathStack.push(pathCopy);
-                    } else if(currentPath->expedited() == Path::unexpeditedPath()) {
-                        pathCopy = copyPath(currentPath,Path::unexpeditedPath(),fleet);
-                        pathElementEnque(segment,pathCopy,fleet);
+                    pathCopy = copyPath(currentPath,fleet);
+                    if(pathElementEnque(segment,pathCopy,fleet)){
                         pathStack.push(pathCopy);
                     }
                 }
@@ -679,7 +672,13 @@ Conn::PathList Conn::paths(FleetPtr fleet, ConstraintPtr constraints,LocationPtr
                     DEBUG_LOG << "Found a looped path, discard" << std::endl;
                 }
             }
+            else{
+                DEBUG_LOG << "Invalid segment, discard" << std::endl;
+            }
         }
+        }
+        else{
+             DEBUG_LOG << "Reached endpoint, terminate" << std::endl;
         }
     }
 
@@ -743,11 +742,11 @@ void Fleet::costIs(TransportMode m, DollarPerMile d){
  *
  */
 
-PathPtr Path::PathIs(Path::Expedited expedited){
-    return new Path(expedited);
+PathPtr Path::PathIs(Path::Expedited expedited, LocationPtr firstLocation){
+    return new Path(expedited,firstLocation);
 }
 
-Path::Path(Path::Expedited expedited) : cost_(0),time_(0),distance_(0),expedited_(expedited){}
+Path::Path(Path::Expedited expedited, LocationPtr firstLocation) : cost_(0),time_(0),distance_(0),expedited_(expedited),firstLocation_(firstLocation), lastLocation_(firstLocation){}
 
 Path::PathElementPtr Path::PathElement::PathElementIs(SegmentPtr segment){
     return new Path::PathElement(segment);
@@ -768,16 +767,10 @@ void Path::pathElementEnq(Path::PathElementPtr element, Dollar cost, Hour time,M
     /* Update Metadata */
     cost_ = cost_.value() + cost.value();
     time_ = time_.value() + time.value(); 
-    distance_ = distance_.value() + distance.value(); 
+    distance_ = distance_.value() + distance.value();
+    lastLocation_ = element->segment()->returnSegment()->source(); 
     locations_.insert(element->segment()->source()->name());
     locations_.insert(element->segment()->returnSegment()->source()->name());
-}
-
-LocationPtr Path::lastLocation() const{
-    if(path_.size() == 0) return NULL;
-    SegmentPtr lastReturnSegment = path_.back()->segment()->returnSegment();
-    if(!lastReturnSegment) return NULL;
-    return lastReturnSegment->source();
 }
 
 LocationPtr Path::location(LocationPtr location) const{

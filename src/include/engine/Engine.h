@@ -349,16 +349,16 @@ public:
     Hour time() const { return time_; }
     Mile distance() const{ return distance_; }
     Expedited expedited() const { return expedited_; }
+    LocationPtr firstLocation() const { return firstLocation_; }
+    LocationPtr lastLocation() const { return lastLocation_; }
     PathElementPtr pathElement(uint32_t index) const;
     uint32_t pathElementCount() const; 
-    LocationPtr lastLocation() const; ;
     LocationPtr location(LocationPtr location) const;
 
     // mutators
-
     void pathElementEnq(PathElementPtr element,Dollar cost_,Hour time_,Mile distance_);
 
-    static PathPtr PathIs(Expedited expedited);
+    static PathPtr PathIs(Expedited expedited, LocationPtr firstLocation);
     
 private:
 
@@ -367,10 +367,13 @@ private:
     Mile distance_;
     Expedited expedited_;
 
+    LocationPtr firstLocation_;
+    LocationPtr lastLocation_;
+
     std::set<EntityID> locations_;
     PathList path_;
 
-    Path(Expedited expedited);
+    Path(Expedited expedited, LocationPtr firstLocation);
 };
 
 
@@ -474,8 +477,8 @@ private:
     PathList paths(FleetPtr fleet,ConstraintPtr constraints,LocationPtr start,LocationPtr endpoint) const ;
     // Helper Functions for paths
     bool validSegment(SegmentPtr segment) const;
-    void pathElementEnque(SegmentPtr segment, PathPtr path, FleetPtr fleet) const;
-    PathPtr copyPath(PathPtr path, Path::Expedited expedited, FleetPtr fleet) const;
+    PathPtr pathElementEnque(SegmentPtr segment, PathPtr path, FleetPtr fleet) const;
+    PathPtr copyPath(PathPtr path, FleetPtr fleet) const;
 
     // Factory Class
     friend class ShippingNetwork;

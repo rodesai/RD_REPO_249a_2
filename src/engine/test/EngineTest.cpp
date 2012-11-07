@@ -72,8 +72,8 @@ TEST(Engine, conn_line){
     LocationPtr l2 = nwk->LocationNew("l2",Location::port());
     LocationPtr l3 = nwk->LocationNew("l3",Location::port());
 
-    connectLocations(l1,l2,nwk);
-    connectLocations(l2,l3,nwk);
+    connectLocations(l1,l2,nwk,100,1.0,Segment::expediteSupported());
+    connectLocations(l2,l3,nwk,100,1.0,Segment::expediteSupported());
 
     ConnPtr conn = nwk->ConnNew("conn");
     FleetPtr fleet = nwk->FleetNew("fleet");
@@ -81,7 +81,7 @@ TEST(Engine, conn_line){
     fleet->capacityIs(TransportMode::truck(),100);
     fleet->costIs(TransportMode::truck(),100);
 
-    Conn::PathList paths = conn->paths(NULL,"l1");
+    Conn::PathList paths = conn->paths(NULL,"l1","l2");
 
     ASSERT_TRUE(paths.size()==2);
 }
@@ -733,7 +733,7 @@ TEST(Engine, Fleet){
 
 TEST(Engine, Path_emptyPath){
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
-    PathPtr path = Path::PathIs(Path::expeditedPath());
+    PathPtr path = Path::PathIs(Path::expeditedPath(),nwk->LocationNew("l1",Location::port()));
     ASSERT_TRUE(path->cost() == 0.0);
     ASSERT_TRUE(path->time() == 0.0);
     ASSERT_TRUE(path->distance() == 0.0);
@@ -742,7 +742,7 @@ TEST(Engine, Path_emptyPath){
 
 TEST(Engine, Path_pathEnq){
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
-    PathPtr path = Path::PathIs(Path::expeditedPath());
+    PathPtr path = Path::PathIs(Path::expeditedPath(),nwk->LocationNew("l1",Location::port()));
     ASSERT_TRUE(path->cost() == 0.0);
     ASSERT_TRUE(path->time() == 0.0);
     ASSERT_TRUE(path->distance() == 0.0);
