@@ -56,6 +56,27 @@ void Location::segmentDel(SegmentPtr segment){
  *
  */
 
+uint16_t Segment::modeCount() const{
+    return mode_.size();
+}
+
+PathMode Segment::mode(uint16_t index) const{
+    std::set<PathMode>::const_iterator it;
+    int i = 0;
+    it = mode_.begin();
+    while (it != mode_.end()){
+        if(i == index) return *it;
+        i++;
+        *it++;
+    }
+    return PathMode::undef();
+}
+
+PathMode Segment::mode(PathMode mode) const{
+    if(mode_.count(mode) != 0) return mode;
+    return PathMode::undef();
+}
+
 void Segment::sourceIs(EntityID source){
     sourceIs(network_->location(source));
 }
@@ -108,24 +129,42 @@ void Segment::returnSegmentIs(SegmentPtr returnSegment){
     }
 }
 
-void Segment::expediteSupportIs(Segment::ExpediteSupport expediteSupport){
+void Segment::transportModeIs(TransportMode transportMode){
+    transportMode_ = transportMode;
+}
 
-    if(expediteSupport_==expediteSupport){
+void Segment::modeIs(PathMode mode){
+    if(mode_.count(mode) != 0){
         return;
     }
-
-    expediteSupport_=expediteSupport;
-
+    mode_.insert(mode);
     // Call Notifiees
     Segment::NotifieeList::iterator it;
     for ( it=notifieeList_.begin(); it < notifieeList_.end(); it++ ){
         try{
-            (*it)->onExpediteSupport();
+            (*it)->onMode(mode);
         }
         catch(...){
             // ERROR: maybe we should log something here
         }
     }
+}
+
+PathMode Segment::modeDel(PathMode mode){
+    if(mode_.count(mode) == 0){
+        return PathMode::undef();
+    }
+    mode_.erase(mode);
+    Segment::NotifieeList::iterator it;
+    for ( it=notifieeList_.begin(); it < notifieeList_.end(); it++ ){
+        try{
+            (*it)->onModeDel(mode);
+        }
+        catch(...){
+            // ERROR: maybe we should log something here
+        }
+    }
+    return mode;
 }
 
 void Segment::notifieeIs(Segment::Notifiee* notifiee){
@@ -170,6 +209,14 @@ uint32_t Stats::segmentCount(TransportMode et) const {
     return pos->second;
 }
 
+uint32_t Stats::segmentCount(PathMode et) const {
+    Stats::PathModeCountMap::const_iterator pos = modeCount_.find(et);
+    if(pos == modeCount_.end()){
+        return 0;
+    }
+    return pos->second;
+}
+
 void Stats::locationCountDecr(Location::EntityType type){
     if(locationCount_.count(type) == 0){
         locationCount_[type]=0;
@@ -202,12 +249,20 @@ void Stats::segmentCountIncr(TransportMode type){
     segmentCount_[type]=segmentCount_[type]+1;
 }
 
-void Stats::expediteSegmentCountDecr(){
-    if(expediteSegmentCount_ > 0) expediteSegmentCount_--; 
+void Stats::segmentCountDecr(PathMode type){
+    if(modeCount_.count(type) == 0){
+        modeCount_[type]=0;
+    }
+    else if(modeCount_[type] > 0){
+        modeCount_[type] = modeCount_[type]-1;
+    }
 }
 
-void Stats::expediteSegmentCountIncr(){
-    expediteSegmentCount_++;
+void Stats::segmentCountIncr(PathMode type){
+    if(modeCount_.count(type) == 0){
+        modeCount_[type]=0;
+    }
+    modeCount_[type]=modeCount_[type]+1;
 }
 
 void Stats::totalSegmentCountDecr(){
@@ -293,14 +348,14 @@ void ShippingNetwork::notifieeIs(ShippingNetwork::NotifieePtr notifiee){
     notifieeList_.push_back(notifiee);
 }
 
-SegmentPtr ShippingNetwork::SegmentNew(EntityID name, TransportMode entityType){
+SegmentPtr ShippingNetwork::SegmentNew(EntityID name, TransportMode entityType, PathMode pathMode){
 
     // If Segment with this name already exists, just return it
     SegmentPtr existing = segment(name);
     if(existing) return existing;
 
     // Create a New Segment
-    SegmentPtr retval(new Segment(this,name,entityType));
+    SegmentPtr retval(new Segment(this,name,entityType,pathMode));
     segmentMap_[name]=retval;
 
     // Setup Reactor
@@ -480,13 +535,12 @@ void SegmentReactor::onReturnSegment(){
     }
 }
 
-void SegmentReactor::onExpediteSupport(){
-    if(notifier_->expediteSupport() == Segment::expediteSupported()){
-        stats_->expediteSegmentCountIncr();
-    }
-    else if(notifier_->expediteSupport() == Segment::expediteUnsupported()){
-        stats_->expediteSegmentCountDecr();
-    }
+void SegmentReactor::onMode(PathMode mode){
+    stats_->segmentCountIncr(mode);
+}
+
+void SegmentReactor::onModeDel(PathMode mode){
+    stats_->segmentCountDecr(mode);
 }
 
 /*
@@ -523,19 +577,19 @@ StatsReactor::StatsReactor(StatsPtr stats){
 void StatsReactor::onSegmentNew(EntityID segmentID){
     SegmentPtr segment = notifier_->segment(segmentID);
     if(segment){
-        stats_->segmentCountIncr(segment->mode());
         stats_->totalSegmentCountIncr();
-        if(segment->expediteSupport() == segment->expediteSupported()){
-            stats_->expediteSegmentCountIncr();
+        stats_->segmentCountIncr(segment->transportMode());
+        for(uint16_t i = 0; i < segment->modeCount(); i++){
+            stats_->segmentCountIncr(segment->mode(i));
         }
     }
 }
 
 void StatsReactor::onSegmentDel(SegmentPtr segment){
-    stats_->segmentCountDecr(segment->mode());
     stats_->totalSegmentCountDecr();
-    if(segment->expediteSupport() == segment->expediteSupported()){
-        stats_->expediteSegmentCountDecr();
+    stats_->segmentCountDecr(segment->transportMode());
+    for(uint16_t i = 0; i < segment->modeCount(); i++){
+        stats_->segmentCountDecr(segment->mode(i));
     }
 }
 
@@ -553,53 +607,52 @@ void StatsReactor::onLocationDel(LocationPtr location){
  * 
  */
 
-Conn::PathList Conn::paths(ConstraintPtr constraints,EntityID start, EntityID end) const {
-    LocationPtr startPtr = shippingNetwork_->location(start);
-    LocationPtr endPtr = shippingNetwork_->location(end);
-    if(startPtr){
-        return paths(fleet_,constraints,startPtr,endPtr);
-    }
-    return PathList();
+void Conn::PathSelector::modeIs(PathMode mode){
+    pathModes_.insert(mode);
 }
 
-Conn::PathList Conn::paths(ConstraintPtr constraints,EntityID start) const {
-
-    LocationPtr startPtr = shippingNetwork_->location(start);
-    if(startPtr){
-        return paths(fleet_,constraints,startPtr,NULL);
+PathMode Conn::PathSelector::modeDel(PathMode mode){
+    if(pathModes_.count(mode) == 0) return PathMode::undef();
+    pathModes_.erase(mode);
+    return mode;
+}
+ 
+Conn::PathList Conn::paths(Conn::PathSelector selector) const {
+    LocationPtr startPtr = selector.start();
+    LocationPtr endPtr = selector.end();
+    // Make Sure endPtr is valid Location in my network
+    if(endPtr && shippingNetwork_->location(endPtr->name()) != endPtr){
+        return PathList();
     }
-    return PathList();
+    // Make sure startPtr is valid Location in my network
+    if(!startPtr || (startPtr && shippingNetwork_->location(startPtr->name()) != startPtr)) {
+        return PathList();
+    }
+    return paths(selector.modes(), selector.constraints(),startPtr,endPtr); 
 }
 
 bool Conn::validSegment(SegmentPtr segment) const{
     return (segment && segment->source() && segment->returnSegment() && segment->returnSegment()->source());
 }
 
-PathPtr Conn::pathElementEnque(SegmentPtr segment, PathPtr path, FleetPtr fleet) const{
-    /* Check Path Validity */
-    if(path->expedited() == Path::expeditedPath() && segment->expediteSupport() != Segment::expediteSupported()){
-        DEBUG_LOG << "Invalid path, path expedited but segment doesn't support expediting" << std::endl;
-        return NULL;
-    }
+PathPtr Conn::pathElementEnque(Path::PathElementPtr pathElement, PathPtr path, FleetPtr fleet) const{
     /* Update Metrics */
     Dollar cost;
     Hour time;
-    double cost_multiplier = 1.0;
-    double speed_multiplier = 1.0;
-    if(path->expedited() == Path::expeditedPath()){
-        cost_multiplier = 1.5;
-        speed_multiplier = 1.3;
-    }
-    cost = cost_multiplier * ((segment->length()).value() * (fleet->cost(segment->mode())).value() * (segment->difficulty()).value());
-    time = (segment->length()).value() / (speed_multiplier * (fleet->speed(segment->mode())).value());
-    path->pathElementEnq(Path::PathElement::PathElementIs(segment),cost,time,segment->length());
+    cost = (pathElement->segment()->length()).value() 
+           * (fleet->cost(pathElement->segment()->transportMode())).value() 
+           * (fleet->costMultiplier(pathElement->mode())).value()
+           * (pathElement->segment()->difficulty()).value();
+    time = (pathElement->segment()->length()).value() 
+           / ( (fleet->speed(pathElement->segment()->transportMode()).value()) * ((fleet->speedMultiplier(pathElement->mode())).value()));
+    path->pathElementEnq(pathElement,cost,time,pathElement->segment()->length());
     return path;
 }
 
 PathPtr Conn::copyPath(PathPtr path, FleetPtr fleet) const {
-    PathPtr copy = Path::PathIs(path->expedited(),path->firstLocation());
+    PathPtr copy = Path::PathIs(path->firstLocation());
     for(uint32_t i = 0; i < path->pathElementCount(); i++){
-        pathElementEnque(path->pathElement(i)->segment(), copy, fleet);
+        pathElementEnque(path->pathElement(i), copy, fleet);
     }
     return copy;
 }
@@ -616,19 +669,24 @@ Conn::Constraint::EvalOutput Conn::checkConstraints(Conn::ConstraintPtr constrai
     return Conn::Constraint::pass();
 }
 
-Conn::PathList Conn::paths(FleetPtr fleet, ConstraintPtr constraints,LocationPtr start, LocationPtr endpoint) const {
+std::set<PathMode> Conn::modeIntersection(SegmentPtr segment,std::set<PathMode> modes) const {
+    std::set<PathMode> retval;
+    std::set<PathMode>::const_iterator it;
+    for(it = modes.begin(); it != modes.end(); it++){
+        if(segment->mode(*it) == *it) retval.insert(*it);
+    }
+    return retval;
+}
+
+Conn::PathList Conn::paths(std::set<PathMode> modes, ConstraintPtr constraints,LocationPtr start, LocationPtr endpoint) const {
 
     Conn::PathList retval;
 
     DEBUG_LOG << "Starting location: " << start->name() << std::endl;
 
-    // Setup traversals
+    // Setup 
     std::stack<PathPtr> pathStack;
-    // Expedited traversal
-    pathStack.push(Path::PathIs(Path::expeditedPath(),start));
-    // Unexpedited traversal
-    pathStack.push(Path::PathIs(Path::unexpeditedPath(),start));
-
+    pathStack.push(Path::PathIs(start));
     // Traverse
     while(pathStack.size() > 0){
 
@@ -657,16 +715,17 @@ Conn::PathList Conn::paths(FleetPtr fleet, ConstraintPtr constraints,LocationPtr
         // Continue traversal
         for(uint32_t i = 1; i <= currentPath->lastLocation()->segmentCount(); i++){
             SegmentPtr segment = currentPath->lastLocation()->segment(i); 
-            if(validSegment(segment)){
-                LocationPtr destination = segment->returnSegment()->source();
-                if( destination && !(currentPath->location(destination))){
-                    // If the segment has a valid end point that doesnt cause a cycle, push onto stack
-                    PathPtr pathCopy;
-                    pathCopy = copyPath(currentPath,fleet);
-                    if(pathElementEnque(segment,pathCopy,fleet)){
-                        pathStack.push(pathCopy);
-                    }
-                }
+            if( validSegment(segment)                                                // Valid Segment
+                && segment->returnSegment()->source()                                // AND Valid Return Segment
+                && !(currentPath->location(segment->returnSegment()->source())))      // AND Not a Loop
+              {
+                  std::set<PathMode> overlap = modeIntersection(segment,modes);  
+                  DEBUG_LOG << "Segment Modes: " << segment->modeCount() << ", Transport Modes: " << modes.size() << ", Overlap Size: " << overlap.size() << std::endl;               
+                  for(std::set<PathMode>::const_iterator it = overlap.begin(); it != overlap.end(); it++){
+                      PathPtr pathCopy = copyPath(currentPath,fleet_);
+                      pathElementEnque(Path::PathElement::PathElementIs(segment,*it),pathCopy,fleet_);
+                      pathStack.push(pathCopy);
+                  }
             }
         }
     }
@@ -701,6 +760,18 @@ void Fleet::speedIs(TransportMode m, MilePerHour s){
     speed_[m]=s;
 }
 
+void Fleet::speedMultiplierIs(PathMode mode, Multiplier m){
+    speedMultiplier_[mode]=m;
+}
+
+Multiplier Fleet::speedMultiplier(PathMode m) const{
+    Fleet::SpeedMultiplierMap::const_iterator pos = speedMultiplier_.find(m);
+    if(pos == speedMultiplier_.end()){
+        return Multiplier();
+    }
+    return pos->second;
+}
+
 PackageNum Fleet::capacity(TransportMode m) const {
     Fleet::CapacityMap::const_iterator pos = capacity_.find(m);
     if(pos == capacity_.end()){
@@ -721,6 +792,18 @@ DollarPerMile Fleet::cost(TransportMode m) const {
     return pos->second;
 }
 
+void Fleet::costMultiplierIs(PathMode mode, Multiplier m){
+    costMultiplier_[mode]=m;
+}
+
+Multiplier Fleet::costMultiplier(PathMode m) const{
+    Fleet::CostMultiplierMap::const_iterator pos = costMultiplier_.find(m);
+    if(pos == costMultiplier_.end()){
+        return Multiplier();
+    }
+    return pos->second;
+}
+
 void Fleet::costIs(TransportMode m, DollarPerMile d){
     cost_[m]=d;
 }
@@ -730,14 +813,14 @@ void Fleet::costIs(TransportMode m, DollarPerMile d){
  *
  */
 
-PathPtr Path::PathIs(Path::Expedited expedited, LocationPtr firstLocation){
-    return new Path(expedited,firstLocation);
+PathPtr Path::PathIs(LocationPtr firstLocation){
+    return new Path(firstLocation);
 }
 
-Path::Path(Path::Expedited expedited, LocationPtr firstLocation) : cost_(0),time_(0),distance_(0),expedited_(expedited),firstLocation_(firstLocation), lastLocation_(firstLocation){}
+Path::Path(LocationPtr firstLocation) : cost_(0),time_(0),distance_(0),firstLocation_(firstLocation), lastLocation_(firstLocation){}
 
-Path::PathElementPtr Path::PathElement::PathElementIs(SegmentPtr segment){
-    return new Path::PathElement(segment);
+Path::PathElementPtr Path::PathElement::PathElementIs(SegmentPtr segment, PathMode mode){
+    return new Path::PathElement(segment,mode);
 }
 
 Path::PathElementPtr Path::pathElement(uint32_t index) const{
