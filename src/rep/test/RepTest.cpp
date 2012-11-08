@@ -117,6 +117,10 @@ TEST(Instance, CreateSegment) {
     seg3->attributeIs("return segment", "seg2");
     EXPECT_NE(seg1->attribute("return segment"), "seg3");
 
+
+    // switch expedite segment off
+    seg1->attributeIs("expedite support", "no");
+    EXPECT_EQ(seg1->attribute("expedite support"), "no");
 }
 
 

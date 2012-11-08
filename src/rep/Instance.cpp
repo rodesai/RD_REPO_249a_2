@@ -231,7 +231,7 @@ public:
             if (v == "yes")
                 representee_->modeIs(PathMode::expedited());
             else if (v == "no")
-                representee_->modeIs(PathMode::unexpedited());
+                representee_->modeDel(PathMode::expedited());
         }
     }
 protected:
@@ -530,7 +530,7 @@ private:
             } else if (strcmp(s, "time") == 0) {
                 s = strtok(NULL, ": ");
                 newPtr = Conn::TimeConstraint::TimeConstraintIs(Hour(atof(s)));
-            } else if (strcmp(s, "expedited")) {
+            } else if (strcmp(s, "expedited") == 0) {
                 expedited=true; 
             } else {
                 DEBUG_LOG << "Incorrect input for explore constraint." << std::endl;
