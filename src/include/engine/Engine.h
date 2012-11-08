@@ -479,6 +479,7 @@ private:
     bool validSegment(SegmentPtr segment) const;
     PathPtr pathElementEnque(SegmentPtr segment, PathPtr path, FleetPtr fleet) const;
     PathPtr copyPath(PathPtr path, FleetPtr fleet) const;
+    Constraint::EvalOutput checkConstraints(ConstraintPtr constraints, PathPtr path) const;
 
     // Factory Class
     friend class ShippingNetwork;

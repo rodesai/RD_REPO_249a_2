@@ -604,41 +604,41 @@ PathPtr Conn::copyPath(PathPtr path, FleetPtr fleet) const {
     return copy;
 }
 
+Conn::Constraint::EvalOutput Conn::checkConstraints(Conn::ConstraintPtr constraints, PathPtr path) const {
+    ConstraintPtr constraint = constraints;
+    while(constraint){
+        constraint->pathIs(path);
+        if(constraint->evalOutput() == Conn::Constraint::fail()){
+            return Conn::Constraint::fail();
+        }
+        constraint=constraint->next();
+    }
+    return Conn::Constraint::pass();
+}
+
 Conn::PathList Conn::paths(FleetPtr fleet, ConstraintPtr constraints,LocationPtr start, LocationPtr endpoint) const {
 
     Conn::PathList retval;
 
-    std::stack<PathPtr> pathStack;
-
-    // Load Starting Paths
-    pathStack.push(Path::PathIs(Path::expeditedPath(),start));
-    pathStack.push(Path::PathIs(Path::unexpeditedPath(),start));
-
-    DEBUG_LOG << "Starting stack size: " << pathStack.size() << std::endl;
     DEBUG_LOG << "Starting location: " << start->name() << std::endl;
 
+    // Setup traversals
+    std::stack<PathPtr> pathStack;
+    // Expedited traversal
+    pathStack.push(Path::PathIs(Path::expeditedPath(),start));
+    // Unexpedited traversal
+    pathStack.push(Path::PathIs(Path::unexpeditedPath(),start));
+
+    // Traverse
     while(pathStack.size() > 0){
 
         PathPtr currentPath = pathStack.top();
         pathStack.pop();
 
         DEBUG_LOG << "Visiting location: " << currentPath->lastLocation()->name() << std::endl;
-        DEBUG_LOG << "path: " << currentPath.ptr() << std::endl;
-
-        /* Evaluate Current Path */
 
         // Evaluate constraints
-        Conn::Constraint::EvalOutput evalOutput = Conn::Constraint::pass();
-        ConstraintPtr constraint = constraints;
-        while(constraint){ 
-            constraint->pathIs(currentPath);
-            evalOutput = constraint->evalOutput();
-            if(evalOutput == Conn::Constraint::fail()){
-                break;
-            }
-            constraint=constraint->next();
-        }
-        if(evalOutput==Conn::Constraint::fail()){
+        if(checkConstraints(constraints,currentPath)==Conn::Constraint::fail()){
             DEBUG_LOG << "Failed to pass constraints, discarding path" << std::endl;
             continue;
         }
@@ -651,37 +651,25 @@ Conn::PathList Conn::paths(FleetPtr fleet, ConstraintPtr constraints,LocationPtr
             retval.push_back(currentPath);
         }
 
-        /* Iterate over next set of segments
-         */
-        // Only continue iterating if we havent the endpoint (THIS IS AN OPTIMIZATION)
-        if(!endpoint || endpoint->name() != currentPath->lastLocation()->name()){
+        // Stop traversing if we have hit the endpoint (THIS IS AN OPTIMIZATION)
+        if(endpoint && endpoint == currentPath->lastLocation()) continue;
+
+        // Continue traversal
         for(uint32_t i = 1; i <= currentPath->lastLocation()->segmentCount(); i++){
             SegmentPtr segment = currentPath->lastLocation()->segment(i); 
             if(validSegment(segment)){
                 LocationPtr destination = segment->returnSegment()->source();
-                DEBUG_LOG << "Destination of potential path: " << destination->name() << std::endl;
-                // If the segment has a valid end point that doesnt cause a cycle, push onto stack
                 if( destination && !(currentPath->location(destination))){
+                    // If the segment has a valid end point that doesnt cause a cycle, push onto stack
                     PathPtr pathCopy;
                     pathCopy = copyPath(currentPath,fleet);
                     if(pathElementEnque(segment,pathCopy,fleet)){
                         pathStack.push(pathCopy);
                     }
                 }
-                else{
-                    DEBUG_LOG << "Found a looped path, discard" << std::endl;
-                }
             }
-            else{
-                DEBUG_LOG << "Invalid segment, discard" << std::endl;
-            }
-        }
-        }
-        else{
-             DEBUG_LOG << "Reached endpoint, terminate" << std::endl;
         }
     }
-
     return retval;
 }
 
