@@ -25,7 +25,6 @@ static const string boatSegmentStr = "Boat segment";
 static const string segmentStr = "segment";
 static const int segmentStrlen = segmentStr.length();
 
-
 class ManagerImpl : public Instance::Manager {
 public:
     ManagerImpl();
@@ -206,8 +205,8 @@ public:
         } else if (name == "difficulty") {
             return DifficultyToStr(representee_->difficulty());
         } else if (name == "expedite support") {
-            return (representee_->expediteSupport() == 
-                            Segment::expediteSupported()) ?
+            return (representee_->mode(PathMode::expedited()) == 
+                            PathMode::expedited()) ?
                 "yes" : "no";
         }
 
@@ -222,7 +221,7 @@ public:
         } else if (name == "return segment") {
             Ptr<SegmentRep> sr = dynamic_cast<SegmentRep *> (manager_->instance(v).ptr());
             if (!sr) return;
-            if (representee_->mode() != sr->representee()->mode()) return;
+            if (representee_->transportMode() != representee_->transportMode()) return;
             representee_->returnSegmentIs(v);
         } else if (name == "length") {
             representee_->lengthIs(Mile(atoi(v.data())));
@@ -230,9 +229,9 @@ public:
             representee_->difficultyIs(Difficulty(atof(v.data())));
         } else if (name == "expedite support") {
             if (v == "yes")
-                representee_->expediteSupportIs(Segment::expediteSupported());
+                representee_->modeIs(PathMode::expedited());
             else if (v == "no")
-                representee_->expediteSupportIs(Segment::expediteUnsupported());
+                representee_->modeIs(PathMode::unexpedited());
         }
     }
 protected:
@@ -249,7 +248,7 @@ public:
     TruckSegmentRep(const string& name, ManagerImpl *manager) :
         SegmentRep(name, manager) {
         representee_ = manager->shippingNetwork()->SegmentNew(name,
-            TransportMode::truck());
+            TransportMode::truck(),PathMode::unexpedited());
     }
 protected:
     bool sourceOK(Location::EntityType et) {
@@ -267,7 +266,7 @@ public:
     BoatSegmentRep(const string& name, ManagerImpl *manager) :
         SegmentRep(name, manager) {
         representee_ = manager->shippingNetwork()->SegmentNew(name,
-            TransportMode::boat());
+            TransportMode::boat(),PathMode::unexpedited());
 
     }
 protected:
@@ -286,7 +285,7 @@ public:
     PlaneSegmentRep(const string& name, ManagerImpl *manager) :
         SegmentRep(name, manager) {
         representee_ = manager->shippingNetwork()->SegmentNew(name,
-            TransportMode::plane());
+            TransportMode::plane(),PathMode::unexpedited());
     }
 protected:
     bool sourceOK(Location::EntityType et) {
@@ -409,7 +408,13 @@ public:
         // expedite percentage
         else if (name == "expedite percentage") {
             ss.precision(2);
-            ss << fixed << stats_->expeditePercentage();
+            uint32_t totalCount = stats_->totalSegmentCount();
+            uint32_t expeditedCount = stats_->segmentCount(PathMode::expedited());
+            double percentage = 0.0;
+            if(totalCount>0){ 
+                percentage =  100.0 * ((double)expeditedCount)/((double)stats_->totalSegmentCount());
+            }
+            ss << fixed << percentage;
         }
 
         return ss.str();
@@ -437,7 +442,7 @@ public:
         bool explore = false;
         std::set<string> pathStrings;
         std::vector<PathPtr> paths;
-
+        size_t expeditedIndex=0;
         // TODO: is there a better way to tokenize?
         DEBUG_LOG << "Submitting query.\n";
         char* tokenString = strdup(name.data());
@@ -449,37 +454,50 @@ public:
             Ptr<LocationRep> loc2 = dynamic_cast<LocationRep*> (manager_->instance(namePtr).ptr());
             delete tokenString;
             if (!loc1 && !loc2) return "";
-            paths = conn_->paths(NULL,loc1->representee()->name(), loc2->representee()->name());
+            Conn::PathSelector selector(NULL,loc1->representee(), loc2->representee());
+            selector.modeIs(PathMode::expedited());
+            paths = conn_->paths(selector);
+            expeditedIndex=paths.size();
+            selector = Conn::PathSelector(NULL,loc1->representee(), loc2->representee());
+            selector.modeIs(PathMode::unexpedited());
+            std::vector<PathPtr> unexpeditedpaths = conn_->paths(selector);
+            paths.insert(paths.end(),unexpeditedpaths.begin(),unexpeditedpaths.end());
         } else if (strcmp(namePtr, "explore") == 0) {
             explore = true;
             namePtr = strtok(NULL, ", :");
             Ptr<LocationRep> loc = dynamic_cast<LocationRep*> (manager_->instance(namePtr).ptr());
-            Conn::ConstraintPtr constraints = parseConstraints(namePtr);
+            bool expedited=false;
+            Conn::ConstraintPtr constraints = parseConstraints(namePtr,expedited);
             delete tokenString;
             if (!loc) return "";
-            paths = conn_->paths(constraints,loc->representee()->name());
-
-            // TODO: destructor needs to be defined
-            // delete constraints;
+            Conn::PathSelector selector(constraints,loc->representee());
+            selector.modeIs(PathMode::expedited());
+            paths = conn_->paths(selector);
+            expeditedIndex=paths.size();
+            if(!expedited){
+                selector = Conn::PathSelector(constraints,loc->representee());
+                selector.modeIs(PathMode::unexpedited());
+                std::vector<PathPtr> unexpeditedPaths = conn_->paths(selector);
+                paths.insert(paths.end(),unexpeditedPaths.begin(),unexpeditedPaths.end());
+            }
         }
 
         DEBUG_LOG << "Reading path.\n";
         unsigned int numPaths = paths.size();
         DEBUG_LOG << numPaths << " path(s) found.\n";
-        for (int i = 0; i < numPaths; i++) {
+        for (size_t i = 0; i < numPaths; i++) {
             PathPtr path = paths[i];
             if (!explore) {
                 ss << DollarToStr(path->cost()) << " ";
                 ss << HourToStr(path->time()) << " ";
-                ss << (path->expedited() == 
-                    Path::expeditedPath() ?
+                ss << (i<expeditedIndex ?
                     "yes" : "no");
                 ss << "; ";
             }
 
             uint32_t numLocs = path->pathElementCount();
             DEBUG_LOG << numLocs << " location(s) in path.\n";
-            for (int j = 0; j < numLocs; j++) {
+            for (uint32_t j = 0; j < numLocs; j++) {
                 ss << path->pathElement(j)->source()->name();
                 ss << "(" << path->pathElement(j)->segment()->name() << ":";
                 ss << MileToStr(path->pathElement(j)->segment()->length());
@@ -500,7 +518,7 @@ public:
         // nothing to do here
     }
 private:
-    Conn::ConstraintPtr parseConstraints(char* s) {
+    Conn::ConstraintPtr parseConstraints(char* s, bool& expedited) {
         Conn::ConstraintPtr result = NULL, lastPtr = NULL, newPtr = NULL;
         while ((s = strtok(NULL, ": "))) {
             if (strcmp(s, "distance") == 0) {
@@ -512,8 +530,8 @@ private:
             } else if (strcmp(s, "time") == 0) {
                 s = strtok(NULL, ": ");
                 newPtr = Conn::TimeConstraint::TimeConstraintIs(Hour(atof(s)));
-            } else if (strcmp(s, "expedited") == 0) {
-                newPtr = Conn::ExpediteConstraint::ExpediteConstraintIs(Path::expeditedPath());
+            } else if (strcmp(s, "expedited")) {
+                expedited=true; 
             } else {
                 DEBUG_LOG << "Incorrect input for explore constraint." << std::endl;
                 break;
@@ -532,6 +550,12 @@ ManagerImpl::ManagerImpl() {
     // TODO: Don't think I need to set this name to something the client can read
     shippingNetwork_ =
         ShippingNetwork::ShippingNetworkIs("ShippingNetwork");
+    // Update the expedited costs by their multipliers
+    FleetPtr fleet = shippingNetwork_->FleetNew("_repfleet");
+    fleet->costMultiplierIs(PathMode::unexpedited(),1.0);
+    fleet->speedMultiplierIs(PathMode::unexpedited(),1.0);
+    fleet->costMultiplierIs(PathMode::expedited(),1.5);
+    fleet->speedMultiplierIs(PathMode::expedited(),1.3);
 }
 
 Ptr<Instance> ManagerImpl::instanceNew(const string& name,

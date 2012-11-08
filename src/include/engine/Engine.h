@@ -28,6 +28,17 @@ class ArgumentException : public std::exception {
 
 // Primitive Types
 
+class Multiplier : public Ordinal<Multiplier, double> {
+public:
+    Multiplier(double num) : Ordinal<Multiplier, double>(num) {
+        if (num < 0.0) throw ArgumentException();
+    }
+    Multiplier() : Ordinal<Multiplier,double>(defaultValue_){}
+    static Multiplier defaultValue(){ return defaultValue_; }
+private:
+    static const double defaultValue_ = 1.0;
+};
+
 class Mile : public Ordinal<Mile, double> {
 public:
     Mile(double num) : Ordinal<Mile, double>(num) {
@@ -112,13 +123,28 @@ class TransportMode : public Ordinal<TransportMode,uint8_t> {
     enum Mode{
         truck_=0,
         boat_=1,
-        plane_=2
+        plane_=2,
+        undef_=255
     };
 public:
-    static Mode truck(){ return truck_; }
-    static Mode boat(){ return boat_; }
-    static Mode plane(){ return plane_; }
-    TransportMode(Mode m) : Ordinal<TransportMode,uint8_t>(m){}
+    static TransportMode truck(){ return truck_; }
+    static TransportMode boat(){ return boat_; }
+    static TransportMode plane(){ return plane_; }
+    static TransportMode undef(){ return undef_; }
+    TransportMode(uint8_t m) : Ordinal<TransportMode,uint8_t>(m){}
+};
+
+class PathMode : public Ordinal<PathMode,uint8_t> {
+    enum Mode{
+        expedited_=0,
+        unexpedited_=1,
+        undef_=255
+    };
+public:
+    static PathMode expedited(){ return expedited_; }
+    static PathMode unexpedited(){ return unexpedited_; }
+    static PathMode undef(){ return undef_; }
+    PathMode(uint8_t m) : Ordinal<PathMode,uint8_t>(m){}
 };
 
 // Client Types
@@ -209,16 +235,7 @@ private:
 
 
 class Segment : public Fwk::NamedInterface {
-
 public:
-
-    // Class Types
-
-    enum ExpediteSupport {
-        expediteUnsupported_ = 0,
-        expediteSupported_ = 1,
-        expediteUnspecified_ = 2,
-    };
 
     // Notifiee Class
 
@@ -227,37 +244,37 @@ public:
         // Events
         virtual void onSource(){}
         virtual void onReturnSegment(){}
-        virtual void onExpediteSupport(){}
+        virtual void onMode(PathMode mode){}
+        virtual void onModeDel(PathMode mode){}
         void notifierIs(SegmentPtr notifier){ notifier_=notifier; }
         SegmentPtr notifier() const { return notifier_; }
     protected:
         Notifiee(){}
+        virtual ~Notifiee(){}
         SegmentPtr notifier_;
     };
     typedef Fwk::Ptr<Segment::Notifiee> NotifieePtr;
     typedef Fwk::Ptr<Segment::Notifiee const> NotifieePtrConst;
 
     // Accesors
-
-    // constant accesors
-    static inline ExpediteSupport expediteSupported() { return expediteSupported_; }
-    static inline ExpediteSupport expediteUnsupported() { return expediteUnsupported_; }
-    static inline ExpediteSupport expediteUnspecified() { return expediteUnspecified_; }
-
-    inline TransportMode mode() const { return mode_; }
     inline LocationPtr source() const { return source_; }
     inline Mile length() const { return length_; }
     inline SegmentPtr returnSegment() const { return returnSegment_; }
     inline Difficulty difficulty() const { return difficulty_; }
-    inline ExpediteSupport expediteSupport() const { return expediteSupport_; }
+    inline TransportMode transportMode() const { return transportMode_; }
+    PathMode mode(PathMode mode) const;
+    uint16_t modeCount() const;
+    PathMode mode(uint16_t) const;
 
     // mutators
     void sourceIs(EntityID source);
     void lengthIs(Mile l);
     void returnSegmentIs(EntityID segment); 
     void difficultyIs(Difficulty d); 
-    void expediteSupportIs(ExpediteSupport es);
     void notifieeIs(Segment::Notifiee* notifiee);
+    void transportModeIs(TransportMode transportMode);
+    void modeIs(PathMode mode);
+    PathMode modeDel(PathMode mode);
 
 private:
 
@@ -267,7 +284,10 @@ private:
     friend class ShippingNetworkReactor;
     friend class SegmentReactor;
 
-    Segment(ShippingNetworkPtrConst network, EntityID name, TransportMode mode) : Fwk::NamedInterface(name), length_(1.0), difficulty_(1.0), expediteSupport_(expediteUnsupported_), mode_(mode), network_(network){}
+    Segment(ShippingNetworkPtrConst network, EntityID name, TransportMode transportMode, PathMode mode) : 
+        Fwk::NamedInterface(name), length_(1.0), difficulty_(1.0), transportMode_(transportMode), network_(network){
+        mode_.insert(mode);
+    }
 
     void sourceIs(LocationPtr source);
     void returnSegmentIs(SegmentPtr returnSegment);
@@ -275,8 +295,8 @@ private:
     // attributes
     Mile length_;
     Difficulty difficulty_;
-    ExpediteSupport expediteSupport_;
-    TransportMode mode_;
+    TransportMode transportMode_;
+    std::set<PathMode> mode_;
     SegmentPtr returnSegment_;
     LocationPtr source_;
 
@@ -293,10 +313,14 @@ public:
     MilePerHour speed(TransportMode segmentType) const; 
     PackageNum capacity(TransportMode segmentType) const; 
     DollarPerMile cost(TransportMode segmentType) const; 
+    Multiplier speedMultiplier(PathMode pathMode) const;
+    Multiplier costMultiplier(PathMode pathMode) const;
 
     void speedIs(TransportMode m, MilePerHour s);
     void capacityIs(TransportMode m, PackageNum p);
     void costIs(TransportMode m, DollarPerMile d);
+    void speedMultiplierIs(PathMode pathMode, Multiplier m);
+    void costMultiplierIs(PathMode pathMode, Multiplier m);
 private:
  
     // Factory Class
@@ -312,18 +336,17 @@ private:
 
     typedef std::map<TransportMode,DollarPerMile> CostMap;
     CostMap cost_;
+
+    typedef std::map<PathMode,Multiplier> SpeedMultiplierMap;
+    SpeedMultiplierMap speedMultiplier_;
+  
+    typedef std::map<PathMode,Multiplier> CostMultiplierMap;
+    CostMultiplierMap costMultiplier_;
 };
 
 class Path : public Fwk::PtrInterface<Path>{
 
 public:
-
-    enum Expedited{
-        expeditedPath_=0,
-        unexpeditedPath_
-    };
-    static Expedited expeditedPath(){ return expeditedPath_; }
-    static Expedited unexpeditedPath(){ return unexpeditedPath_; }
 
     class PathElement;
     typedef Fwk::Ptr<PathElement> PathElementPtr;
@@ -333,13 +356,15 @@ public:
         // accessors
         inline LocationPtr source() const { return segment_->source(); }
         inline SegmentPtr segment() const { return segment_; }
+        inline PathMode mode() const { return mode_; }
         // mutators
         void segmentIs(SegmentPtr s); 
         // Constructor
-        static PathElementPtr PathElementIs(SegmentPtr segment);
+        static PathElementPtr PathElementIs(SegmentPtr segment, PathMode mode);
     private:
-        PathElement(SegmentPtr segment) : segment_(segment){}
+        PathElement(SegmentPtr segment, PathMode mode) : segment_(segment), mode_(mode){}
         SegmentPtr segment_;
+        PathMode mode_;
     };
 
     typedef std::vector<PathElementPtr> PathList;
@@ -348,7 +373,6 @@ public:
     Dollar cost() const { return cost_; }
     Hour time() const { return time_; }
     Mile distance() const{ return distance_; }
-    Expedited expedited() const { return expedited_; }
     LocationPtr firstLocation() const { return firstLocation_; }
     LocationPtr lastLocation() const { return lastLocation_; }
     PathElementPtr pathElement(uint32_t index) const;
@@ -358,14 +382,13 @@ public:
     // mutators
     void pathElementEnq(PathElementPtr element,Dollar cost_,Hour time_,Mile distance_);
 
-    static PathPtr PathIs(Expedited expedited, LocationPtr firstLocation);
+    static PathPtr PathIs(LocationPtr firstLocation);
     
 private:
 
     Dollar cost_;
     Hour time_;
     Mile distance_;
-    Expedited expedited_;
 
     LocationPtr firstLocation_;
     LocationPtr lastLocation_;
@@ -373,7 +396,7 @@ private:
     std::set<EntityID> locations_;
     PathList path_;
 
-    Path(Expedited expedited, LocationPtr firstLocation);
+    Path(LocationPtr firstLocation);
 };
 
 
@@ -404,12 +427,31 @@ public:
         virtual EvalOutput evalOutput()=0;
     protected:
         Constraint() : path_(NULL),nxt_(NULL){}
+        virtual ~Constraint(){}
         PathPtr path_;
         ConstraintPtr nxt_;
     };
 
-    PathList paths(ConstraintPtr constraints,EntityID start) const;
-    PathList paths(ConstraintPtr constraints,EntityID start,EntityID end) const;
+    class PathSelector{
+    public:
+        // Mutators
+        PathSelector(ConstraintPtr constraints, LocationPtr start) : start_(start), end_(NULL), constraints_(constraints){}
+        PathSelector(ConstraintPtr constraints, LocationPtr start, LocationPtr end) : start_(start), end_(end), constraints_(constraints){}
+        void modeIs(PathMode mode);
+        PathMode modeDel(PathMode mode);
+    private:
+        friend class Conn;
+        inline LocationPtr start() const { return start_; }
+        inline LocationPtr end() const { return end_; }
+        inline ConstraintPtr constraints() const { return constraints_; }
+        inline std::set<PathMode> modes(){ return pathModes_; }
+        LocationPtr start_;
+        LocationPtr end_;
+        ConstraintPtr constraints_;
+        std::set<PathMode> pathModes_;
+    };
+
+    PathList paths(PathSelector selector) const;
 
     class DistanceConstraint : public Conn::Constraint{
     public:
@@ -456,30 +498,16 @@ public:
         Hour time_;
     };
 
-    class ExpediteConstraint : public Constraint{
-    public:
-        EvalOutput evalOutput(){
-            if( !path_ || path_->expedited() != expedited_ )
-                return Constraint::fail();
-            return Constraint::pass();
-        }
-        static ConstraintPtr ExpediteConstraintIs(Path::Expedited expedited){
-            return new ExpediteConstraint(expedited);
-        }
-    private:
-        ExpediteConstraint(Path::Expedited expedited) : Constraint(), expedited_(expedited){}
-        Path::Expedited expedited_;
-    };
-
 private:
 
     // Graph Traversal
-    PathList paths(FleetPtr fleet,ConstraintPtr constraints,LocationPtr start,LocationPtr endpoint) const ;
+    PathList paths(std::set<PathMode> pathModes,ConstraintPtr constraints,LocationPtr start,LocationPtr endpoint) const ;
     // Helper Functions for paths
     bool validSegment(SegmentPtr segment) const;
-    PathPtr pathElementEnque(SegmentPtr segment, PathPtr path, FleetPtr fleet) const;
+    PathPtr pathElementEnque(Path::PathElementPtr pathElement, PathPtr path, FleetPtr fleet) const;
     PathPtr copyPath(PathPtr path, FleetPtr fleet) const;
     Constraint::EvalOutput checkConstraints(ConstraintPtr constraints, PathPtr path) const;
+    std::set<PathMode> modeIntersection(SegmentPtr segment,std::set<PathMode> pathModes) const;
 
     // Factory Class
     friend class ShippingNetwork;
@@ -499,11 +527,8 @@ public:
     // accessors
     uint32_t locationCount(Location::EntityType et) const; 
     uint32_t segmentCount(TransportMode et) const;
-    inline double expeditePercentage() const {
-        if (totalSegmentCount_ == 0)
-            return 0;
-        return ((double)expediteSegmentCount_ * 100.0) / ((double)totalSegmentCount_);
-    }
+    uint32_t segmentCount(PathMode pm) const;
+    uint32_t totalSegmentCount() const { return totalSegmentCount_; }
 
 private:
 
@@ -514,7 +539,6 @@ private:
     friend class StatsReactor;
 
     Stats(std::string name) : NamedInterface(name){
-        expediteSegmentCount_=0;
         totalSegmentCount_=0;
     }
 
@@ -523,8 +547,8 @@ private:
     void locationCountDecr(Location::EntityType type);
     void segmentCountIncr(TransportMode type);
     void segmentCountDecr(TransportMode type);
-    void expediteSegmentCountIncr();
-    void expediteSegmentCountDecr();
+    void segmentCountIncr(PathMode type);
+    void segmentCountDecr(PathMode type);
     void totalSegmentCountIncr();
     void totalSegmentCountDecr();
 
@@ -534,7 +558,9 @@ private:
     typedef std::map<TransportMode, uint32_t> SegmentCountMap;   
     SegmentCountMap segmentCount_;
 
-    uint32_t expediteSegmentCount_;
+    typedef std::map<PathMode, uint32_t> PathModeCountMap;
+    PathModeCountMap modeCount_;
+
     uint32_t totalSegmentCount_;
 };
 
@@ -555,6 +581,7 @@ public:
         ShippingNetworkPtr notifier() const { return notifier_; }
     protected:
         Notifiee() {}
+        virtual ~Notifiee(){}
         ShippingNetworkPtr notifier_;
     };
     typedef Fwk::Ptr<ShippingNetwork::Notifiee> NotifieePtr;
@@ -571,7 +598,7 @@ public:
     // Instance Creators
     // These instance creators create an instance, add it to the map, 
     // and set up any needed reactors;
-    SegmentPtr SegmentNew(EntityID name, TransportMode mode); 
+    SegmentPtr SegmentNew(EntityID name, TransportMode mode, PathMode pathMode); 
     SegmentPtr segmentDel(EntityID name);
     LocationPtr LocationNew(EntityID name, Location::EntityType entityType);
     LocationPtr locationDel(EntityID name);
@@ -630,7 +657,8 @@ public:
      */ 
     void onReturnSegment();  
 
-    void onExpediteSupport();
+    void onMode(PathMode mode);
+    void onModeDel(PathMode mode);
 
 private:
 
