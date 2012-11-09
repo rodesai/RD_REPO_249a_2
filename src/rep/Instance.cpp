@@ -761,16 +761,11 @@ void ManagerImpl::instanceDel(const string& name) {
     if (instType == customer_ || instType == port_ || instType == truckTerminal_ ||
         instType == boatTerminal_ || instType == planeTerminal_) {
         shippingNetwork_->locationDel(name);
-        instance_.erase(name);
-        return;
     } else if (instType == boatSegment_ || instType == truckSegment_ ||
         instType == planeSegment_) {
         shippingNetwork_->segmentDel(name);
-        instance_.erase(name);
-        return;
     }
-
-    fprintf(stderr, "Type cannot be deleted.\n");
+    instance_.erase(name);
 }
 
 }

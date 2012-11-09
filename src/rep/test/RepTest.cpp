@@ -191,10 +191,6 @@ TEST(Instance, InstanceDelete) {
     // delete something that does not yet exist
     m->instanceDel("seg-1");
 
-    // delete something that cannot be deleted
-    m->instanceDel("stats");
-    EXPECT_TRUE(m->instance("stats"));
-
     // delete segment
     m->instanceDel("seg1");
     // segment no longer exists in engine
@@ -206,7 +202,6 @@ TEST(Instance, InstanceDelete) {
     // can recreate segment by same name
     seg1 = m->instanceNew("seg1", "Boat segment");
     EXPECT_TRUE(m->instance("seg1"));
-
 
     // delete location
     seg1->attributeIs("source", "loc1");
