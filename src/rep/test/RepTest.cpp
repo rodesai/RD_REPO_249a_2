@@ -12,10 +12,10 @@ TEST(Instance, CreateInstanceManager) {
     - do we need to support the removal of a source? (e.g. seg->attributeIs("source", ""))
     x- support deletion of segment and location
     - add tests for
-        - use m->instance() to check that conn / stats / fleet have the right name
         - names are empty strings? check piazza
-        - check road to the location itself
         - invalid input on attribute, attributeIs (especially for conn)
+        o- check road to the location itself
+        x- use m->instance() to check that conn / stats / fleet have the right name
         x- make sure that calling new on stats / conn / fleet will return the same one
         x- stats / conn / fleet
         x- if the stats object is created late, is it up-to-date?
@@ -84,18 +84,65 @@ Ptr<Instance> addSegment(Ptr<Instance::Manager> m, string name, string mode,
     return seg;
 }
 
+TEST(Instance, InstanceMapping) {
+    // create instances needed for test
+    Ptr<Instance::Manager> m = shippingInstanceManager();
+    ASSERT_TRUE(m);
+    Ptr<Instance> seg1 = m->instanceNew("seg1", "Boat segment");
+    ASSERT_TRUE(seg1);
+    Ptr<Instance> loc1 = m->instanceNew("loc1", "Customer");
+    ASSERT_TRUE(loc1);
+    Ptr<Instance> fleet = m->instanceNew("fleet", "Fleet");
+    ASSERT_TRUE(fleet);
+    Ptr<Instance> conn = m->instanceNew("conn", "Conn");
+    ASSERT_TRUE(conn);
+    Ptr<Instance> stats = m->instanceNew("stats", "Stats");
+    ASSERT_TRUE(stats);
+
+    // verify that the instance is mapped
+    ASSERT_TRUE(m->instance("seg1"));
+    ASSERT_TRUE(m->instance("loc1"));
+    ASSERT_TRUE(m->instance("conn"));
+    ASSERT_TRUE(m->instance("stats"));
+    ASSERT_TRUE(m->instance("fleet"));
+
+    // verify that other instances are not
+    ASSERT_FALSE(m->instance("seg11"));
+    ASSERT_FALSE(m->instance("loc11"));
+    ASSERT_FALSE(m->instance("conn1"));
+    ASSERT_FALSE(m->instance("stats1"));
+    ASSERT_FALSE(m->instance("fleet1"));
+}
+
+
 TEST(Instance, TypeOutOfBounds) {
     // create instances needed for test
     Ptr<Instance::Manager> m = shippingInstanceManager();
     ASSERT_TRUE(m);
     Ptr<Instance> seg1 = m->instanceNew("seg1", "Boat segment");
     ASSERT_TRUE(seg1);
+    Ptr<Instance> loc1 = m->instanceNew("loc1", "Boat terminal");
+    ASSERT_TRUE(loc1);
     Ptr<Instance> fleet = m->instanceNew("fleet", "Fleet");
     ASSERT_TRUE(fleet);
+    Ptr<Instance> conn = m->instanceNew("conn", "Conn");
+    ASSERT_TRUE(conn);
+
+    // test for null name
+    ASSERT_FALSE(m->instanceNew("", "Boat segment"));
 
     // test segment values
-    seg1->attributeIs("length", "400");
-    seg1->attributeIs("difficulty", "3.20");
+    seg1->attributeIs("length", "-1");
+    seg1->attributeIs("difficulty", "-1");
+
+    // test fleet values
+    fleet->attributeIs("Boat, speed", "-1");
+    // this doesn't matter because int wraps around
+    fleet->attributeIs("Boat, capacity", "-1");
+    fleet->attributeIs("Boat, cost", "-1");
+
+    // test conn values
+    EXPECT_EQ(conn->attribute("explore loc1 : expedited distance -1.3 cost -1.2 time -1.1"), "");
 }
 
 
@@ -199,8 +246,8 @@ TEST(Instance, CreateSegment) {
     EXPECT_EQ(seg1->attribute("return segment"), "");
 
     // test changing of attribute values
-    seg1->attributeIs("length", "400");
-    EXPECT_EQ(seg1->attribute("length"), "400.00");
+    seg1->attributeIs("length", "400.10");
+    EXPECT_EQ(seg1->attribute("length"), "400.10");
     seg1->attributeIs("difficulty", "3.20");
     EXPECT_EQ(seg1->attribute("difficulty"), "3.20");
     seg1->attributeIs("difficulty", "3.20");
@@ -234,6 +281,11 @@ TEST(Instance, CreateSegment) {
     // switch expedite segment off
     seg1->attributeIs("expedite support", "no");
     EXPECT_EQ(seg1->attribute("expedite support"), "no");
+
+    // set return segment to empty
+    seg1->attributeIs("return segment", "");
+    EXPECT_EQ(seg1->attribute("return segment"), "");
+    EXPECT_EQ(seg2->attribute("return segment"), "");
 }
 
 
@@ -271,6 +323,10 @@ TEST(Instance, CreateLocation) {
     seg3->attributeIs("source", "loc1");
     EXPECT_NE(seg3->attribute("source"), "loc1");
     EXPECT_EQ(loc1->attribute("segment2"), "");
+
+    // set source to empty
+    seg2->attributeIs("source", "");
+    EXPECT_EQ(seg3->attribute("source"), "");
 }
 
 
@@ -369,36 +425,35 @@ TEST(Instance, CreateFleet) {
     EXPECT_EQ(fleet->attribute("Plane, capacity"), capacityDefault);
     EXPECT_EQ(fleet->attribute("Plane, cost"), costDefault);
 
-
     // check boat attributes
-    fleet->attributeIs("Boat, speed", "10");
-    EXPECT_EQ(fleet->attribute("Boat, speed"), "10.00");
+    fleet->attributeIs("Boat, speed", "10.1");
+    EXPECT_EQ(fleet->attribute("Boat, speed"), "10.10");
     fleet->attributeIs("Boat, capacity", "20");
     EXPECT_EQ(fleet->attribute("Boat, capacity"), "20");
-    fleet->attributeIs("Boat, cost", "30");
-    EXPECT_EQ(fleet->attribute("Boat, cost"), "30.00");
+    fleet->attributeIs("Boat, cost", "30.1");
+    EXPECT_EQ(fleet->attribute("Boat, cost"), "30.10");
 
     // check truck attributes
-    fleet->attributeIs("Truck, speed", "14");
-    EXPECT_EQ(fleet->attribute("Truck, speed"), "14.00");
+    fleet->attributeIs("Truck, speed", "14.1");
+    EXPECT_EQ(fleet->attribute("Truck, speed"), "14.10");
     fleet->attributeIs("Truck, capacity", "24");
     EXPECT_EQ(fleet->attribute("Truck, capacity"), "24");
-    fleet->attributeIs("Truck, cost", "34");
-    EXPECT_EQ(fleet->attribute("Truck, cost"), "34.00");
+    fleet->attributeIs("Truck, cost", "34.1");
+    EXPECT_EQ(fleet->attribute("Truck, cost"), "34.10");
 
     // check plane attributes
-    fleet->attributeIs("Plane, speed", "15");
-    EXPECT_EQ(fleet->attribute("Plane, speed"), "15.00");
+    fleet->attributeIs("Plane, speed", "15.1");
+    EXPECT_EQ(fleet->attribute("Plane, speed"), "15.10");
     fleet->attributeIs("Plane, capacity", "25");
     EXPECT_EQ(fleet->attribute("Plane, capacity"), "25");
-    fleet->attributeIs("Plane, cost", "35");
-    EXPECT_EQ(fleet->attribute("Plane, cost"), "35.00");
+    fleet->attributeIs("Plane, cost", "35.1");
+    EXPECT_EQ(fleet->attribute("Plane, cost"), "35.10");
 
     // create duplicate fleet that should have the same values
     Ptr<Instance> fleet2 = m->instanceNew("fleet2", "Fleet");
-    EXPECT_EQ(fleet->attribute("Plane, speed"), "15.00");
+    EXPECT_EQ(fleet->attribute("Plane, speed"), "15.10");
     EXPECT_EQ(fleet->attribute("Plane, capacity"), "25");
-    EXPECT_EQ(fleet2->attribute("Plane, cost"), "35.00");
+    EXPECT_EQ(fleet2->attribute("Plane, cost"), "35.10");
 }
 
 TEST(Instance, StatsTest) {
