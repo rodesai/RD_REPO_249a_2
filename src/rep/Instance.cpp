@@ -87,7 +87,7 @@ public:
     TruckTerminalRep(const string& name, ManagerImpl *manager) :
         LocationRep(name, manager) {
         representee_ = manager->shippingNetwork()->LocationNew(name,
-            Location::truckTerminal());
+            Location::EntityType::truckTerminal());
     }
 };
 
@@ -97,7 +97,7 @@ public:
     BoatTerminalRep(const string& name, ManagerImpl *manager) :
         LocationRep(name, manager) {
         representee_ = manager->shippingNetwork()->LocationNew(name,
-            Location::boatTerminal());
+            Location::EntityType::boatTerminal());
     }
 };
 
@@ -107,7 +107,7 @@ public:
     PlaneTerminalRep(const string& name, ManagerImpl *manager) :
         LocationRep(name, manager) {
         representee_ = manager->shippingNetwork()->LocationNew(name,
-            Location::planeTerminal());
+            Location::EntityType::planeTerminal());
     }
 };
 
@@ -117,7 +117,7 @@ public:
     CustomerRep(const string& name, ManagerImpl *manager) :
         LocationRep(name, manager) {
         representee_ = manager->shippingNetwork()->LocationNew(name,
-            Location::customer());
+            Location::EntityType::customer());
     }
 };
 
@@ -127,7 +127,7 @@ public:
     PortRep(const string& name, ManagerImpl *manager) :
         LocationRep(name, manager) {
         representee_ = manager->shippingNetwork()->LocationNew(name,
-            Location::port());
+            Location::EntityType::port());
     }
 };
 
@@ -252,9 +252,9 @@ public:
     }
 protected:
     bool sourceOK(Location::EntityType et) {
-        if (et == Location::truckTerminal() ||
-            et == Location::customer() ||
-            et == Location::port())
+        if (et == Location::EntityType::truckTerminal() ||
+            et == Location::EntityType::customer() ||
+            et == Location::EntityType::port())
             return true;
         return false;
     }
@@ -271,9 +271,9 @@ public:
     }
 protected:
     bool sourceOK(Location::EntityType et) {
-        if (et == Location::boatTerminal() ||
-            et == Location::customer() ||
-            et == Location::port())
+        if (et == Location::EntityType::boatTerminal() ||
+            et == Location::EntityType::customer() ||
+            et == Location::EntityType::port())
             return true;
         return false;
     }
@@ -289,9 +289,9 @@ public:
     }
 protected:
     bool sourceOK(Location::EntityType et) {
-        if (et == Location::planeTerminal() ||
-            et == Location::customer() ||
-            et == Location::port())
+        if (et == Location::EntityType::planeTerminal() ||
+            et == Location::EntityType::customer() ||
+            et == Location::EntityType::port())
             return true;
         return false;
     }
@@ -378,19 +378,19 @@ public:
         // return location count
         if (name == truckTerminalStr) {
             ss << stats_->locationCount(
-                Location::truckTerminal());
+                Location::EntityType::truckTerminal());
         } else if (name == customerStr) {
             ss << stats_->locationCount(
-                Location::customer());            
+                Location::EntityType::customer());            
         } else if (name == portStr) {
             ss << stats_->locationCount(
-                Location::port());            
+                Location::EntityType::port());            
         } else if (name == planeTerminalStr) {
             ss << stats_->locationCount(
-                Location::planeTerminal());            
+                Location::EntityType::planeTerminal());            
         } else if (name == boatTerminalStr) {
             ss << stats_->locationCount(
-                Location::boatTerminal());            
+                Location::EntityType::boatTerminal());            
         }
 
         // return segment stats
