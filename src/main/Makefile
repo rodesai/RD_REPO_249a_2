@@ -17,3 +17,7 @@ clean:
 
 example.o: example.cpp
 test1.o: test1.cpp 
+
+runtest:
+	./test_driver.pl test_manifest
+

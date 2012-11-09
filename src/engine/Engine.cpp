@@ -11,7 +11,7 @@ using namespace Shipping;
  *
  */
 
-uint32_t Location::segmentCount() const { 
+SegmentCount Location::segmentCount() const { 
     return segments_.size(); 
 }
 
@@ -56,7 +56,7 @@ void Location::segmentDel(SegmentPtr segment){
  *
  */
 
-uint16_t Segment::modeCount() const{
+ModeCount Segment::modeCount() const{
     return mode_.size();
 }
 
@@ -175,7 +175,7 @@ void Segment::notifieeIs(Segment::Notifiee* notifiee){
         if( (*it) == notifiee ) return;
     }
 
-    // Register this notiee
+    // Register this notifiee
     notifiee->notifierIs(this);
     notifieeList_.push_back(notifiee);
 }
@@ -505,13 +505,13 @@ SegmentReactor::SegmentReactor(ShippingNetworkPtr network, StatsPtr stats){
 void SegmentReactor::onSource(){
     // Remove the notifier from the old source
     if(currentSource_){
-        currentSource_->segmentDel(notifier_);
+        currentSource_->segmentDel(notifier());
     }
     // Update the source reference
-    currentSource_ = notifier_->source();
+    currentSource_ = notifier()->source();
     // Add the notifier to the new source
     if(currentSource_){
-        currentSource_->segmentIs(notifier_);
+        currentSource_->segmentIs(notifier());
     }
 }
 
@@ -520,18 +520,18 @@ void SegmentReactor::onReturnSegment(){
     /* Remove this segment from old return segment if it still thinks
      * this reactor's segment is its return segment
      */
-    if(currentReturnSegment_ && currentReturnSegment_->returnSegment() == notifier_){
+    if(currentReturnSegment_ && currentReturnSegment_->returnSegment() == notifier()){
         currentReturnSegment_->returnSegmentIs((SegmentPtr)NULL);
     }
 
     /* Update return segment ref */
-    currentReturnSegment_ = notifier_->returnSegment();
+    currentReturnSegment_ = notifier()->returnSegment();
 
     /* Update new return segment to set this segment as its return segment
      * if this segment is not already its return segment
      */
-    if(currentReturnSegment_ && currentReturnSegment_->returnSegment() != notifier_){
-        currentReturnSegment_->returnSegmentIs(notifier_);
+    if(currentReturnSegment_ && currentReturnSegment_->returnSegment() != notifier()){
+        currentReturnSegment_->returnSegmentIs(notifier());
     }
 }
 
@@ -559,7 +559,7 @@ void ShippingNetworkReactor::onSegmentDel(SegmentPtr segment){
 
 void ShippingNetworkReactor::onLocationDel(LocationPtr location){
     // Clean up this Location from all its Segments
-    for(uint32_t i = 0;i < location->segmentCount(); i++){
+    for(uint32_t i = 1;i <= location->segmentCount().value(); i++){
         SegmentPtr segment = location->segment(i);
         segment->sourceIs((LocationPtr)NULL);
     }
@@ -575,11 +575,11 @@ StatsReactor::StatsReactor(StatsPtr stats){
 }
 
 void StatsReactor::onSegmentNew(EntityID segmentID){
-    SegmentPtr segment = notifier_->segment(segmentID);
+    SegmentPtr segment = notifier()->segment(segmentID);
     if(segment){
         stats_->totalSegmentCountIncr();
         stats_->segmentCountIncr(segment->transportMode());
-        for(uint16_t i = 0; i < segment->modeCount(); i++){
+        for(uint16_t i = 0; i < segment->modeCount().value(); i++){
             stats_->segmentCountIncr(segment->mode(i));
         }
     }
@@ -588,13 +588,13 @@ void StatsReactor::onSegmentNew(EntityID segmentID){
 void StatsReactor::onSegmentDel(SegmentPtr segment){
     stats_->totalSegmentCountDecr();
     stats_->segmentCountDecr(segment->transportMode());
-    for(uint16_t i = 0; i < segment->modeCount(); i++){
+    for(uint16_t i = 0; i < segment->modeCount().value(); i++){
         stats_->segmentCountDecr(segment->mode(i));
     }
 }
 
 void StatsReactor::onLocationNew(EntityID locationID){
-    LocationPtr location = notifier_->location(locationID);
+    LocationPtr location = notifier()->location(locationID);
     stats_->locationCountIncr(location->entityType());    
 }
 
@@ -606,6 +606,63 @@ void StatsReactor::onLocationDel(LocationPtr location){
  * Conn
  * 
  */
+
+    class DistanceConstraint : public Conn::Constraint{
+    public:
+        EvalOutput evalOutput(){
+            if( !path_ || path_->distance() > distance_ )
+                return Conn::Constraint::fail();
+            return Conn::Constraint::pass();
+        }
+        static Conn::ConstraintPtr DistanceConstraintIs(Mile distance){
+            return new DistanceConstraint(distance);
+        }
+    private:
+        DistanceConstraint(Mile distance) : Conn::Constraint(), distance_(distance){}
+        Mile distance_;
+    };
+
+    class CostConstraint : public Conn::Constraint{
+    public:
+        EvalOutput evalOutput(){
+            if( !path_ || path_->cost() > cost_ )
+                return Conn::Constraint::fail();
+            return Conn::Constraint::pass();
+        }
+        static Conn::ConstraintPtr CostConstraintIs(Dollar cost){
+            return new CostConstraint(cost);
+        }
+    private:
+        CostConstraint(Dollar cost) : Conn::Constraint(), cost_(cost){}
+        Dollar cost_;
+    };
+
+    class TimeConstraint : public Conn::Constraint{
+    public:
+        EvalOutput evalOutput(){
+            if( !path_ || path_->time() > time_ )
+                return Conn::Constraint::fail();
+            return Conn::Constraint::pass();
+        }
+        static Conn::ConstraintPtr TimeConstraintIs(Hour time){
+            return new TimeConstraint(time);
+        }
+    private:
+        TimeConstraint(Hour time) : Conn::Constraint(), time_(time) {}
+        Hour time_;
+    };
+
+Conn::ConstraintPtr Conn::DistanceConstraintIs(Mile distance){
+    return DistanceConstraint::DistanceConstraintIs(distance);
+}
+
+Conn::ConstraintPtr Conn::TimeConstraintIs(Hour time){
+    return TimeConstraint::TimeConstraintIs(time);
+}
+
+Conn::ConstraintPtr Conn::CostConstraintIs(Dollar cost){
+    return CostConstraint::CostConstraintIs(cost);
+}
 
 void Conn::PathSelector::modeIs(PathMode mode){
     pathModes_.insert(mode);
@@ -641,24 +698,24 @@ PathPtr Conn::pathElementEnque(Path::PathElementPtr pathElement, PathPtr path, F
     Hour time;
     cost = (pathElement->segment()->length()).value() 
            * (fleet->cost(pathElement->segment()->transportMode())).value() 
-           * (fleet->costMultiplier(pathElement->mode())).value()
+           * (fleet->costMultiplier(pathElement->elementMode())).value()
            * (pathElement->segment()->difficulty()).value();
     time = (pathElement->segment()->length()).value() 
-           / ( (fleet->speed(pathElement->segment()->transportMode()).value()) * ((fleet->speedMultiplier(pathElement->mode())).value()));
+           / ( (fleet->speed(pathElement->segment()->transportMode()).value()) * ((fleet->speedMultiplier(pathElement->elementMode())).value()));
     path->pathElementEnq(pathElement,cost,time,pathElement->segment()->length());
     return path;
 }
 
 PathPtr Conn::copyPath(PathPtr path, FleetPtr fleet) const {
     PathPtr copy = Path::PathIs(path->firstLocation());
-    for(uint32_t i = 0; i < path->pathElementCount(); i++){
+    for(uint32_t i = 0; i < path->pathElementCount().value(); i++){
         pathElementEnque(path->pathElement(i), copy, fleet);
     }
     return copy;
 }
 
-Conn::Constraint::EvalOutput Conn::checkConstraints(Conn::ConstraintPtr constraints, PathPtr path) const {
-    ConstraintPtr constraint = constraints;
+Conn::Constraint::EvalOutput Conn::checkConstraints(ConstraintPtr constraints, PathPtr path) const {
+    Conn::ConstraintPtr constraint = constraints;
     while(constraint){
         constraint->pathIs(path);
         if(constraint->evalOutput() == Conn::Constraint::fail()){
@@ -713,14 +770,14 @@ Conn::PathList Conn::paths(std::set<PathMode> modes, ConstraintPtr constraints,L
         if(endpoint && endpoint == currentPath->lastLocation()) continue;
 
         // Continue traversal
-        for(uint32_t i = 1; i <= currentPath->lastLocation()->segmentCount(); i++){
+        for(uint32_t i = 1; i <= currentPath->lastLocation()->segmentCount().value(); i++){
             SegmentPtr segment = currentPath->lastLocation()->segment(i); 
             if( validSegment(segment)                                                // Valid Segment
                 && segment->returnSegment()->source()                                // AND Valid Return Segment
                 && !(currentPath->location(segment->returnSegment()->source())))      // AND Not a Loop
               {
                   std::set<PathMode> overlap = modeIntersection(segment,modes);  
-                  DEBUG_LOG << "Segment Modes: " << segment->modeCount() << ", Transport Modes: " << modes.size() << ", Overlap Size: " << overlap.size() << std::endl;               
+                  DEBUG_LOG << "Segment Modes: " << segment->modeCount().value() << ", Transport Modes: " << modes.size() << ", Overlap Size: " << overlap.size() << std::endl;               
                   for(std::set<PathMode>::const_iterator it = overlap.begin(); it != overlap.end(); it++){
                       PathPtr pathCopy = copyPath(currentPath,fleet_);
                       pathElementEnque(Path::PathElement::PathElementIs(segment,*it),pathCopy,fleet_);
@@ -819,8 +876,8 @@ PathPtr Path::PathIs(LocationPtr firstLocation){
 
 Path::Path(LocationPtr firstLocation) : cost_(0),time_(0),distance_(0),firstLocation_(firstLocation), lastLocation_(firstLocation){}
 
-Path::PathElementPtr Path::PathElement::PathElementIs(SegmentPtr segment, PathMode mode){
-    return new Path::PathElement(segment,mode);
+Path::PathElementPtr Path::PathElement::PathElementIs(SegmentPtr segment, PathMode elementMode){
+    return new Path::PathElement(segment,elementMode);
 }
 
 Path::PathElementPtr Path::pathElement(uint32_t index) const{
@@ -828,7 +885,7 @@ Path::PathElementPtr Path::pathElement(uint32_t index) const{
     return path_[index];
 }
 
-uint32_t Path::pathElementCount() const {
+PathElementCount Path::pathElementCount() const {
     return path_.size();
 }
 

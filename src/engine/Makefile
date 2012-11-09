@@ -10,3 +10,6 @@ clean:
 	rm -f $(OBJECTS) *~
 
 Instance.o: Engine.cpp 
+
+runtest:
+	cd test && gmake clean && gmake && gmake main && gmake test

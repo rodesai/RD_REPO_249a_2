@@ -7,10 +7,10 @@ TEST(Instance, CreateInstanceManager) {
 }
 
 /* TODO:
-    - verify that I do NOT need to delete a ref (e.g. from instanceDel)
-    - need to make value type not negative for unspecified (hour, dollar, mile)
+    x- verify that I do NOT need to delete a ref (e.g. from instanceDel)
+    x- need to make value type not negative for unspecified (hour, dollar, mile)
     - do we need to support the removal of a source? (e.g. seg->attributeIs("source", ""))
-    - support deletion of segment and location
+    x- support deletion of segment and location
     - add tests for
         - use m->instance() to check that conn / stats / fleet have the right name
         - names are empty strings? check piazza
@@ -84,6 +84,20 @@ Ptr<Instance> addSegment(Ptr<Instance::Manager> m, string name, string mode,
     return seg;
 }
 
+TEST(Instance, TypeOutOfBounds) {
+    // create instances needed for test
+    Ptr<Instance::Manager> m = shippingInstanceManager();
+    ASSERT_TRUE(m);
+    Ptr<Instance> seg1 = m->instanceNew("seg1", "Boat segment");
+    ASSERT_TRUE(seg1);
+    Ptr<Instance> fleet = m->instanceNew("fleet", "Fleet");
+    ASSERT_TRUE(fleet);
+
+    // test segment values
+    seg1->attributeIs("length", "400");
+    seg1->attributeIs("difficulty", "3.20");
+}
+
 
 TEST(Instance, InstanceDelete) {
     // create instances needed for test
@@ -96,8 +110,8 @@ TEST(Instance, InstanceDelete) {
     seg1->attributeIs("return segment", "seg2");
     ASSERT_EQ(seg2->attribute("return segment"), "seg1");
     Ptr<Instance> loc1 = m->instanceNew("loc1", "Port");
-    //seg1->attributeIs("source", "loc1");
-    //ASSERT_EQ(loc1->attribute("segment1"), "seg1");
+    seg1->attributeIs("source", "loc1");
+    ASSERT_EQ(loc1->attribute("segment1"), "seg1");
     Ptr<Instance> stats = m->instanceNew("stats", "Stats");
     ASSERT_TRUE(m->instance("stats"));
 
@@ -126,16 +140,48 @@ TEST(Instance, InstanceDelete) {
     EXPECT_EQ(loc1->attribute("segment1"), "seg1");
     m->instanceDel("loc1");
     // source no longer exists in the engine
-
-    std::cout << "deleted location\n";
-
     EXPECT_FALSE(m->instance("loc1"));
     // segement no longer points to source
     EXPECT_EQ(seg1->attribute("source"), "");
     // can recreate instance with the same name
-
     loc1 = m->instanceNew("loc1", "Port");
     EXPECT_TRUE(m->instance("loc1"));
+
+    // test delete of all location types
+    Ptr<Instance> boatTerminal = m->instanceNew("boatTerminal", "Boat terminal");
+    ASSERT_TRUE(boatTerminal);
+    m->instanceDel("boatTerminal");
+    EXPECT_FALSE(m->instance("boatTerminal"));
+    Ptr<Instance> planeTerminal = m->instanceNew("planeTerminal", "Plane terminal");
+    ASSERT_TRUE(planeTerminal);
+    m->instanceDel("planeTerminal");
+    EXPECT_FALSE(m->instance("planeTerminal"));
+    Ptr<Instance> truckTerminal = m->instanceNew("truckTerminal", "Truck terminal");
+    ASSERT_TRUE(truckTerminal);
+    m->instanceDel("truckTerminal");
+    EXPECT_FALSE(m->instance("truckTerminal"));
+    Ptr<Instance> customer = m->instanceNew("customer", "Customer");
+    ASSERT_TRUE(customer);
+    m->instanceDel("customer");
+    EXPECT_FALSE(m->instance("customer"));
+    Ptr<Instance> port = m->instanceNew("port", "Port");
+    ASSERT_TRUE(port);
+    m->instanceDel("port");
+    EXPECT_FALSE(m->instance("port"));
+
+    // test delete of all segment types
+    Ptr<Instance> boatSegment = m->instanceNew("boatSegment", "Boat segment");
+    ASSERT_TRUE(boatSegment);
+    m->instanceDel("boatSegment");
+    EXPECT_FALSE(m->instance("boatSegment"));
+    Ptr<Instance> planeSegment = m->instanceNew("planeSegment", "Plane segment");
+    ASSERT_TRUE(planeSegment);
+    m->instanceDel("planeSegment");
+    EXPECT_FALSE(m->instance("planeSegment"));
+    Ptr<Instance> truckSegment = m->instanceNew("truckSegment", "Truck segment");
+    ASSERT_TRUE(truckSegment);
+    m->instanceDel("truckSegment");
+    EXPECT_FALSE(m->instance("truckSegment"));
 }
 
 TEST(Instance, CreateSegment) {
