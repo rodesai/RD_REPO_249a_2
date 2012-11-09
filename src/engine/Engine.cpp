@@ -559,7 +559,7 @@ void ShippingNetworkReactor::onSegmentDel(SegmentPtr segment){
 
 void ShippingNetworkReactor::onLocationDel(LocationPtr location){
     // Clean up this Location from all its Segments
-    for(uint32_t i = 0;i < location->segmentCount().value(); i++){
+    for(uint32_t i = 1;i <= location->segmentCount().value(); i++){
         SegmentPtr segment = location->segment(i);
         segment->sourceIs((LocationPtr)NULL);
     }

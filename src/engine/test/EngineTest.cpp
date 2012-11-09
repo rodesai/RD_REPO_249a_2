@@ -31,6 +31,36 @@ void connectLocations(LocationPtr l1,LocationPtr l2,ShippingNetworkPtr nwk){
     connectLocations(l1,l2,nwk,100,1.0);
 }
 
+TEST(Engine, locationDel){
+    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
+    LocationPtr l1 = nwk->LocationNew("l1",Location::EntityType::port());
+    LocationPtr l = nwk->locationDel("l1");
+    ASSERT_TRUE(l1 == l);
+    ASSERT_TRUE(nwk->location("l1") == NULL);
+    l1 = nwk->LocationNew("l1",Location::EntityType::port());
+    SegmentPtr s = nwk->SegmentNew("s1",TransportMode::truck(),PathMode::unexpedited());
+    s->sourceIs("l1");
+    l = nwk->locationDel("l1");
+    ASSERT_TRUE(l1 == l);
+    ASSERT_TRUE(nwk->location("l1") == NULL); 
+    ASSERT_TRUE(nwk->segment("s1")->source() == NULL);
+}
+
+TEST(Engine, segmentDel){
+    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
+    SegmentPtr s1 = nwk->SegmentNew("s1",TransportMode::truck(),PathMode::unexpedited());
+    SegmentPtr s = nwk->segmentDel("s1");
+    ASSERT_TRUE(s1 == s);
+    ASSERT_TRUE(nwk->segment("s1") == NULL);
+    s1 = nwk->SegmentNew("s1",TransportMode::truck(),PathMode::unexpedited());
+    LocationPtr l = nwk->LocationNew("l1",Location::EntityType::port());
+    s1->sourceIs("l1");
+    s = nwk->segmentDel("s1");
+    ASSERT_TRUE(s1 == s);
+    ASSERT_TRUE(nwk->segment("s1") == NULL);
+    ASSERT_TRUE(l->segmentCount() == 0);
+}
+
 TEST(Engine, conn_invalid_start){
 
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
@@ -856,7 +886,6 @@ TEST(Engine, Stats){
     ASSERT_TRUE(stat->locationCount(Location::EntityType::boatTerminal()) == 0);
     ASSERT_TRUE(stat->locationCount(Location::EntityType::planeTerminal()) == 0);
     ASSERT_TRUE(stat->locationCount(Location::EntityType::truckTerminal()) == 0); 
-    std::cout << "customer count: " << stat->locationCount(Location::EntityType::customer()) << std::endl;
     ASSERT_TRUE(stat->locationCount(Location::EntityType::customer()) == 0);
     ASSERT_TRUE(stat->locationCount(Location::EntityType::port()) == 1);
     ASSERT_TRUE(stat->segmentCount(TransportMode::truck()) == 1);
