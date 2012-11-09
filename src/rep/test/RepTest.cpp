@@ -15,12 +15,13 @@ TEST(Instance, CreateInstanceManager) {
         x- if the stats object is created late, is it up-to-date?
         x- check defaults (i.e. what if i ask for the difficulty without defining it?)
         x- if the conn already exits, and you try to create new, do you get null?
-        - is there any order to the list of paths?
+        x- conn if segment does not have return segment
         - invalid input
-        - conn if segment does not have return segment
         - set return segment as segment that doesn't exist (wrong name)
         - set source to location that doesn't exist
         - create a case where there are two paths and one is expedited
+        - names are empty strings? check piazza
+        - check road to the location itself
 */
 
 /* TODO: design questions
@@ -28,10 +29,57 @@ TEST(Instance, CreateInstanceManager) {
     - all of the expedited types are confusing
 */
 
+Ptr<Instance> addSegment(Ptr<Instance::Manager> m, string name, string mode,
+    string source, string returnSegment, string length, string difficulty,
+    string expedited) {
+
+    // create segment
+    Ptr<Instance> seg = m->instanceNew(name, mode);
+    EXPECT_TRUE(seg);
+
+    // set start if value provided
+    seg->attributeIs("source", source);
+    EXPECT_EQ(seg->attribute("source"), source);
+
+    // set reverse if value provided
+    seg->attributeIs("return segment", returnSegment);
+    EXPECT_EQ(seg->attribute("return segment"), returnSegment);
+
+    // set length if value provided
+    if (length != "") {
+        seg->attributeIs("length", length);
+        EXPECT_EQ(seg->attribute("length"), length);
+    } else {
+        // check default
+        EXPECT_EQ(seg->attribute("length"), "1.00");
+    }
+
+    // set distance if value provided
+    if (difficulty != "") {
+        seg->attributeIs("difficulty", difficulty);
+        EXPECT_EQ(seg->attribute("difficulty"), difficulty);
+    } else {
+        // check default
+        EXPECT_EQ(seg->attribute("difficulty"), "1.00");
+    }
+
+    // set distance if value provided
+    if (expedited != "") {
+        seg->attributeIs("expedite support", expedited);
+        EXPECT_EQ(seg->attribute("expedite support"), expedited);
+    } else {
+        // check default
+        EXPECT_EQ(seg->attribute("expedite support"), "no");
+    }
+
+    return seg;
+}
+
 TEST(Instance, CreateSegment) {
     Ptr<Instance::Manager> m = shippingInstanceManager();
     ASSERT_TRUE(m);
-    Ptr<Instance> seg1 = m->instanceNew("seg1", "Boat segment");
+    Ptr<Instance> seg1 = addSegment(m, "seg1", "Boat segment", "", "", "", "",
+        "");
     ASSERT_TRUE(seg1);
 
     // check defaults
@@ -69,6 +117,10 @@ TEST(Instance, CreateSegment) {
     seg3->attributeIs("return segment", "seg2");
     EXPECT_NE(seg1->attribute("return segment"), "seg3");
 
+
+    // switch expedite segment off
+    seg1->attributeIs("expedite support", "no");
+    EXPECT_EQ(seg1->attribute("expedite support"), "no");
 }
 
 
@@ -371,8 +423,53 @@ TEST(Instance, ConnNotConnected) {
 }
 
 TEST(Instance, ConnTwoRoutes) {
+    Ptr<Instance::Manager> m = shippingInstanceManager();
+    ASSERT_TRUE(m);
+    Ptr<Instance> conn = m->instanceNew("conn", "Conn");
+    ASSERT_TRUE(conn);
+    Ptr<Instance> fleet = m->instanceNew("fleet", "Fleet");
+    ASSERT_TRUE(fleet);
 
+    // setup costs and speeds
+    fleet->attributeIs("Truck, speed", "50");
+    fleet->attributeIs("Truck, cost", "10");
+    fleet->attributeIs("Plane, speed", "250");
+    fleet->attributeIs("Plane, cost", "15");
+
+    // add two locations
+    Ptr<Instance> loc1 = m->instanceNew("loc1", "Customer");
+    ASSERT_TRUE(loc1);
+    Ptr<Instance> loc2 = m->instanceNew("loc2", "Customer");
+    ASSERT_TRUE(loc2);
+
+    // add two paths between them
+    Ptr<Instance> seg1 = addSegment(m, "seg1", "Truck segment", "loc1",
+        "", "400.00", "1.00", "yes");
+    Ptr<Instance> seg2 = addSegment(m, "seg2", "Truck segment", "loc2",
+        "seg1", "500.00", "1.00", "yes");
+    Ptr<Instance> seg3 = addSegment(m, "seg3", "Plane segment", "loc1",
+        "", "450.00", "1.00", "yes");
+    Ptr<Instance> seg4 = addSegment(m, "seg4", "Plane segment", "loc2",
+        "seg3", "550.00", "1.00", "yes");
+
+    // the following was checked manually
+    EXPECT_EQ(conn->attribute("connect loc1 : loc2"), "10125.00 1.38 yes; loc1(seg3:450.00:seg4) loc2\n4000.00 8.00 no; loc1(seg1:400.00:seg2) loc2\n6000.00 6.15 yes; loc1(seg1:400.00:seg2) loc2\n6750.00 1.80 no; loc1(seg3:450.00:seg4) loc2\n");
+    
+    //std::cout << conn->attribute("connect loc1 : loc2");
+
+    EXPECT_EQ(conn->attribute("explore loc1 :"), "loc1(seg1:400.00:seg2) loc2\nloc1(seg3:450.00:seg4) loc2\n");
+    EXPECT_EQ(conn->attribute("explore loc1 : expedited"), "loc1(seg1:400.00:seg2) loc2\nloc1(seg3:450.00:seg4) loc2\n");
+    EXPECT_EQ(conn->attribute("explore loc1 : expedited distance 400"), "loc1(seg1:400.00:seg2) loc2\n");
+    EXPECT_EQ(conn->attribute("explore loc1 : expedited distance 400 cost 6000"), "loc1(seg1:400.00:seg2) loc2\n");
+    EXPECT_EQ(conn->attribute("explore loc1 : expedited distance 400 cost 5999"), "");
+    EXPECT_EQ(conn->attribute("explore loc1 : expedited distance 400 cost 6000 time 6.14"), "");
+    EXPECT_EQ(conn->attribute("explore loc1 : expedited distance 400 cost 6000 time 6.16"), "loc1(seg1:400.00:seg2) loc2\n");
+    EXPECT_EQ(conn->attribute("explore loc1 : expedited distance 400 time 6.14"), "");
+    EXPECT_EQ(conn->attribute("explore loc1 : time 1.39"), "loc1(seg3:450.00:seg4) loc2\n");
+    EXPECT_EQ(conn->attribute("explore loc1 : time 2"), "loc1(seg3:450.00:seg4) loc2\n");
 }
+
+// test for turning off exepdite supported
 
 // test: too slow when not expedited, too costly when expedited
 // go for 

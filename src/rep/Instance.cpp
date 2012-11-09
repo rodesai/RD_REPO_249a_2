@@ -214,7 +214,6 @@ public:
     }
     void attributeIs(const string& name, const string& v) {
         if (name == "source") {
-            // TODO: we are looking this up TWICE!
             Ptr<LocationRep> sr = dynamic_cast<LocationRep *> (manager_->instance(v).ptr());
             if (!sr) return;
             if (!sourceOK(sr->representee()->entityType())) return;
@@ -228,8 +227,11 @@ public:
             representee_->lengthIs(Mile(atoi(v.data())));
         } else if (name == "difficulty") {
             representee_->difficultyIs(Difficulty(atof(v.data())));
-        } else if (name == "expedite support" && v == "yes") {
-            representee_->modeIs(PathMode::expedited());
+        } else if (name == "expedite support") {
+            if (v == "yes")
+                representee_->modeIs(PathMode::expedited());
+            else if (v == "no")
+                representee_->modeDel(PathMode::expedited());
         }
     }
 protected:
@@ -488,7 +490,6 @@ public:
             if (!explore) {
                 ss << DollarToStr(path->cost()) << " ";
                 ss << HourToStr(path->time()) << " ";
-                // TODO: I think we have way too many of these
                 ss << (i<expeditedIndex ?
                     "yes" : "no");
                 ss << "; ";
@@ -518,31 +519,26 @@ public:
     }
 private:
     Conn::ConstraintPtr parseConstraints(char* s, bool& expedited) {
-        Conn::ConstraintPtr result = NULL;
+        Conn::ConstraintPtr result = NULL, lastPtr = NULL, newPtr = NULL;
         while ((s = strtok(NULL, ": "))) {
-            Conn::ConstraintPtr lastPtr = result;
-            Conn::ConstraintPtr newPtr = NULL;
-            if (strcmp(s, "distance")) {
+            if (strcmp(s, "distance") == 0) {
                 s = strtok(NULL, ": ");
-                newPtr = Conn::DistanceConstraint::DistanceConstraintIs(Mile(atoi(s)));
-            } else if (strcmp(s, "cost")) {
+                newPtr = Conn::DistanceConstraint::DistanceConstraintIs(Mile(atof(s)));
+            } else if (strcmp(s, "cost") == 0) {
                 s = strtok(NULL, ": ");
-                newPtr = Conn::CostConstraint::CostConstraintIs(Dollar(atoi(s)));
-            } else if (strcmp(s, "time")) {
+                newPtr = Conn::CostConstraint::CostConstraintIs(Dollar(atof(s)));
+            } else if (strcmp(s, "time") == 0) {
                 s = strtok(NULL, ": ");
-                newPtr = Conn::TimeConstraint::TimeConstraintIs(Hour(atoi(s)));
-            } else if (strcmp(s, "expedited")) {
+                newPtr = Conn::TimeConstraint::TimeConstraintIs(Hour(atof(s)));
+            } else if (strcmp(s, "expedited") == 0) {
                 expedited=true; 
             } else {
                 DEBUG_LOG << "Incorrect input for explore constraint." << std::endl;
                 break;
             }
-            if (!result) {
-                result = newPtr;
-            } else {
-                lastPtr->nextIs(newPtr);
-                lastPtr = lastPtr->next();
-            }
+            if (!result) result = newPtr;
+            else lastPtr->nextIs(newPtr);
+            lastPtr = newPtr;
         }
         return result;
     }
