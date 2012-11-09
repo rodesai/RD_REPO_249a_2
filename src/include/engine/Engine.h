@@ -23,7 +23,14 @@ typedef std::string EntityID;
 class ArgumentException : public std::exception {
 public:
     virtual const char* message() const throw() {
-        return "Argument exception.";
+        return "Argument exception";
+    }
+};
+
+class EntityExistsException : public std::exception {
+public:
+    virtual const char* message() const throw() {
+        return "Entity exists";
     }
 };
 

@@ -1,4 +1,4 @@
-INCLUDE=-I../include -I../
+INCLUDE=-I../include -I../include/rep -I../
 
 LIBS=../rep/Instance.o ../engine/Engine.o ../fwk/*.o
 

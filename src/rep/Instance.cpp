@@ -667,6 +667,9 @@ ManagerImpl::ManagerImpl() {
 
 Ptr<Instance> ManagerImpl::instanceNew(const string& name,
     const string& type) {
+
+    try{
+
     // do not create an instance if the name already exists
     if (instance(name)) {
         fprintf(stderr, "Instance already exists with name %s.\n", name.data());
@@ -732,9 +735,16 @@ Ptr<Instance> ManagerImpl::instanceNew(const string& name,
     InstanceMapElem ime = {instType, inst};
     instance_[name] = ime;
     return inst;
+
+    }
+    catch(...){
+        std::cerr << "Error caught from rep layer" << std::endl;
+        return NULL;
+    }
 }
 
 void ManagerImpl::instanceDel(const string& name) {
+    try{
     map<string,InstanceMapElem>::const_iterator t = instance_.find(name);
     if (t == instance_.end()) {
         fprintf(stderr, "Instance does not exist with name: %s.\n", name.data());
@@ -755,6 +765,10 @@ void ManagerImpl::instanceDel(const string& name) {
     }
 
     fprintf(stderr, "Type cannot be deleted.\n");
+    }
+    catch(...){
+        std::cerr << "Error caught from rep layer" << std::endl;
+    }
 }
 
 }

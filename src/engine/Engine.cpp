@@ -352,7 +352,9 @@ SegmentPtr ShippingNetwork::SegmentNew(EntityID name, TransportMode entityType, 
 
     // If Segment with this name already exists, just return it
     SegmentPtr existing = segment(name);
-    if(existing) return existing;
+    if(existing){
+        throw EntityExistsException();
+    }
 
     // Create a New Segment
     SegmentPtr retval(new Segment(this,name,entityType,pathMode));
@@ -405,7 +407,9 @@ LocationPtr ShippingNetwork::LocationNew(EntityID name, Location::EntityType ent
     
     // If Segment with this name already exists, just return it
     LocationPtr existing = location(name);
-    if(existing) return existing;
+    if(existing){
+        throw EntityExistsException();
+    }
 
     // Create a New Segment
     LocationPtr retval(new Location(name,entityType));
@@ -452,6 +456,9 @@ LocationPtr ShippingNetwork::locationDel(EntityID name){
 }
 
 StatsPtr ShippingNetwork::StatsNew(EntityID name){
+    if(stat_.count(name) != 0){
+        throw EntityExistsException();
+    }
     stat_[name] = statPtr_;
     return statPtr_;
 }
@@ -465,6 +472,9 @@ StatsPtr ShippingNetwork::statsDel(EntityID name){
 }
 
 ConnPtr ShippingNetwork::ConnNew(EntityID name){
+    if(conn_.count(name) != 0){
+        throw EntityExistsException();
+    }
     conn_[name] = connPtr_;
     return connPtr_;
 }
@@ -478,6 +488,9 @@ ConnPtr ShippingNetwork::connDel(EntityID name){
 }
 
 FleetPtr ShippingNetwork::FleetNew(EntityID name){
+    if(fleet_.count(name) != 0){
+        throw EntityExistsException();
+    }
     fleet_[name]=fleetPtr_;
     return fleetPtr_;
 }

@@ -848,7 +848,6 @@ TEST(Engine, Path_pathEnq){
 
     nwk->SegmentNew("s1",TransportMode::truck(),PathMode::unexpedited());
     nwk->SegmentNew("s1r",TransportMode::truck(),PathMode::unexpedited());
-    nwk->LocationNew("l1",Location::EntityType::port());
     nwk->LocationNew("l2",Location::EntityType::port());
     nwk->segment("s1")->sourceIs("l1");
     nwk->segment("s1r")->sourceIs("l2");
