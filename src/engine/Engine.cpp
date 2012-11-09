@@ -175,7 +175,7 @@ void Segment::notifieeIs(Segment::Notifiee* notifiee){
         if( (*it) == notifiee ) return;
     }
 
-    // Register this notiee
+    // Register this notifiee
     notifiee->notifierIs(this);
     notifieeList_.push_back(notifiee);
 }
@@ -505,13 +505,13 @@ SegmentReactor::SegmentReactor(ShippingNetworkPtr network, StatsPtr stats){
 void SegmentReactor::onSource(){
     // Remove the notifier from the old source
     if(currentSource_){
-        currentSource_->segmentDel(notifier_);
+        currentSource_->segmentDel(notifier());
     }
     // Update the source reference
-    currentSource_ = notifier_->source();
+    currentSource_ = notifier()->source();
     // Add the notifier to the new source
     if(currentSource_){
-        currentSource_->segmentIs(notifier_);
+        currentSource_->segmentIs(notifier());
     }
 }
 
@@ -520,18 +520,18 @@ void SegmentReactor::onReturnSegment(){
     /* Remove this segment from old return segment if it still thinks
      * this reactor's segment is its return segment
      */
-    if(currentReturnSegment_ && currentReturnSegment_->returnSegment() == notifier_){
+    if(currentReturnSegment_ && currentReturnSegment_->returnSegment() == notifier()){
         currentReturnSegment_->returnSegmentIs((SegmentPtr)NULL);
     }
 
     /* Update return segment ref */
-    currentReturnSegment_ = notifier_->returnSegment();
+    currentReturnSegment_ = notifier()->returnSegment();
 
     /* Update new return segment to set this segment as its return segment
      * if this segment is not already its return segment
      */
-    if(currentReturnSegment_ && currentReturnSegment_->returnSegment() != notifier_){
-        currentReturnSegment_->returnSegmentIs(notifier_);
+    if(currentReturnSegment_ && currentReturnSegment_->returnSegment() != notifier()){
+        currentReturnSegment_->returnSegmentIs(notifier());
     }
 }
 
@@ -575,7 +575,7 @@ StatsReactor::StatsReactor(StatsPtr stats){
 }
 
 void StatsReactor::onSegmentNew(EntityID segmentID){
-    SegmentPtr segment = notifier_->segment(segmentID);
+    SegmentPtr segment = notifier()->segment(segmentID);
     if(segment){
         stats_->totalSegmentCountIncr();
         stats_->segmentCountIncr(segment->transportMode());
@@ -594,7 +594,7 @@ void StatsReactor::onSegmentDel(SegmentPtr segment){
 }
 
 void StatsReactor::onLocationNew(EntityID locationID){
-    LocationPtr location = notifier_->location(locationID);
+    LocationPtr location = notifier()->location(locationID);
     stats_->locationCountIncr(location->entityType());    
 }
 

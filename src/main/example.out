@@ -5,9 +5,11 @@ boatSeg1->attribute('return segment'): boatSeg2
 customer1(truckSeg1:900.00:truckSeg2) port1
 customer1(truckSeg1:900.00:truckSeg2) port1(boatSeg2:400.00:boatSeg1) customer2
 
+
 *** connect customer2 : customer1 ****
 1300.00 906.67 no; customer2(boatSeg1:400.00:boatSeg2) port1(truckSeg2:900.00:truckSeg1) customer1
 1950.00 697.44 yes; customer2(boatSeg1:400.00:boatSeg2) port1(truckSeg2:900.00:truckSeg1) customer1
+
 
 ===== Stats attributes =====
  --- Segments --- 

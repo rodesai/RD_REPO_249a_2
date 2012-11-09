@@ -237,21 +237,29 @@ private:
 class Segment : public Fwk::NamedInterface {
 public:
 
-    // Notifiee Class
-
-    class Notifiee : public virtual Fwk::NamedInterface::Notifiee {
+    class NotifieeConst : public virtual Fwk::NamedInterface::NotifieeConst {
     public:
         // Events
         virtual void onSource(){}
         virtual void onReturnSegment(){}
         virtual void onMode(PathMode mode){}
         virtual void onModeDel(PathMode mode){}
-        void notifierIs(SegmentPtr notifier){ notifier_=notifier; }
-        SegmentPtr notifier() const { return notifier_; }
+        SegmentPtrConst notifier() const { return notifier_; }
+        void notifierIs(SegmentPtrConst notifier){ notifier_=notifier; }
+    protected:
+        NotifieeConst(){}
+        virtual ~NotifieeConst(){}
+        SegmentPtrConst notifier_;
+    };
+    typedef Fwk::Ptr<Segment::NotifieeConst> NotifieeConstPtr;
+    typedef Fwk::Ptr<Segment::NotifieeConst const> NotifieeConstPtrConst;
+
+    class Notifiee : public virtual NotifieeConst, public virtual Fwk::NamedInterface::Notifiee {
+    public:
+        SegmentPtr notifier() const { return const_cast<Segment*>(NotifieeConst::notifier().ptr()); }
     protected:
         Notifiee(){}
         virtual ~Notifiee(){}
-        SegmentPtr notifier_;
     };
     typedef Fwk::Ptr<Segment::Notifiee> NotifieePtr;
     typedef Fwk::Ptr<Segment::Notifiee const> NotifieePtrConst;
@@ -568,17 +576,25 @@ class ShippingNetwork : public Fwk::NamedInterface {
 
 public:
 
-    // notifiee class
-    class Notifiee : public virtual Fwk::NamedInterface::Notifiee {
+    class NotifieeConst : public virtual Fwk::NamedInterface::NotifieeConst {
     public:
-        // Segments
         virtual void onSegmentNew(EntityID segmentID){}
         virtual void onSegmentDel(SegmentPtr segment){}
-        // Locations
         virtual void onLocationNew(EntityID locationID){}
         virtual void onLocationDel(LocationPtr location){}
-        void notifierIs(ShippingNetworkPtr notifier){ notifier_=notifier; }
-        ShippingNetworkPtr notifier() const { return notifier_; }
+        void notifierIs(ShippingNetworkPtrConst notifier){ notifier_=notifier; }
+        ShippingNetworkPtrConst notifier() const { return notifier_; }
+    protected:
+        NotifieeConst() {}
+        virtual ~NotifieeConst(){}
+        ShippingNetworkPtrConst notifier_;
+    };
+    typedef Fwk::Ptr<ShippingNetwork::NotifieeConst> NotifieeConstPtr;
+    typedef Fwk::Ptr<ShippingNetwork::NotifieeConst const> NotifieeConstPtrConst;
+
+    class Notifiee : public virtual NotifieeConst, public virtual Fwk::NamedInterface::Notifiee {
+    public:
+        ShippingNetworkPtr notifier() const { return const_cast<ShippingNetwork*>(NotifieeConst::notifier().ptr()); }
     protected:
         Notifiee() {}
         virtual ~Notifiee(){}
