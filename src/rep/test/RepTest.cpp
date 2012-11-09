@@ -9,11 +9,11 @@ TEST(Instance, CreateInstanceManager) {
 /* TODO:
     x- verify that I do NOT need to delete a ref (e.g. from instanceDel)
     x- need to make value type not negative for unspecified (hour, dollar, mile)
-    - do we need to support the removal of a source? (e.g. seg->attributeIs("source", ""))
+    x- do we need to support the removal of a source? (e.g. seg->attributeIs("source", ""))
     x- support deletion of segment and location
-    - add tests for
-        - names are empty strings? check piazza
-        - invalid input on attribute, attributeIs (especially for conn)
+    x- add tests for
+        x- names are empty strings? check piazza
+        x- invalid input on attribute, attributeIs (especially for conn)
         o- check road to the location itself
         x- use m->instance() to check that conn / stats / fleet have the right name
         x- make sure that calling new on stats / conn / fleet will return the same one
@@ -84,6 +84,31 @@ Ptr<Instance> addSegment(Ptr<Instance::Manager> m, string name, string mode,
     return seg;
 }
 
+TEST(Instance, DuplicateObjectsTest) {
+    Ptr<Instance::Manager> m = shippingInstanceManager();
+    ASSERT_TRUE(m);
+    Ptr<Instance> fleet = m->instanceNew("fleet", "Fleet");
+    ASSERT_TRUE(fleet);
+    Ptr<Instance> conn = m->instanceNew("conn", "Conn");
+    ASSERT_TRUE(conn);
+    Ptr<Instance> stats = m->instanceNew("stats", "Stats");
+    ASSERT_TRUE(stats);
+
+    // create dups
+    Ptr<Instance> fleet1 = m->instanceNew("fleet1", "Fleet");
+    ASSERT_TRUE(fleet1);
+    Ptr<Instance> conn1 = m->instanceNew("conn1", "Conn");
+    ASSERT_TRUE(conn1);
+    Ptr<Instance> stats1 = m->instanceNew("stats1", "Stats");
+    ASSERT_TRUE(stats1);
+
+    // assert that they are the same rep objects
+    EXPECT_EQ(fleet->name(), fleet1->name());
+    EXPECT_EQ(conn->name(), conn1->name());
+    EXPECT_EQ(stats->name(), stats1->name());
+}
+
+
 TEST(Instance, InstanceMapping) {
     // create instances needed for test
     Ptr<Instance::Manager> m = shippingInstanceManager();
@@ -143,6 +168,7 @@ TEST(Instance, TypeOutOfBounds) {
 
     // test conn values
     EXPECT_EQ(conn->attribute("explore loc1 : expedited distance -1.3 cost -1.2 time -1.1"), "");
+    EXPECT_EQ(conn->attribute("explore loc1 : kdkdkdkdkdkdkdkdkdkdkdk distance -1.3 cost -1.2 time -1.1"), "");
 }
 
 
@@ -403,7 +429,6 @@ TEST(Instance, SegmentAndLocationType) {
     EXPECT_EQ(boatSegment->attribute("source"), "customer");
     EXPECT_EQ(customer->attribute("segment3"), "boatSegment");
 }
-
 
 TEST(Instance, CreateFleet) {
     Ptr<Instance::Manager> m = shippingInstanceManager();

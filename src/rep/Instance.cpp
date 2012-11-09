@@ -61,6 +61,9 @@ public:
     ShippingNetworkPtr shippingNetwork()
         { return shippingNetwork_; }
 private:
+    Ptr<Instance> fleetInstance_;
+    Ptr<Instance> connInstance_;
+    Ptr<Instance> statsInstance_;
     typedef struct InstanceMapElem_t {
         InstanceType type;
         Ptr<Instance> ptr;
@@ -653,6 +656,9 @@ private:
 };
 
 ManagerImpl::ManagerImpl() {
+    fleetInstance_ = NULL;
+    connInstance_ = NULL;
+    statsInstance_ = NULL;
     shippingNetwork_ =
         ShippingNetwork::ShippingNetworkIs("ShippingNetwork");
     // Update the expedited costs by their multipliers
@@ -712,19 +718,25 @@ Ptr<Instance> ManagerImpl::instanceNew(const string& name,
 
     // Conn Type
     else if (type == "Conn") {
+        if (connInstance_) return connInstance_;
         inst = new ConnRep(name, this);
+        connInstance_ = inst;
         instType = conn_;
     }
 
     // Fleet Type
     else if (type == "Fleet") {
+        if (fleetInstance_) return fleetInstance_;
         inst = new FleetRep(name, this);
+        fleetInstance_ = inst;
         instType = fleet_;
     }
 
     // Stats Type
     else if (type == "Stats") {
+        if (statsInstance_) return statsInstance_;
         inst = new StatsRep(name, this);
+        statsInstance_ = inst;
         instType = stats_;
     }
 
