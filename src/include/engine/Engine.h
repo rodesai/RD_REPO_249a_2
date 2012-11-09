@@ -315,13 +315,13 @@ public:
     public:
         inline LocationPtr source() const { return segment_->source(); }
         inline SegmentPtr segment() const { return segment_; }
-        inline PathMode mode() const { return mode_; }
+        inline PathMode elementMode() const { return elementMode_; }
         void segmentIs(SegmentPtr s); 
-        static PathElementPtr PathElementIs(SegmentPtr segment, PathMode mode);
+        static PathElementPtr PathElementIs(SegmentPtr segment, PathMode elementMode);
     private:
-        PathElement(SegmentPtr segment, PathMode mode) : segment_(segment), mode_(mode){}
+        PathElement(SegmentPtr segment, PathMode elementMode) : segment_(segment), elementMode_(elementMode){}
         SegmentPtr segment_;
-        PathMode mode_;
+        PathMode elementMode_;
     };
     typedef std::vector<PathElementPtr> PathList;
     // accessors

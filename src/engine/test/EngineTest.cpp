@@ -210,15 +210,15 @@ TEST(Engine, conn_endpoint_no_loop_pre_endpoint){
     PathPtr path = paths[0];
     ASSERT_TRUE(path->pathElementCount() == 2);
     ASSERT_TRUE(path->pathElement(0)->segment()->name() == "l1-l3");
-    ASSERT_TRUE(path->pathElement(0)->mode() == PathMode::unexpedited());
+    ASSERT_TRUE(path->pathElement(0)->elementMode() == PathMode::unexpedited());
     ASSERT_TRUE(path->pathElement(1)->segment()->name() == "l3-l4");
-    ASSERT_TRUE(path->pathElement(1)->mode() == PathMode::unexpedited());
+    ASSERT_TRUE(path->pathElement(1)->elementMode() == PathMode::unexpedited());
     path = paths[1];
     ASSERT_TRUE(path->pathElementCount() == 2);
     ASSERT_TRUE(path->pathElement(0)->segment()->name() == "l1-l2");
-    ASSERT_TRUE(path->pathElement(0)->mode() == PathMode::unexpedited());
+    ASSERT_TRUE(path->pathElement(0)->elementMode() == PathMode::unexpedited());
     ASSERT_TRUE(path->pathElement(1)->segment()->name() == "l2-l4");
-    ASSERT_TRUE(path->pathElement(1)->mode() == PathMode::unexpedited());
+    ASSERT_TRUE(path->pathElement(1)->elementMode() == PathMode::unexpedited());
 }
 
 TEST(Engine, conn_endpoint_no_loop_endpoint){
@@ -255,15 +255,15 @@ TEST(Engine, conn_endpoint_no_loop_endpoint){
     PathPtr path = paths[0];
     ASSERT_TRUE(path->pathElementCount() == 2);
     ASSERT_TRUE(path->pathElement(0)->segment()->name() == "l1-l3");
-    ASSERT_TRUE(path->pathElement(0)->mode() == PathMode::unexpedited());
+    ASSERT_TRUE(path->pathElement(0)->elementMode() == PathMode::unexpedited());
     ASSERT_TRUE(path->pathElement(1)->segment()->name() == "l3-l4");
-    ASSERT_TRUE(path->pathElement(1)->mode() == PathMode::unexpedited());
+    ASSERT_TRUE(path->pathElement(1)->elementMode() == PathMode::unexpedited());
     path = paths[1];
     ASSERT_TRUE(path->pathElementCount() == 2);
     ASSERT_TRUE(path->pathElement(0)->segment()->name() == "l1-l2");
-    ASSERT_TRUE(path->pathElement(0)->mode() == PathMode::unexpedited());
+    ASSERT_TRUE(path->pathElement(0)->elementMode() == PathMode::unexpedited());
     ASSERT_TRUE(path->pathElement(1)->segment()->name() == "l2-l4");
-    ASSERT_TRUE(path->pathElement(1)->mode() == PathMode::unexpedited());
+    ASSERT_TRUE(path->pathElement(1)->elementMode() == PathMode::unexpedited());
 }
 
 TEST(Engine, conn_no_endpoint_distance_constraint){

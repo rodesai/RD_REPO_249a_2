@@ -698,10 +698,10 @@ PathPtr Conn::pathElementEnque(Path::PathElementPtr pathElement, PathPtr path, F
     Hour time;
     cost = (pathElement->segment()->length()).value() 
            * (fleet->cost(pathElement->segment()->transportMode())).value() 
-           * (fleet->costMultiplier(pathElement->mode())).value()
+           * (fleet->costMultiplier(pathElement->elementMode())).value()
            * (pathElement->segment()->difficulty()).value();
     time = (pathElement->segment()->length()).value() 
-           / ( (fleet->speed(pathElement->segment()->transportMode()).value()) * ((fleet->speedMultiplier(pathElement->mode())).value()));
+           / ( (fleet->speed(pathElement->segment()->transportMode()).value()) * ((fleet->speedMultiplier(pathElement->elementMode())).value()));
     path->pathElementEnq(pathElement,cost,time,pathElement->segment()->length());
     return path;
 }
@@ -876,8 +876,8 @@ PathPtr Path::PathIs(LocationPtr firstLocation){
 
 Path::Path(LocationPtr firstLocation) : cost_(0),time_(0),distance_(0),firstLocation_(firstLocation), lastLocation_(firstLocation){}
 
-Path::PathElementPtr Path::PathElement::PathElementIs(SegmentPtr segment, PathMode mode){
-    return new Path::PathElement(segment,mode);
+Path::PathElementPtr Path::PathElement::PathElementIs(SegmentPtr segment, PathMode elementMode){
+    return new Path::PathElement(segment,elementMode);
 }
 
 Path::PathElementPtr Path::pathElement(uint32_t index) const{
