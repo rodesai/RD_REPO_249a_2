@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
 #include <map>
@@ -75,17 +76,47 @@ Ptr<Instance> ManagerImpl::instance(const string& name) {
     return (*t).second.ptr;
 }
 
-class LocationRep : public Instance {
+class BaseRep : public Instance {
+public:
+    string attribute(const string& name){
+        try{
+            return attributeImpl(name);
+        }
+        catch(ArgumentException e){
+            std::cerr << e.message() << std::endl;
+        }
+        catch(...){
+            std::cerr << "Error reading attribute" << std::endl;
+        }
+        return "";
+    }
+    void attributeIs(const string& name, const string& v){
+        try{
+            attributeIsImpl(name,v);
+        }
+        catch(ArgumentException e){
+            std::cerr << e.message() << std::endl;
+        }
+        catch(...){
+            std::cerr << "Error writing attribute" << std::endl; 
+        }
+    }
+    virtual string attributeImpl(const string& name)=0;
+    virtual void attributeIsImpl(const string& name, const string& v)=0;
+    BaseRep(const string& name) : Instance(name){}
+};
+
+class LocationRep : public BaseRep {
 public:
 
     LocationRep(const string& name, ManagerImpl* manager) :
-        Instance(name), manager_(manager) {
+        BaseRep(name), manager_(manager) {
         manager_ = manager;
     }
 
     // Instance method
     LocationPtr representee() { return representee_; }
-    string attribute(const string& name) {
+    string attributeImpl(const string& name) {
         int i = segmentNumber(name);
         SegmentPtr sp;
         if ((sp = representee_->segment(i))) {
@@ -94,7 +125,7 @@ public:
         fprintf(stderr, "Location does not have segment at index %d.\n", i);
         return "";
     }
-    void attributeIs(const string& name, const string& v) {}
+    void attributeIsImpl(const string& name, const string& v) {}
 protected:
     Ptr<ManagerImpl> manager_;
     LocationPtr representee_;
@@ -211,16 +242,16 @@ string HourToStr(Hour x) {
 }
 
 
-class SegmentRep : public Instance {
+class SegmentRep : public BaseRep {
 public:
     SegmentRep(const string& name, ManagerImpl* manager) :
-        Instance(name), manager_(manager) {
+        BaseRep(name), manager_(manager) {
         manager_ = manager;
     }
 
     // Instance method
     SegmentPtr representee() { return representee_; }
-    string attribute(const string& name) {
+    string attributeImpl(const string& name) {
         if (name == "source") {
             if (representee_->source())
                 return representee_->source()->name();
@@ -241,7 +272,7 @@ public:
         fprintf(stderr, "Invalid attribute input: %s.\n", name.data());
         return "";
     }
-    void attributeIs(const string& name, const string& v) {
+    void attributeIsImpl(const string& name, const string& v) {
         if (name == "source") {
             Ptr<LocationRep> sr = dynamic_cast<LocationRep *> (manager_->instance(v).ptr());
             if (!sr) {
@@ -341,16 +372,16 @@ protected:
 };
 
 
-class FleetRep : public Instance {
+class FleetRep : public BaseRep {
 public:
     FleetRep(const string& name, ManagerImpl* manager) :
-        Instance(name), manager_(manager) {
+        BaseRep(name), manager_(manager) {
         manager_ = manager;
         fleet_ = manager->shippingNetwork()->FleetNew(name);
     }
 
     // Instance method
-    string attribute(const string& name) {
+    string attributeImpl(const string& name) {
         stringstream ss;
         FleetAttribute fa = fleetAttribute(name);
         if (fa.attribute == speedStr) {
@@ -364,7 +395,7 @@ public:
         }
         return ss.str();
     }
-    void attributeIs(const string& name, const string& v) {
+    void attributeIsImpl(const string& name, const string& v) {
         FleetAttribute fa = fleetAttribute(name);
         if (fa.attribute == speedStr) {
             fleet_->speedIs(fa.mode, MilePerHour(atof(v.data())));
@@ -406,10 +437,10 @@ private:
 };
 
 
-class StatsRep : public Instance {
+class StatsRep : public BaseRep {
 public:
     StatsRep(const string& name, ManagerImpl* manager) :
-        Instance(name), manager_(manager) {
+        BaseRep(name), manager_(manager) {
         // TODO: Nothing else to do?
         // TODO: do I need the manager?
         manager_ = manager;
@@ -417,7 +448,7 @@ public:
     }
 
     // Instance method
-    string attribute(const string& name) {
+    string attributeImpl(const string& name) {
         // TODO: convert output to string
         std::stringstream ss;
 
@@ -469,7 +500,7 @@ public:
 
         return ss.str();
     }
-    void attributeIs(const string& name, const string& v) {
+    void attributeIsImpl(const string& name, const string& v) {
         // nothing to do here
     }
 private:
@@ -477,17 +508,17 @@ private:
     StatsPtr stats_;
 };
 
-class ConnRep : public Instance {
+class ConnRep : public BaseRep {
 public:
     ConnRep(const string& name, ManagerImpl* manager) :
-        Instance(name), manager_(manager) {
+        BaseRep(name), manager_(manager) {
         // TODO: do I need the manager?
         manager_ = manager;
         conn_ = manager->shippingNetwork()->ConnNew(name);
     }
 
     // Instance method
-    string attribute(const string& name) {
+    string attributeImpl(const string& name) {
         // create types useful for parsing
         stringstream ss;
         bool explore = false;
@@ -591,7 +622,7 @@ public:
             ss << *it;
         return ss.str();
     }
-    void attributeIs(const string& name, const string& v) {
+    void attributeIsImpl(const string& name, const string& v) {
         // nothing to do here
     }
 private:

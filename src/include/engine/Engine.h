@@ -21,6 +21,7 @@ namespace Shipping {
 typedef std::string EntityID;
 
 class ArgumentException : public std::exception {
+public:
     virtual const char* message() const throw() {
         return "Argument exception.";
     }
