@@ -56,7 +56,7 @@ void Location::segmentDel(SegmentPtr segment){
  *
  */
 
-uint16_t Segment::modeCount() const{
+ModeCount Segment::modeCount() const{
     return mode_.size();
 }
 
@@ -579,7 +579,7 @@ void StatsReactor::onSegmentNew(EntityID segmentID){
     if(segment){
         stats_->totalSegmentCountIncr();
         stats_->segmentCountIncr(segment->transportMode());
-        for(uint16_t i = 0; i < segment->modeCount(); i++){
+        for(uint16_t i = 0; i < segment->modeCount().value(); i++){
             stats_->segmentCountIncr(segment->mode(i));
         }
     }
@@ -588,7 +588,7 @@ void StatsReactor::onSegmentNew(EntityID segmentID){
 void StatsReactor::onSegmentDel(SegmentPtr segment){
     stats_->totalSegmentCountDecr();
     stats_->segmentCountDecr(segment->transportMode());
-    for(uint16_t i = 0; i < segment->modeCount(); i++){
+    for(uint16_t i = 0; i < segment->modeCount().value(); i++){
         stats_->segmentCountDecr(segment->mode(i));
     }
 }
@@ -777,7 +777,7 @@ Conn::PathList Conn::paths(std::set<PathMode> modes, ConstraintPtr constraints,L
                 && !(currentPath->location(segment->returnSegment()->source())))      // AND Not a Loop
               {
                   std::set<PathMode> overlap = modeIntersection(segment,modes);  
-                  DEBUG_LOG << "Segment Modes: " << segment->modeCount() << ", Transport Modes: " << modes.size() << ", Overlap Size: " << overlap.size() << std::endl;               
+                  DEBUG_LOG << "Segment Modes: " << segment->modeCount().value() << ", Transport Modes: " << modes.size() << ", Overlap Size: " << overlap.size() << std::endl;               
                   for(std::set<PathMode>::const_iterator it = overlap.begin(); it != overlap.end(); it++){
                       PathPtr pathCopy = copyPath(currentPath,fleet_);
                       pathElementEnque(Path::PathElement::PathElementIs(segment,*it),pathCopy,fleet_);

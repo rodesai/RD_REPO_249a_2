@@ -40,7 +40,7 @@ private:
 class Mile : public Ordinal<Mile, double> {
 public:
     Mile(double num) : Ordinal<Mile, double>(num) {
-        if (num < 0.0 && num != -1.0) throw ArgumentException();
+        if (num < 0.0) throw ArgumentException();
     }
     Mile() : Ordinal<Mile,double>(defaultValue_){}
     static Mile defaultValue(){ return defaultValue_; }
@@ -62,7 +62,7 @@ private:
 class Dollar : public Ordinal<Dollar, double> {
 public:
     Dollar(double num) : Ordinal<Dollar, double>(num) {
-        if (num < 0 && num != -1) throw ArgumentException();
+        if (num < 0) throw ArgumentException();
     }
     Dollar() : Ordinal<Dollar,double>(defaultValue_){}
     static Dollar defaultValue(){ return defaultValue_; }
@@ -84,7 +84,7 @@ private:
 class Hour : public Ordinal<Hour, double> {
 public:
     Hour(double num) : Ordinal<Hour, double>(num) {
-        if (num < 0 && num != -1) throw ArgumentException();
+        if (num < 0) throw ArgumentException();
     }
     Hour() : Ordinal<Hour,double>(defaultValue_){}
     static Hour defaultValue(){ return defaultValue_; }
@@ -137,6 +137,11 @@ public:
     static PathMode unexpedited(){ return unexpedited_; }
     static PathMode undef(){ return undef_; }
     PathMode(uint8_t m) : Ordinal<PathMode,uint8_t>(m){}
+};
+
+class ModeCount : public Ordinal<ModeCount,uint8_t>{
+public:
+    ModeCount(uint8_t m) : Ordinal<ModeCount,uint8_t>(m){}
 };
 
 // Client Types
@@ -246,7 +251,7 @@ public:
     inline Difficulty difficulty() const { return difficulty_; }
     inline TransportMode transportMode() const { return transportMode_; }
     PathMode mode(PathMode mode) const;
-    uint16_t modeCount() const;
+    ModeCount modeCount() const;
     PathMode mode(uint16_t) const;
     void sourceIs(EntityID source);
     void lengthIs(Mile l);

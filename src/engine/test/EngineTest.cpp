@@ -756,19 +756,19 @@ TEST(Engine, Segment_difficulty){
 TEST(Engine, Segment_mode){
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
     SegmentPtr segment = nwk->SegmentNew("segment",TransportMode::boat(),PathMode::unexpedited());
-    ASSERT_TRUE(segment->modeCount() == 1);
+    ASSERT_TRUE(segment->modeCount().value() == 1);
     ASSERT_TRUE(segment->mode(PathMode::unexpedited()) == PathMode::unexpedited());
     ASSERT_TRUE(segment->transportMode() == TransportMode::boat());
     StatsPtr stats = nwk->StatsNew("stats");
     ASSERT_TRUE(stats->segmentCount(TransportMode::boat()) == 1);
     segment->modeIs(PathMode::expedited());
-    ASSERT_TRUE(segment->modeCount() == 2);
+    ASSERT_TRUE(segment->modeCount().value() == 2);
     ASSERT_TRUE(segment->mode(PathMode::unexpedited()) == PathMode::unexpedited());
     ASSERT_TRUE(segment->mode(PathMode::expedited()) == PathMode::expedited());
     ASSERT_TRUE(stats->segmentCount(PathMode::expedited()) == 1);
     ASSERT_TRUE(stats->segmentCount(PathMode::unexpedited()) == 1);
     segment->modeDel(PathMode::expedited());
-    ASSERT_TRUE(segment->modeCount() == 1);
+    ASSERT_TRUE(segment->modeCount().value() == 1);
     ASSERT_TRUE(segment->mode(PathMode::unexpedited()) == PathMode::unexpedited());
     ASSERT_TRUE(segment->mode(PathMode::expedited()) == PathMode::undef());
     ASSERT_TRUE(stats->segmentCount(PathMode::unexpedited()) == 1);
