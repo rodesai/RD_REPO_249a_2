@@ -349,10 +349,7 @@ private:
 
 class Conn : public Fwk::NamedInterface {
 public:
-    typedef std::set<EntityID> LocationSet;
     typedef std::vector<PathPtr> PathList;
-
-    /* Constraint Classes */
     class Constraint;
     typedef Fwk::Ptr<Conn::Constraint> ConstraintPtr;
     typedef Fwk::Ptr<Conn::Constraint const> ConstraintPtrConst;
@@ -365,9 +362,9 @@ public:
         static EvalOutput fail(){ return fail_; }
         static EvalOutput pass(){ return pass_; }
         void pathIs(PathPtr path){ path_=path; }
-        void nextIs(ConstraintPtr next){ nxt_=next; }
+        void nextIs(Conn::ConstraintPtr next){ nxt_=next; }
         PathPtr path() const { return path_; }
-        ConstraintPtr next() const { return nxt_; }
+        Conn::ConstraintPtr next() const { return nxt_; }
         virtual EvalOutput evalOutput()=0;
     protected:
         Constraint() : path_(NULL),nxt_(NULL){}
@@ -375,7 +372,6 @@ public:
         PathPtr path_;
         ConstraintPtr nxt_;
     };
-
     class PathSelector{
     public:
         // Mutators
@@ -394,56 +390,12 @@ public:
         ConstraintPtr constraints_;
         std::set<PathMode> pathModes_;
     };
-
     PathList paths(PathSelector selector) const;
-
-    class DistanceConstraint : public Conn::Constraint{
-    public:
-        EvalOutput evalOutput(){
-            if( !path_ || path_->distance() > distance_ ) 
-                return Constraint::fail();
-            return Constraint::pass();
-        }
-        static ConstraintPtr DistanceConstraintIs(Mile distance){
-            return new DistanceConstraint(distance);
-        }
-    private:
-        DistanceConstraint(Mile distance) : Constraint(), distance_(distance){}
-        Mile distance_;
-    };
-
-    class CostConstraint : public Constraint{
-    public:
-        EvalOutput evalOutput(){
-            if( !path_ || path_->cost() > cost_ ) 
-                return Constraint::fail();
-            return Constraint::pass();
-        }
-        static ConstraintPtr CostConstraintIs(Dollar cost){
-            return new CostConstraint(cost);
-        }
-    private:
-        CostConstraint(Dollar cost) : Constraint(), cost_(cost){}
-        Dollar cost_;
-    };
-
-    class TimeConstraint : public Constraint{
-    public:
-        EvalOutput evalOutput(){
-            if( !path_ || path_->time() > time_ )
-                return Constraint::fail();
-            return Constraint::pass();
-        }
-        static ConstraintPtr TimeConstraintIs(Hour time){
-            return new TimeConstraint(time);
-        } 
-    private:
-        TimeConstraint(Hour time) : Constraint(), time_(time) {}
-        Hour time_;
-    };
+    static ConstraintPtr DistanceConstraintIs(Mile distance);
+    static ConstraintPtr TimeConstraintIs(Hour time);
+    static ConstraintPtr CostConstraintIs(Dollar cost);
 
 private:
-
     PathList paths(std::set<PathMode> pathModes,ConstraintPtr constraints,LocationPtr start,LocationPtr endpoint) const ;
     bool validSegment(SegmentPtr segment) const;
     PathPtr pathElementEnque(Path::PathElementPtr pathElement, PathPtr path, FleetPtr fleet) const;

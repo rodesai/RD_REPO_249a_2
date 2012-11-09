@@ -523,13 +523,13 @@ private:
         while ((s = strtok(NULL, ": "))) {
             if (strcmp(s, "distance") == 0) {
                 s = strtok(NULL, ": ");
-                newPtr = Conn::DistanceConstraint::DistanceConstraintIs(Mile(atof(s)));
+                newPtr = Conn::DistanceConstraintIs(Mile(atof(s)));
             } else if (strcmp(s, "cost") == 0) {
                 s = strtok(NULL, ": ");
-                newPtr = Conn::CostConstraint::CostConstraintIs(Dollar(atof(s)));
+                newPtr = Conn::CostConstraintIs(Dollar(atof(s)));
             } else if (strcmp(s, "time") == 0) {
                 s = strtok(NULL, ": ");
-                newPtr = Conn::TimeConstraint::TimeConstraintIs(Hour(atof(s)));
+                newPtr = Conn::TimeConstraintIs(Hour(atof(s)));
             } else if (strcmp(s, "expedited") == 0) {
                 expedited=true; 
             } else {

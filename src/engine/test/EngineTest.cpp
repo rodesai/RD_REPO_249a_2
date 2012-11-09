@@ -295,7 +295,7 @@ TEST(Engine, conn_no_endpoint_distance_constraint){
     fleet->capacityIs(TransportMode::truck(),100);
     fleet->costIs(TransportMode::truck(),100);
 
-    Conn::ConstraintPtr constraint = Conn::DistanceConstraint::DistanceConstraintIs(20);
+    Conn::ConstraintPtr constraint = Conn::DistanceConstraintIs(20);
     Conn::PathSelector selector(constraint,l1);
     selector.modeIs(PathMode::expedited()); selector.modeIs(PathMode::unexpedited());
     Conn::PathList paths = conn->paths(selector);
@@ -355,7 +355,7 @@ TEST(Engine, conn_no_endpoint_cost_constraint){
     fleet->capacityIs(TransportMode::truck(),100);
     fleet->costIs(TransportMode::truck(),0.25);
 
-    Conn::ConstraintPtr constraint = Conn::CostConstraint::CostConstraintIs(40);
+    Conn::ConstraintPtr constraint = Conn::CostConstraintIs(40);
     Conn::PathSelector selector(constraint,l1);
     selector.modeIs(PathMode::expedited()); selector.modeIs(PathMode::unexpedited());
     Conn::PathList paths = conn->paths(selector);
@@ -415,7 +415,7 @@ TEST(Engine, conn_no_endpoint_time_constraint){
     fleet->capacityIs(TransportMode::truck(),100);
     fleet->costIs(TransportMode::truck(),100);
 
-    Conn::ConstraintPtr constraint = Conn::TimeConstraint::TimeConstraintIs(20.0);
+    Conn::ConstraintPtr constraint = Conn::TimeConstraintIs(20.0);
     Conn::PathSelector selector(constraint,l1);
     selector.modeIs(PathMode::expedited()); selector.modeIs(PathMode::unexpedited());
     Conn::PathList paths = conn->paths(selector);
@@ -556,8 +556,8 @@ TEST(Engine, conn_no_endpoint_distance_time_constraint){
     fleet->costIs(TransportMode::truck(),100);
 
     Conn::ConstraintPtr constraint;
-    constraint = Conn::DistanceConstraint::DistanceConstraintIs(20.0);
-    constraint->nextIs(Conn::TimeConstraint::TimeConstraintIs(30.0));
+    constraint = Conn::DistanceConstraintIs(20.0);
+    constraint->nextIs(Conn::TimeConstraintIs(30.0));
     Conn::PathSelector selector(constraint,l1);
     selector.modeIs(PathMode::expedited()); selector.modeIs(PathMode::unexpedited());
     Conn::PathList paths = conn->paths(selector);

@@ -607,6 +607,63 @@ void StatsReactor::onLocationDel(LocationPtr location){
  * 
  */
 
+    class DistanceConstraint : public Conn::Constraint{
+    public:
+        EvalOutput evalOutput(){
+            if( !path_ || path_->distance() > distance_ )
+                return Conn::Constraint::fail();
+            return Conn::Constraint::pass();
+        }
+        static Conn::ConstraintPtr DistanceConstraintIs(Mile distance){
+            return new DistanceConstraint(distance);
+        }
+    private:
+        DistanceConstraint(Mile distance) : Conn::Constraint(), distance_(distance){}
+        Mile distance_;
+    };
+
+    class CostConstraint : public Conn::Constraint{
+    public:
+        EvalOutput evalOutput(){
+            if( !path_ || path_->cost() > cost_ )
+                return Conn::Constraint::fail();
+            return Conn::Constraint::pass();
+        }
+        static Conn::ConstraintPtr CostConstraintIs(Dollar cost){
+            return new CostConstraint(cost);
+        }
+    private:
+        CostConstraint(Dollar cost) : Conn::Constraint(), cost_(cost){}
+        Dollar cost_;
+    };
+
+    class TimeConstraint : public Conn::Constraint{
+    public:
+        EvalOutput evalOutput(){
+            if( !path_ || path_->time() > time_ )
+                return Conn::Constraint::fail();
+            return Conn::Constraint::pass();
+        }
+        static Conn::ConstraintPtr TimeConstraintIs(Hour time){
+            return new TimeConstraint(time);
+        }
+    private:
+        TimeConstraint(Hour time) : Conn::Constraint(), time_(time) {}
+        Hour time_;
+    };
+
+Conn::ConstraintPtr Conn::DistanceConstraintIs(Mile distance){
+    return DistanceConstraint::DistanceConstraintIs(distance);
+}
+
+Conn::ConstraintPtr Conn::TimeConstraintIs(Hour time){
+    return TimeConstraint::TimeConstraintIs(time);
+}
+
+Conn::ConstraintPtr Conn::CostConstraintIs(Dollar cost){
+    return CostConstraint::CostConstraintIs(cost);
+}
+
 void Conn::PathSelector::modeIs(PathMode mode){
     pathModes_.insert(mode);
 }
@@ -657,8 +714,8 @@ PathPtr Conn::copyPath(PathPtr path, FleetPtr fleet) const {
     return copy;
 }
 
-Conn::Constraint::EvalOutput Conn::checkConstraints(Conn::ConstraintPtr constraints, PathPtr path) const {
-    ConstraintPtr constraint = constraints;
+Conn::Constraint::EvalOutput Conn::checkConstraints(ConstraintPtr constraints, PathPtr path) const {
+    Conn::ConstraintPtr constraint = constraints;
     while(constraint){
         constraint->pathIs(path);
         if(constraint->evalOutput() == Conn::Constraint::fail()){
