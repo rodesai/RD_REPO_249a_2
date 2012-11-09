@@ -495,7 +495,7 @@ public:
                 ss << "; ";
             }
 
-            uint32_t numLocs = path->pathElementCount();
+            uint32_t numLocs = path->pathElementCount().value();
             DEBUG_LOG << numLocs << " location(s) in path.\n";
             for (uint32_t j = 0; j < numLocs; j++) {
                 ss << path->pathElement(j)->source()->name();

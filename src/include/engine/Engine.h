@@ -182,6 +182,11 @@ typedef Fwk::Ptr<SegmentReactor const> SegmentReactorPtrConst;
 typedef Fwk::Ptr<ShippingNetworkReactor const> ShippingNetworkReactorPtrConst;
 typedef Fwk::Ptr<StatsReactor const> StatsReactorPtrConst;
 
+class SegmentCount : public Ordinal<SegmentCount,uint32_t>{
+public:
+    SegmentCount(uint32_t m) : Ordinal<SegmentCount,uint32_t>(m){}
+};
+
 class Location : public Fwk::NamedInterface {
 public:
     class EntityType : public Ordinal<EntityType,uint8_t> {
@@ -200,7 +205,7 @@ public:
         static EntityType planeTerminal(){ return planeTerminal_; }
         EntityType(uint8_t m) : Ordinal<EntityType,uint8_t>(m){}
     };
-    uint32_t segmentCount() const; 
+    SegmentCount segmentCount() const; 
     SegmentPtr segment(uint32_t index) const; 
     inline EntityType entityType() const { return entityType_; }
 protected: 
@@ -311,6 +316,11 @@ private:
     CostMultiplierMap costMultiplier_;
 };
 
+class PathElementCount : public Ordinal<PathElementCount,uint32_t>{
+public:
+    PathElementCount(uint32_t m) : Ordinal<PathElementCount,uint32_t>(m){}
+};
+
 class Path : public Fwk::PtrInterface<Path>{
 public:
     class PathElement;
@@ -336,7 +346,7 @@ public:
     LocationPtr firstLocation() const { return firstLocation_; }
     LocationPtr lastLocation() const { return lastLocation_; }
     PathElementPtr pathElement(uint32_t index) const;
-    uint32_t pathElementCount() const; 
+    PathElementCount pathElementCount() const; 
     LocationPtr location(LocationPtr location) const;
     // mutators
     void pathElementEnq(PathElementPtr element,Dollar cost_,Hour time_,Mile distance_);

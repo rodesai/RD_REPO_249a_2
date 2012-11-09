@@ -11,7 +11,7 @@ using namespace Shipping;
  *
  */
 
-uint32_t Location::segmentCount() const { 
+SegmentCount Location::segmentCount() const { 
     return segments_.size(); 
 }
 
@@ -559,7 +559,7 @@ void ShippingNetworkReactor::onSegmentDel(SegmentPtr segment){
 
 void ShippingNetworkReactor::onLocationDel(LocationPtr location){
     // Clean up this Location from all its Segments
-    for(uint32_t i = 0;i < location->segmentCount(); i++){
+    for(uint32_t i = 0;i < location->segmentCount().value(); i++){
         SegmentPtr segment = location->segment(i);
         segment->sourceIs((LocationPtr)NULL);
     }
@@ -708,7 +708,7 @@ PathPtr Conn::pathElementEnque(Path::PathElementPtr pathElement, PathPtr path, F
 
 PathPtr Conn::copyPath(PathPtr path, FleetPtr fleet) const {
     PathPtr copy = Path::PathIs(path->firstLocation());
-    for(uint32_t i = 0; i < path->pathElementCount(); i++){
+    for(uint32_t i = 0; i < path->pathElementCount().value(); i++){
         pathElementEnque(path->pathElement(i), copy, fleet);
     }
     return copy;
@@ -770,7 +770,7 @@ Conn::PathList Conn::paths(std::set<PathMode> modes, ConstraintPtr constraints,L
         if(endpoint && endpoint == currentPath->lastLocation()) continue;
 
         // Continue traversal
-        for(uint32_t i = 1; i <= currentPath->lastLocation()->segmentCount(); i++){
+        for(uint32_t i = 1; i <= currentPath->lastLocation()->segmentCount().value(); i++){
             SegmentPtr segment = currentPath->lastLocation()->segment(i); 
             if( validSegment(segment)                                                // Valid Segment
                 && segment->returnSegment()->source()                                // AND Valid Return Segment
@@ -885,7 +885,7 @@ Path::PathElementPtr Path::pathElement(uint32_t index) const{
     return path_[index];
 }
 
-uint32_t Path::pathElementCount() const {
+PathElementCount Path::pathElementCount() const {
     return path_.size();
 }
 
