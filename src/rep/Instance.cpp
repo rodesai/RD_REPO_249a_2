@@ -27,6 +27,32 @@ static const int segmentStrlen = segmentStr.length();
 
 class ManagerImpl : public Instance::Manager {
 public:
+    enum InstanceType {
+        customer_ = 0,
+        port_,
+        truckTerminal_,
+        boatTerminal_,
+        planeTerminal_,
+        truckSegment_,
+        boatSegment_,
+        planeSegment_,
+        stats_,
+        conn_,
+        fleet_,
+    };
+
+    static inline InstanceType customer() { return customer_; }
+    static inline InstanceType port() { return port_; }
+    static inline InstanceType truckTerminal() { return truckTerminal_; }
+    static inline InstanceType boatTerminal() { return boatTerminal_; }
+    static inline InstanceType planeTerminal() { return planeTerminal_; }
+    static inline InstanceType truckSegment() { return truckSegment_; }
+    static inline InstanceType boatSegment() { return boatSegment_; }
+    static inline InstanceType planeSegment() { return planeSegment_; }
+    static inline InstanceType stats() { return stats_; }
+    static inline InstanceType conn() { return conn_; }
+    static inline InstanceType fleet() { return fleet_; }
+
     ManagerImpl();
     Ptr<Instance> instanceNew(const string& name, const string& type);
     Ptr<Instance> instance(const string& name);
@@ -34,18 +60,19 @@ public:
     ShippingNetworkPtr shippingNetwork()
         { return shippingNetwork_; }
 private:
-    map<string,Ptr<Instance> > instance_;
+    typedef struct InstanceMapElem_t {
+        InstanceType type;
+        Ptr<Instance> ptr;
+    } InstanceMapElem;
+    map<string, InstanceMapElem> instance_;
     ShippingNetworkPtr shippingNetwork_;
 };
 
 Ptr<Instance> ManagerImpl::instance(const string& name) {
-    map<string,Ptr<Instance> >::const_iterator t = instance_.find(name);
+    map<string,InstanceMapElem>::const_iterator t = instance_.find(name);
     if (t == instance_.end())
         return NULL;
-    return (*t).second;
-}
-
-void ManagerImpl::instanceDel(const string& name) {
+    return (*t).second.ptr;
 }
 
 class LocationRep : public Instance {
@@ -53,8 +80,6 @@ public:
 
     LocationRep(const string& name, ManagerImpl* manager) :
         Instance(name), manager_(manager) {
-        // TODO: Nothing else to do?
-        // TODO: what is this for?
         manager_ = manager;
     }
 
@@ -66,6 +91,7 @@ public:
         if ((sp = representee_->segment(i))) {
             return sp->name();
         }
+        fprintf(stderr, "Location does not have segment at index %d.\n", i);
         return "";
     }
     void attributeIs(const string& name, const string& v) {}
@@ -189,17 +215,20 @@ class SegmentRep : public Instance {
 public:
     SegmentRep(const string& name, ManagerImpl* manager) :
         Instance(name), manager_(manager) {
-        // TODO: Nothing else to do?
         manager_ = manager;
     }
 
     // Instance method
     SegmentPtr representee() { return representee_; }
     string attribute(const string& name) {
-        if (name == "source" && representee_->source()) {
-            return representee_->source()->name();
-        } else if (name == "return segment" && representee_->returnSegment()) {
-            return representee_->returnSegment()->name();
+        if (name == "source") {
+            if (representee_->source())
+                return representee_->source()->name();
+            else return "";
+        } else if (name == "return segment") {
+            if (representee_->returnSegment())
+                return representee_->returnSegment()->name();
+            else return "";
         } else if (name == "length") {
             return MileToStr(representee_->length());
         } else if (name == "difficulty") {
@@ -209,19 +238,31 @@ public:
                             PathMode::expedited()) ?
                 "yes" : "no";
         }
-
+        fprintf(stderr, "Invalid attribute input: %s.\n", name.data());
         return "";
     }
     void attributeIs(const string& name, const string& v) {
         if (name == "source") {
             Ptr<LocationRep> sr = dynamic_cast<LocationRep *> (manager_->instance(v).ptr());
-            if (!sr) return;
-            if (!sourceOK(sr->representee()->entityType())) return;
+            if (!sr) {
+                fprintf(stderr, "Source does not exist: %s.\n", v.data());
+                return;
+            }
+            if (!sourceOK(sr->representee()->entityType())) {
+                fprintf(stderr, "Source of incompatible type: %s.\n", v.data());
+                return;
+            }
             representee_->sourceIs(v);
         } else if (name == "return segment") {
             Ptr<SegmentRep> sr = dynamic_cast<SegmentRep *> (manager_->instance(v).ptr());
-            if (!sr) return;
-            if (representee_->transportMode() != representee_->transportMode()) return;
+            if (!sr) {
+                fprintf(stderr, "Segment does not exist: %s.\n", v.data());
+                return;
+            }
+            if (sr->representee_->transportMode() != representee_->transportMode()){
+                fprintf(stderr, "Segment of incompatible return type: %s.\n", v.data());
+                return;
+            }
             representee_->returnSegmentIs(v);
         } else if (name == "length") {
             representee_->lengthIs(Mile(atoi(v.data())));
@@ -232,6 +273,8 @@ public:
                 representee_->modeIs(PathMode::expedited());
             else if (v == "no")
                 representee_->modeDel(PathMode::expedited());
+        } else {
+            fprintf(stderr, "Invalid input for attributeIs: %s and %s.\n", name.data(), v.data());
         }
     }
 protected:
@@ -302,7 +345,6 @@ class FleetRep : public Instance {
 public:
     FleetRep(const string& name, ManagerImpl* manager) :
         Instance(name), manager_(manager) {
-        // TODO: do I need the manager?
         manager_ = manager;
         fleet_ = manager->shippingNetwork()->FleetNew(name);
     }
@@ -317,6 +359,8 @@ public:
             return PackageNumToStr(fleet_->capacity(fa.mode));
         } else if (fa.attribute == costStr) {
             return DollarPerMileToStr(fleet_->cost(fa.mode));
+        } else {
+            fprintf(stderr, "Invalid attribute input: %s.\n", name.data());
         }
         return ss.str();
     }
@@ -328,6 +372,8 @@ public:
             fleet_->capacityIs(fa.mode, PackageNum(atoi(v.data())));
         } else if (fa.attribute == costStr) {
             fleet_->costIs(fa.mode, DollarPerMile(atof(v.data())));
+        } else {
+            fprintf(stderr, "Invalid input for attributeIs: %s and %s.\n", name.data(), v.data());
         }
     }
 private:
@@ -417,6 +463,10 @@ public:
             ss << fixed << percentage;
         }
 
+        else {
+            fprintf(stderr, "Invalid stats attribute input.\n");
+        }
+
         return ss.str();
     }
     void attributeIs(const string& name, const string& v) {
@@ -438,63 +488,90 @@ public:
 
     // Instance method
     string attribute(const string& name) {
+        // create types useful for parsing
         stringstream ss;
         bool explore = false;
-        std::set<string> pathStrings;
         std::vector<PathPtr> paths;
         size_t expeditedIndex=0;
-        // TODO: is there a better way to tokenize?
-        DEBUG_LOG << "Submitting query.\n";
         char* tokenString = strdup(name.data());
         char* namePtr = strtok(tokenString, ", :");
+
+        // parse string and submit query
+        DEBUG_LOG << "Submitting query.\n";
         if (strcmp(namePtr, "connect") == 0) {
+            // parse start and end location; return if either is empty
             namePtr = strtok(NULL, ", :");
             Ptr<LocationRep> loc1 = dynamic_cast<LocationRep*> (manager_->instance(namePtr).ptr());
             namePtr = strtok(NULL, ", :");
             Ptr<LocationRep> loc2 = dynamic_cast<LocationRep*> (manager_->instance(namePtr).ptr());
             delete tokenString;
-            if (!loc1 && !loc2) return "";
+            if (!loc1 && !loc2) {
+                fprintf(stderr, "Could not find both locations.\n");
+                return "";
+            }
+
+            // create pathselector object, run expedited query
             Conn::PathSelector selector(NULL,loc1->representee(), loc2->representee());
             selector.modeIs(PathMode::expedited());
             paths = conn_->paths(selector);
+
+            // submit unexpedited query, add to original paths list
             expeditedIndex=paths.size();
             selector = Conn::PathSelector(NULL,loc1->representee(), loc2->representee());
             selector.modeIs(PathMode::unexpedited());
             std::vector<PathPtr> unexpeditedpaths = conn_->paths(selector);
             paths.insert(paths.end(),unexpeditedpaths.begin(),unexpeditedpaths.end());
+
         } else if (strcmp(namePtr, "explore") == 0) {
             explore = true;
+
+            // parse start location and constraints; return if null location
             namePtr = strtok(NULL, ", :");
             Ptr<LocationRep> loc = dynamic_cast<LocationRep*> (manager_->instance(namePtr).ptr());
-            bool expedited=false;
-            Conn::ConstraintPtr constraints = parseConstraints(namePtr,expedited);
+            bool expedited = false;
+            Conn::ConstraintPtr constraints = parseConstraints(namePtr, expedited);
             delete tokenString;
-            if (!loc) return "";
+            if (!loc) {
+                fprintf(stderr, "Invalid location name %s.\n", namePtr);
+                return "";
+            }
+
+            // create pathselector object, run expedited query
             Conn::PathSelector selector(constraints,loc->representee());
             selector.modeIs(PathMode::expedited());
             paths = conn_->paths(selector);
-            expeditedIndex=paths.size();
-            if(!expedited){
+
+            // add unexpedited paths if no constraint on expedite support
+            expeditedIndex = paths.size();
+            if (!expedited) {
                 selector = Conn::PathSelector(constraints,loc->representee());
                 selector.modeIs(PathMode::unexpedited());
                 std::vector<PathPtr> unexpeditedPaths = conn_->paths(selector);
-                paths.insert(paths.end(),unexpeditedPaths.begin(),unexpeditedPaths.end());
+                paths.insert(paths.end(), unexpeditedPaths.begin(), unexpeditedPaths.end());
             }
+
+            // cleanup
+            // TODO: delete!
         }
 
+        // output paths
         DEBUG_LOG << "Reading path.\n";
         unsigned int numPaths = paths.size();
         DEBUG_LOG << numPaths << " path(s) found.\n";
+        std::set<string> pathStrings;
         for (size_t i = 0; i < numPaths; i++) {
             PathPtr path = paths[i];
+
+            // output cost/time if not explore
             if (!explore) {
                 ss << DollarToStr(path->cost()) << " ";
                 ss << HourToStr(path->time()) << " ";
-                ss << (i<expeditedIndex ?
+                ss << (i < expeditedIndex ?
                     "yes" : "no");
                 ss << "; ";
             }
 
+            // output locations and segments
             uint32_t numLocs = path->pathElementCount();
             DEBUG_LOG << numLocs << " location(s) in path.\n";
             for (uint32_t j = 0; j < numLocs; j++) {
@@ -510,6 +587,7 @@ public:
             // TODO: destroy paths?
         }
 
+        // return unique set of paths
         for (std::set<string>::iterator it=pathStrings.begin(); it!=pathStrings.end(); it++)
             ss << *it;
         return ss.str();
@@ -533,7 +611,7 @@ private:
             } else if (strcmp(s, "expedited") == 0) {
                 expedited=true; 
             } else {
-                DEBUG_LOG << "Incorrect input for explore constraint." << std::endl;
+                fprintf(stderr, "Invalid explore constraint.\n");
                 break;
             }
             if (!result) result = newPtr;
@@ -547,7 +625,6 @@ private:
 };
 
 ManagerImpl::ManagerImpl() {
-    // TODO: Don't think I need to set this name to something the client can read
     shippingNetwork_ =
         ShippingNetwork::ShippingNetworkIs("ShippingNetwork");
     // Update the expedited costs by their multipliers
@@ -561,68 +638,92 @@ ManagerImpl::ManagerImpl() {
 Ptr<Instance> ManagerImpl::instanceNew(const string& name,
     const string& type) {
     // do not create an instance if the name already exists
-    if (instance_[name]) return NULL;
+    if (instance(name)) {
+        fprintf(stderr, "Instance already exists with name %s.\n", name.data());
+        return NULL;
+    }
+
+    Ptr<Instance> inst;
+    InstanceType instType;
 
     // Location Types
     if (type == truckTerminalStr) {
-        Ptr<TruckTerminalRep> t = new TruckTerminalRep(name, this);
-        instance_[name] = t;
-        return t;
+        inst = new TruckTerminalRep(name, this);
+        instType = truckTerminal_;
     } else if (type == customerStr) {
-        Ptr<CustomerRep> t = new CustomerRep(name, this);
-        instance_[name] = t;
-        return t;
+        inst = new CustomerRep(name, this);
+        instType = customer_;
     } else if (type == portStr) {
-        Ptr<PortRep> t = new PortRep(name, this);
-        instance_[name] = t;
-        return t;
+        inst = new PortRep(name, this);
+        instType = port_;
     } else if (type == boatTerminalStr) {
-        Ptr<BoatTerminalRep> t = new BoatTerminalRep(name, this);
-        instance_[name] = t;
-        return t;
+        inst = new BoatTerminalRep(name, this);
+        instType = boatTerminal_;
     } else if (type == planeTerminalStr) {
-        Ptr<PlaneTerminalRep> t = new PlaneTerminalRep(name, this);
-        instance_[name] = t;
-        return t;
+        inst = new PlaneTerminalRep(name, this);
+        instType = planeTerminal_;
     }
 
     // Segment Types
     else if (type == planeSegmentStr) {
-        Ptr<PlaneSegmentRep> t = new PlaneSegmentRep(name, this);
-        instance_[name] = t;
-        return t;
+        inst = new PlaneSegmentRep(name, this);
+        instType = planeSegment_;
     } else if (type == truckSegmentStr) {
-        Ptr<TruckSegmentRep> t = new TruckSegmentRep(name, this);
-        instance_[name] = t;
-        return t;
+        inst = new TruckSegmentRep(name, this);
+        instType = truckSegment_;
     } else if (type == boatSegmentStr) {
-        Ptr<BoatSegmentRep> t = new BoatSegmentRep(name, this);
-        instance_[name] = t;
-        return t;
+        inst = new BoatSegmentRep(name, this);
+        instType = boatSegment_;
     }
 
     // Conn Type
     else if (type == "Conn") {
-        Ptr<ConnRep> t = new ConnRep(name, this);
-        instance_[name] = t;
-        return t;
+        inst = new ConnRep(name, this);
+        instType = conn_;
     }
 
     // Fleet Type
     else if (type == "Fleet") {
-        Ptr<FleetRep> t = new FleetRep(name, this);
-        instance_[name] = t;
-        return t;
+        inst = new FleetRep(name, this);
+        instType = fleet_;
     }
 
     // Stats Type
     else if (type == "Stats") {
-        Ptr<StatsRep> t = new StatsRep(name, this);
-        instance_[name] = t;
-        return t;
+        inst = new StatsRep(name, this);
+        instType = stats_;
     }
 
-    return NULL;
+    else {
+        fprintf(stderr, "Invalid instance new.\n");
+        return NULL;
+    }
+
+    InstanceMapElem ime = {instType, inst};
+    instance_[name] = ime;
+    return inst;
+}
+
+void ManagerImpl::instanceDel(const string& name) {
+    map<string,InstanceMapElem>::const_iterator t = instance_.find(name);
+    if (t == instance_.end()) {
+        fprintf(stderr, "Instance does not exist with name: %s.\n", name.data());
+    }
+    Ptr<Instance> inst = (*t).second.ptr;
+    InstanceType instType = (*t).second.type;
+    if (instType == customer_ || instType == port_ || instType == truckTerminal_ ||
+        instType == boatTerminal_ || instType == planeTerminal_) {
+        shippingNetwork_->locationDel(name);
+        instance_.erase(name);
+        return;
+    } else if (instType == boatSegment_ || instType == truckSegment_ ||
+        instType == planeSegment_) {
+        shippingNetwork_->segmentDel(name);
+        instance_.erase(name);
+        return;
+    }
+
+    fprintf(stderr, "Type cannot be deleted.\n");
 }
 
 }
@@ -637,3 +738,4 @@ Ptr<Instance> ManagerImpl::instanceNew(const string& name,
 Ptr<Instance::Manager> shippingInstanceManager() {
     return new Shipping::ManagerImpl();
 }
+
