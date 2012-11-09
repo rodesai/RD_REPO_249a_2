@@ -61,6 +61,9 @@ public:
     ShippingNetworkPtr shippingNetwork()
         { return shippingNetwork_; }
 private:
+    Ptr<Instance> fleetInstance_;
+    Ptr<Instance> connInstance_;
+    Ptr<Instance> statsInstance_;
     typedef struct InstanceMapElem_t {
         InstanceType type;
         Ptr<Instance> ptr;
@@ -189,8 +192,6 @@ public:
 };
 
 
-// TODO: are these the correct types?
-// TODO: should we move these into the types?
 // int based types
 string PackageNumToStr(PackageNum x) {
     stringstream s;
@@ -274,6 +275,11 @@ public:
     }
     void attributeIsImpl(const string& name, const string& v) {
         if (name == "source") {
+            // remove source if string is empty
+            if (v == "") {
+                representee_->sourceIs("");
+                return;
+            }
             Ptr<LocationRep> sr = dynamic_cast<LocationRep *> (manager_->instance(v).ptr());
             if (!sr) {
                 fprintf(stderr, "Source does not exist: %s.\n", v.data());
@@ -285,6 +291,11 @@ public:
             }
             representee_->sourceIs(v);
         } else if (name == "return segment") {
+            // remove return segment if string is empty
+            if (v == "") {
+                representee_->returnSegmentIs("");
+                return;
+            }
             Ptr<SegmentRep> sr = dynamic_cast<SegmentRep *> (manager_->instance(v).ptr());
             if (!sr) {
                 fprintf(stderr, "Segment does not exist: %s.\n", v.data());
@@ -309,14 +320,13 @@ public:
         }
     }
 protected:
-    // TODO: why do I need to put the "return false" in here?
-    virtual bool sourceOK(Location::EntityType et) { return false; }
+    virtual bool sourceOK(Location::EntityType et) = 0;
     Ptr<ManagerImpl> manager_;
     int segmentNumber(const string& name);
     SegmentPtr representee_;
 };
 
-// TODO: check that segments are right
+
 class TruckSegmentRep : public SegmentRep {
 public:
     TruckSegmentRep(const string& name, ManagerImpl *manager) :
@@ -415,7 +425,6 @@ private:
     FleetAttribute fleetAttribute(const string& str) {
         FleetAttribute result = {"", TransportMode::boat()};
 
-        // TODO: this doesn't seem efficient
         char* tokenString = strdup(str.data());
         char* namePtr = strtok(tokenString, ", ");
         if (strcmp(namePtr, "Boat") == 0) {
@@ -441,15 +450,12 @@ class StatsRep : public BaseRep {
 public:
     StatsRep(const string& name, ManagerImpl* manager) :
         BaseRep(name), manager_(manager) {
-        // TODO: Nothing else to do?
-        // TODO: do I need the manager?
         manager_ = manager;
         stats_ = manager->shippingNetwork()->StatsNew(name);
     }
 
     // Instance method
     string attributeImpl(const string& name) {
-        // TODO: convert output to string
         std::stringstream ss;
 
         // return location count
@@ -512,7 +518,6 @@ class ConnRep : public BaseRep {
 public:
     ConnRep(const string& name, ManagerImpl* manager) :
         BaseRep(name), manager_(manager) {
-        // TODO: do I need the manager?
         manager_ = manager;
         conn_ = manager->shippingNetwork()->ConnNew(name);
     }
@@ -580,9 +585,6 @@ public:
                 std::vector<PathPtr> unexpeditedPaths = conn_->paths(selector);
                 paths.insert(paths.end(), unexpeditedPaths.begin(), unexpeditedPaths.end());
             }
-
-            // cleanup
-            // TODO: delete!
         }
 
         // output paths
@@ -614,7 +616,6 @@ public:
             ss << path->lastLocation()->name() << "\n";
             pathStrings.insert(ss.str());
             ss.str(std::string());
-            // TODO: destroy paths?
         }
 
         // return unique set of paths
@@ -655,6 +656,9 @@ private:
 };
 
 ManagerImpl::ManagerImpl() {
+    fleetInstance_ = NULL;
+    connInstance_ = NULL;
+    statsInstance_ = NULL;
     shippingNetwork_ =
         ShippingNetwork::ShippingNetworkIs("ShippingNetwork");
     // Update the expedited costs by their multipliers
@@ -667,8 +671,12 @@ ManagerImpl::ManagerImpl() {
 
 Ptr<Instance> ManagerImpl::instanceNew(const string& name,
     const string& type) {
-
     try{
+    // do not name anything the empty string
+    if (name == "") {
+        fprintf(stderr, "Invalid name.\n");
+        return NULL;
+    }
 
     // do not create an instance if the name already exists
     if (instance(name)) {
@@ -711,19 +719,25 @@ Ptr<Instance> ManagerImpl::instanceNew(const string& name,
 
     // Conn Type
     else if (type == "Conn") {
+        if (connInstance_) return connInstance_;
         inst = new ConnRep(name, this);
+        connInstance_ = inst;
         instType = conn_;
     }
 
     // Fleet Type
     else if (type == "Fleet") {
+        if (fleetInstance_) return fleetInstance_;
         inst = new FleetRep(name, this);
+        fleetInstance_ = inst;
         instType = fleet_;
     }
 
     // Stats Type
     else if (type == "Stats") {
+        if (statsInstance_) return statsInstance_;
         inst = new StatsRep(name, this);
+        statsInstance_ = inst;
         instType = stats_;
     }
 
@@ -755,16 +769,13 @@ void ManagerImpl::instanceDel(const string& name) {
     if (instType == customer_ || instType == port_ || instType == truckTerminal_ ||
         instType == boatTerminal_ || instType == planeTerminal_) {
         shippingNetwork_->locationDel(name);
-        instance_.erase(name);
-        return;
     } else if (instType == boatSegment_ || instType == truckSegment_ ||
         instType == planeSegment_) {
         shippingNetwork_->segmentDel(name);
-        instance_.erase(name);
-        return;
     }
 
     fprintf(stderr, "Type cannot be deleted.\n");
+    instance_.erase(name);
     }
     catch(...){
         std::cerr << "Error caught from rep layer" << std::endl;
