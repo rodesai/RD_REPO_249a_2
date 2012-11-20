@@ -8,6 +8,7 @@ default: $(OBJECTS)
 
 clean:
 	rm -f $(OBJECTS) *~
+	cd test && gmake clean
 
 Instance.o: Engine.cpp 
 

@@ -887,7 +887,9 @@ PathPtr Path::PathIs(LocationPtr firstLocation){
     return new Path(firstLocation);
 }
 
-Path::Path(LocationPtr firstLocation) : cost_(0),time_(0),distance_(0),firstLocation_(firstLocation), lastLocation_(firstLocation){}
+Path::Path(LocationPtr firstLocation) : cost_(0),time_(0),distance_(0),firstLocation_(firstLocation), lastLocation_(firstLocation){
+    locations_.insert(firstLocation->name());
+}
 
 Path::PathElementPtr Path::PathElement::PathElementIs(SegmentPtr segment, PathMode elementMode){
     return new Path::PathElement(segment,elementMode);
