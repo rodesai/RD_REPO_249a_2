@@ -24,6 +24,15 @@ static const string planeSegmentStr = "Plane segment";
 static const string truckSegmentStr = "Truck segment";
 static const string boatSegmentStr = "Boat segment";
 static const string segmentStr = "segment";
+static const string transferRateStr = "Transfer Rate";
+static const string shipmentSizeStr = "Shipment Size";
+static const string destinationStr = "Destination";
+static const string shipmentsReceivedStr = "Shipments Received";
+static const string averageLatencyStr = "Average Latency";
+static const string totalCostStr = "Total Cost";
+static const string shipmentsRefusedStr = "Shipments Refused";
+// TODO: do we need two capacities?
+static const string capacityStr2 = "Capacity";
 static const int segmentStrlen = segmentStr.length();
 
 class ManagerImpl : public Instance::Manager {
@@ -224,19 +233,19 @@ public:
         Customer* cust = dynamic_cast<Customer*> (representee_.ptr());
 
         // TODO: do we need to prevent access to these methods if the customer is not a destination/source?
-        if (name == "Transfer Rate") {
+        if (name == transferRateStr) {
             return cust->transferRate().str();
-        } else if (name == "Shipment Size") {
+        } else if (name == shipmentSizeStr) {
             return cust->shipmentSize().str();
-        } else if (name == "Destination") {
+        } else if (name == destinationStr) {
             LocationPtr dest = cust->destination();
             if (dest) return dest->name();
             return "";
-        } else if (name == "Shipments Received") {
+        } else if (name == shipmentsReceivedStr) {
             stringstream s;
             s << fixed << cust->shipmentsReceived();
             return s.str();
-        } else if (name == "Average Latency") {
+        } else if (name == averageLatencyStr) {
             double result = 0.0;
             double numShipments = (double) cust->shipmentsReceived();
             if (numShipments > 0) {
@@ -246,7 +255,7 @@ public:
             s.precision(2);
             s << fixed << result;
             return s.str();
-        } else if (name == "Total Cost") {
+        } else if (name == totalCostStr) {
             return cust->totalCost().str();
         }
         return lookupSegment(name);
@@ -255,13 +264,14 @@ public:
         // TODO: is this the cleanest way to have a general pointer?
         Customer* cust = dynamic_cast<Customer*> (representee_.ptr());
 
-        if (name == "Transfer Rate") {
+        if (name == transferRateStr) {
             cust->transferRateIs(ShipmentPerDay(atoi(v.data())));
-        } else if (name == "Shipment Size") {
+        } else if (name == shipmentSizeStr) {
             cust->shipmentSize(PackageNum(atoi(v.data())));
-        } else if (name == "Destination") {
+        } else if (name == destinationStr) {
             Ptr<LocationRep> sr = dynamic_cast<LocationRep *> (manager_->instance(v).ptr());
             if (!sr) {
+                // TODO: throw error
                 fprintf(stderr, "Destination does not exist: %s.\n", v.data());
                 return;
             }
