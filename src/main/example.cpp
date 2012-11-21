@@ -18,6 +18,7 @@ int main(int argc, char *argv[]) {
     }
 
     Ptr<Instance> stats = manager->instanceNew("myStats", "Stats");
+    manager->nowIs(5.0);
 
     if (stats == NULL) {
         cerr << "Unexpected NULL stats." << endl;

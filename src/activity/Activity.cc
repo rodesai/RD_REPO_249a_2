@@ -3,8 +3,10 @@
 
 #include "activity/Activity.h"
 
+namespace Activity{
+
 Activity::Activity(string name, ManagerPtr manager) : 
-    NamedInterface(name), status_(free), nextTime_(0.0), notifiee_(NULL),
+    NamedInterface(name), status_(Activity::free()), nextTime_(0.0), notifiee_(NULL),
     manager_(manager)
 {}
 
@@ -24,6 +26,7 @@ void Activity::nextTimeIs(Time t){
 
 void Activity::lastNotifieeIs(Activity::Notifiee* n){
     notifiee_ = n;
+    n->notifierIs(this);
 }
 
 ActivityPtr Manager::activityNew(const string& name) {
@@ -67,10 +70,10 @@ void Manager::nowIs(Time t) {
         now_ = nextToRun->nextTime();
         //run the minimum time activity and remove it from the queue
         scheduledActivities_.pop();
-        nextToRun->statusIs(Activity::executing);
-        nextToRun->statusIs(Activity::free);
+        nextToRun->statusIs(Activity::executing());
+        nextToRun->statusIs(Activity::free());
     }
     //syncrhonize the time
     now_ = t;
 }
-
+}

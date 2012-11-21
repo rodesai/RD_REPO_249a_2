@@ -16,6 +16,10 @@
 
 #include "Nominal.h"
 
+#include "activity/Activity.h"
+
+using namespace Activity;
+
 namespace Shipping {
 
 typedef std::string EntityID;
@@ -623,6 +627,7 @@ public:
     typedef Fwk::Ptr<ShippingNetwork::Notifiee> NotifieePtr;
     typedef Fwk::Ptr<ShippingNetwork::Notifiee const> NotifieePtrConst;
 
+    ManagerPtr manager() const { return manager_; }
     SegmentPtr segment(EntityID name) const; 
     LocationPtr location(EntityID name) const;
     ConnPtrConst conn(EntityID name) const; 
@@ -642,7 +647,10 @@ public:
     static ShippingNetworkPtr ShippingNetworkIs(EntityID name);
 
 private:
-    ShippingNetwork(EntityID name) : Fwk::NamedInterface(name){}
+    ShippingNetwork(EntityID name) : Fwk::NamedInterface(name){
+        manager_=Manager::ManagerIs();
+    }
+    ManagerPtr manager_;
     typedef std::map<EntityID, LocationPtr> LocationMap;
     LocationMap locationMap_;
     typedef std::map<EntityID, SegmentPtr> SegmentMap;

@@ -1,6 +1,6 @@
 INCLUDE=-I../include -I../include/rep -I../
 
-LIBS=../rep/Instance.o ../engine/Engine.o ../fwk/*.o
+LIBS= ../activity/Activity.o ../rep/Instance.o ../engine/Engine.o ../fwk/*.o
 
 CXXFLAGS = -Wall -g $(INCLUDE)
 

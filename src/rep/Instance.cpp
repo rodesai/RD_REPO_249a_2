@@ -57,10 +57,44 @@ public:
     ManagerImpl();
     Ptr<Instance> instanceNew(const string& name, const string& type);
     Ptr<Instance> instance(const string& name);
+    void nowIs(Time t){
+        if(t > realTimeManager_->now())
+            realTimeManager_->nowIs(t);
+    }
     void instanceDel(const string& name);
     ShippingNetworkPtr shippingNetwork()
         { return shippingNetwork_; }
 private:
+
+    class RealToVirtualTimeActivity : public Activity::Activity::Notifiee{
+    public:
+        // public constructor ok in private class
+        RealToVirtualTimeActivity(Activity::ManagerPtr realManager, Activity::ManagerPtr virtualManager, uint64_t usPerHour): 
+            Activity::Activity::Notifiee(), realManager_(realManager), virtualManager_(virtualManager), usPerHour_(usPerHour)
+        {}
+        // use to execute when 
+        virtual void onStatus(){
+            Activity::Activity::Status status = notifier_->status();
+            if(status == Activity::Activity::executing()){
+                // sleep for the required time
+                usleep(usPerHour_);
+                // execute the virtual manager at correct time
+                virtualManager_->nowIs(notifier_->nextTime());
+            }
+            if(status == Activity::Activity::free()){
+                // reschedule notifying activity for next hour
+                notifier_->statusIs(Activity::Activity::nextTimeScheduled());
+                notifier_->nextTimeIs(notifier_->nextTime().value()+1.0);
+                realManager_->lastActivityIs(notifier_);
+            }
+        } 
+    private:
+        Activity::ManagerPtr realManager_;
+        Activity::ManagerPtr virtualManager_;
+        uint64_t usPerHour_;
+    };
+    typedef Fwk::Ptr<RealToVirtualTimeActivity> R2VTimeActivityPtr;
+
     Ptr<Instance> fleetInstance_;
     Ptr<Instance> connInstance_;
     Ptr<Instance> statsInstance_;
@@ -70,6 +104,9 @@ private:
     } InstanceMapElem;
     map<string, InstanceMapElem> instance_;
     ShippingNetworkPtr shippingNetwork_;
+
+    Activity::ManagerPtr realTimeManager_;
+    R2VTimeActivityPtr r2vTimeActivity_;
 };
 
 Ptr<Instance> ManagerImpl::instance(const string& name) {
@@ -660,8 +697,14 @@ ManagerImpl::ManagerImpl() {
     fleetInstance_ = NULL;
     connInstance_ = NULL;
     statsInstance_ = NULL;
-    shippingNetwork_ =
-        ShippingNetwork::ShippingNetworkIs("ShippingNetwork");
+    shippingNetwork_ = ShippingNetwork::ShippingNetworkIs("ShippingNetwork");
+    realTimeManager_ = Activity::Manager::ManagerIs();
+    r2vTimeActivity_ = new RealToVirtualTimeActivity(realTimeManager_,shippingNetwork_->manager(),1000000);
+    // Setup activity
+    Activity::ActivityPtr activityPtr = realTimeManager_->activityNew("r2vtime_activity");
+    activityPtr->nextTimeIs(0.0);
+    activityPtr->lastNotifieeIs(r2vTimeActivity_.ptr());
+    realTimeManager_->lastActivityIs(activityPtr);
     // Update the expedited costs by their multipliers
     FleetPtr fleet = shippingNetwork_->FleetNew("_repfleet");
     fleet->costMultiplierIs(PathMode::unexpedited(),1.0);
