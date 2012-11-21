@@ -18,7 +18,7 @@ GUNIT_PATH += $(GUNIT_BASE)/include
 
 # The main source file names you will need to test.
 MAIN_FILES += rep/Instance 
-SECONDARY_FILES += engine/Engine fwk/BaseCollection fwk/BaseNotifiee fwk/Exception
+SECONDARY_FILES += activity/Activity engine/Engine fwk/BaseCollection fwk/BaseNotifiee fwk/Exception
 
 # The objects corresponding to the tested files.
 MAIN_OBJ_PATH = $(addsuffix .o, $(addprefix $(SRC_PATH), $(MAIN_FILES)))
