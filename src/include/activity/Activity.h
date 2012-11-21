@@ -13,6 +13,8 @@
 
 using namespace std;
 
+namespace Activity{
+
 class Activity;
 typedef Fwk::Ptr<Activity> ActivityPtr;
 typedef Fwk::Ptr<Activity const> ActivityPtrConst;
@@ -42,7 +44,6 @@ public:
     protected:
         Notifiee(){}
         virtual ~Notifiee(){}
-    private:
         ActivityPtr notifier_;
     };
     typedef Fwk::Ptr<Notifiee> NotifieePtr;
@@ -50,8 +51,11 @@ public:
 
     /* Current Execution State of Activity */
     enum Status {
-        free, waiting, ready, executing, nextTimeScheduled, deleted
+        free_, executing_, nextTimeScheduled_
     };
+    static Status free(){ return free_; }
+    static Status executing(){ return executing_; }
+    static Status nextTimeScheduled(){ return nextTimeScheduled_; }
 
     /* Accessors */
     inline Status status() const { return status_; }
@@ -92,11 +96,14 @@ public:
     void activityDel(const string &name);
     void lastActivityIs(ActivityPtr);
     void nowIs(Time);
+    static ManagerPtr ManagerIs(){ return new Manager(); }
 private:
     Manager() : now_(0){}
     priority_queue<ActivityPtr, vector<ActivityPtr>, ActivityComp> scheduledActivities_;
     map<string, ActivityPtr> activities_; 
     Time now_;
 };
+
+}
 
 #endif

@@ -4,6 +4,7 @@
 #include <string>
 #include "fwk/Ptr.h"
 #include "fwk/PtrInterface.h"
+#include "activity/Activity.h"
 
 using std::string;
 using Fwk::Ptr;
@@ -86,6 +87,7 @@ public:
     ///
     virtual void instanceDel(const string& name) = 0;
 
+    virtual void nowIs(Activity::Time time) = 0;
 };
 
 ///
