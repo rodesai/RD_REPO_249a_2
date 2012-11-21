@@ -120,13 +120,7 @@ public:
     // Instance method
     LocationPtr representee() { return representee_; }
     string attributeImpl(const string& name) {
-        int i = segmentNumber(name);
-        SegmentPtr sp;
-        if ((sp = representee_->segment(i))) {
-            return sp->name();
-        }
-        fprintf(stderr, "Location does not have segment at index %d.\n", i);
-        return "";
+        return lookupSegment(name);
     }
     void attributeIsImpl(const string& name, const string& v) {}
 protected:
@@ -138,6 +132,15 @@ protected:
             return atoi(t);
         }
         return 0;
+    }
+    string lookupSegment(const string& name) {
+        int i = segmentNumber(name);
+        SegmentPtr sp;
+        if ((sp = representee_->segment(i))) {
+            return sp->name();
+        }
+        fprintf(stderr, "Location does not have segment at index %d.\n", i);
+        return "";
     }
 };
 
@@ -179,6 +182,56 @@ public:
         representee_ = manager->shippingNetwork()->LocationNew(name,
             Location::EntityType::customer());
     }
+    string attributeImpl(const string& name) {
+        // TODO: is this the cleanest way to have a general pointer?
+        Customer* cust = dynamic_cast<Customer*> (representee_.ptr());
+
+        // TODO: do we need to prevent access to these methods if the customer is not a destination/source?
+        if (name == "Transfer Rate") {
+            return cust->transferRate().str();
+        } else if (name == "Shipment Size") {
+            return cust->shipmentSize().str();
+        } else if (name == "Destination") {
+            LocationPtr dest = cust->destination();
+            if (dest) return dest->name();
+            return "";
+        } else if (name == "Shipments Received") {
+            stringstream s;
+            s << fixed << cust->shipmentsReceived();
+            return s.str();
+        } else if (name == "Average Latency") {
+            double result = 0.0;
+            double numShipments = (double) cust->shipmentsReceived();
+            if (numShipments > 0) {
+                result = cust->totalLatency().value() / numShipments;
+            }
+            stringstream s;
+            s.precision(2);
+            s << fixed << result;
+            return s.str();
+        } else if (name == "Total Cost") {
+            return cust->totalCost().str();
+        }
+        return lookupSegment(name);
+    }
+    void attributeIsImpl(const string& name, const string& v) {
+        // TODO: is this the cleanest way to have a general pointer?
+        Customer* cust = dynamic_cast<Customer*> (representee_.ptr());
+
+        if (name == "Transfer Rate") {
+            cust->transferRateIs(ShipmentPerDay(atoi(v.data())));
+        } else if (name == "Shipment Size") {
+            cust->shipmentSize(PackageNum(atoi(v.data())));
+        } else if (name == "Destination") {
+            Ptr<LocationRep> sr = dynamic_cast<LocationRep *> (manager_->instance(v).ptr());
+            if (!sr) {
+                fprintf(stderr, "Destination does not exist: %s.\n", v.data());
+                return;
+            }
+            // whether destination is customer is checked at the engine level
+            cust->destinationIs(sr->representee());
+        }
+    }
 };
 
 
@@ -190,58 +243,6 @@ public:
             Location::EntityType::port());
     }
 };
-
-
-// int based types
-string PackageNumToStr(PackageNum x) {
-    stringstream s;
-    s << x.value();
-    return s.str();
-}
-
-string MileToStr(Mile x) {
-    stringstream s;
-    s.precision(2);
-    s << fixed << x.value();
-    return s.str();
-}
-
-string MilePerHourToStr(MilePerHour x) {
-    stringstream s;
-    s.precision(2);
-    s << fixed << x.value();
-    return s.str();
-}
-
-string DollarPerMileToStr(DollarPerMile x) {
-    stringstream s;
-    s.precision(2);
-    s << fixed << x.value();
-    return s.str();
-}
-
-// float based types
-string DifficultyToStr(Difficulty x) {
-    stringstream s;
-    s.precision(2);
-    s << fixed << x.value();
-    return s.str();
-}
-
-string DollarToStr(Dollar x) {
-    stringstream s;
-    s.precision(2);
-    s << fixed << x.value();
-    return s.str();
-}
-
-string HourToStr(Hour x) {
-    stringstream s;
-    s.precision(2);
-    s << fixed << x.value();
-    return s.str();
-}
-
 
 class SegmentRep : public BaseRep {
 public:
@@ -262,9 +263,9 @@ public:
                 return representee_->returnSegment()->name();
             else return "";
         } else if (name == "length") {
-            return MileToStr(representee_->length());
+            return representee_->length().str();
         } else if (name == "difficulty") {
-            return DifficultyToStr(representee_->difficulty());
+            return representee_->difficulty().str();
         } else if (name == "expedite support") {
             return (representee_->mode(PathMode::expedited()) == 
                             PathMode::expedited()) ?
@@ -395,11 +396,11 @@ public:
         stringstream ss;
         FleetAttribute fa = fleetAttribute(name);
         if (fa.attribute == speedStr) {
-            return MilePerHourToStr(fleet_->speed(fa.mode));
+            return fleet_->speed(fa.mode).str();
         } else if (fa.attribute == capacityStr) {
-            return PackageNumToStr(fleet_->capacity(fa.mode));
+            return fleet_->capacity(fa.mode).str();
         } else if (fa.attribute == costStr) {
-            return DollarPerMileToStr(fleet_->cost(fa.mode));
+            return fleet_->cost(fa.mode).str();
         } else {
             fprintf(stderr, "Invalid attribute input: %s.\n", name.data());
         }
@@ -597,8 +598,8 @@ public:
 
             // output cost/time if not explore
             if (!explore) {
-                ss << DollarToStr(path->cost()) << " ";
-                ss << HourToStr(path->time()) << " ";
+                ss << path->cost().str() << " ";
+                ss << path->time().str() << " ";
                 ss << (i < expeditedIndex ?
                     "yes" : "no");
                 ss << "; ";
@@ -609,7 +610,7 @@ public:
             for (uint32_t j = 0; j < numLocs; j++) {
                 ss << path->pathElement(j)->source()->name();
                 ss << "(" << path->pathElement(j)->segment()->name() << ":";
-                ss << MileToStr(path->pathElement(j)->segment()->length());
+                ss << path->pathElement(j)->segment()->length().str();
                 ss << ":" << path->pathElement(j)->segment()->returnSegment()->name() << ") ";
             }
 

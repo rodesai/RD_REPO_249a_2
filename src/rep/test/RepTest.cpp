@@ -7,14 +7,16 @@ TEST(Instance, CreateInstanceManager) {
 }
 
 /* TODO:
-    x- verify that I do NOT need to delete a ref (e.g. from instanceDel)
-    x- need to make value type not negative for unspecified (hour, dollar, mile)
-    x- do we need to support the removal of a source? (e.g. seg->attributeIs("source", ""))
-    x- support deletion of segment and location
-    x- add tests for
+    - add tests for
+        x- update path details after changing cost, speed, etc
+            x- expedite support
+            x- difficulty
+            x- length
+            x- fleet speed
+            x- fleet cost
         x- names are empty strings? check piazza
         x- invalid input on attribute, attributeIs (especially for conn)
-        o- check road to the location itself
+        o- check path to the location itself
         x- use m->instance() to check that conn / stats / fleet have the right name
         x- make sure that calling new on stats / conn / fleet will return the same one
         x- stats / conn / fleet
@@ -27,15 +29,14 @@ TEST(Instance, CreateInstanceManager) {
         x- set source to location that doesn't exist
         x- create a case where there are two paths and one is expedited
     x- are we outputting to std::err?
+    x- verify that I do NOT need to delete a ref (e.g. from instanceDel)
+    x- need to make value type not negative for unspecified (hour, dollar, mile)
+    x- do we need to support the removal of a source? (e.g. seg->attributeIs("source", ""))
+    x- support deletion of segment and location
     x- add errors for all incorrect read operations
     x- verify output--should there always be decimals? e.g. "1.00"
     x- do we have the right float/decimal types?
     x- is "0" the right percentage if there are no segments?
-*/
-
-/* TODO: design questions
-    - the name Path::location() is confusing
-    - all of the expedited types are confusing
 */
 
 Ptr<Instance> addSegment(Ptr<Instance::Manager> m, string name, string mode,
@@ -125,18 +126,18 @@ TEST(Instance, InstanceMapping) {
     ASSERT_TRUE(stats);
 
     // verify that the instance is mapped
-    ASSERT_TRUE(m->instance("seg1"));
-    ASSERT_TRUE(m->instance("loc1"));
-    ASSERT_TRUE(m->instance("conn"));
-    ASSERT_TRUE(m->instance("stats"));
-    ASSERT_TRUE(m->instance("fleet"));
+    EXPECT_EQ(m->instance("seg1")->name(), "seg1");
+    EXPECT_EQ(m->instance("loc1")->name(), "loc1");
+    EXPECT_EQ(m->instance("conn")->name(), "conn");
+    EXPECT_EQ(m->instance("stats")->name(), "stats");
+    EXPECT_EQ(m->instance("fleet")->name(), "fleet");
 
     // verify that other instances are not
-    ASSERT_FALSE(m->instance("seg11"));
-    ASSERT_FALSE(m->instance("loc11"));
-    ASSERT_FALSE(m->instance("conn1"));
-    ASSERT_FALSE(m->instance("stats1"));
-    ASSERT_FALSE(m->instance("fleet1"));
+    EXPECT_FALSE(m->instance("seg11"));
+    EXPECT_FALSE(m->instance("loc11"));
+    EXPECT_FALSE(m->instance("conn1"));
+    EXPECT_FALSE(m->instance("stats1"));
+    EXPECT_FALSE(m->instance("fleet1"));
 }
 
 
@@ -152,6 +153,8 @@ TEST(Instance, TypeOutOfBounds) {
     ASSERT_TRUE(fleet);
     Ptr<Instance> conn = m->instanceNew("conn", "Conn");
     ASSERT_TRUE(conn);
+    Ptr<Instance> stats = m->instanceNew("stats", "Stats");
+    ASSERT_TRUE(stats);
 
     // test for null name
     ASSERT_FALSE(m->instanceNew("", "Boat segment"));
@@ -169,6 +172,10 @@ TEST(Instance, TypeOutOfBounds) {
     // test conn values
     EXPECT_EQ(conn->attribute("explore loc1 : expedited distance -1.3 cost -1.2 time -1.1"), "");
     EXPECT_EQ(conn->attribute("explore loc1 : kdkdkdkdkdkdkdkdkdkdkdk distance -1.3 cost -1.2 time -1.1"), "");
+
+    // test stats object
+    EXPECT_EQ(stats->attribute("blah"), "");
+    EXPECT_EQ(stats->attribute("Plane segment"), "0");
 }
 
 
@@ -602,6 +609,9 @@ TEST(Instance, ConnTest) {
     // test connect
     EXPECT_EQ(conn->attribute("connect loc1 : loc2"), "1.00 1.00 no; loc1(seg1:1.00:seg2) loc2\n");
 
+    // connect a location to itself--shouldn't return a path
+    EXPECT_EQ(conn->attribute("connect loc1 : loc1"), "");
+
     // create duplicate conn that should be the same
     Ptr<Instance> conn2 = m->instanceNew("conn2", "Conn");
     ASSERT_TRUE(conn2);
@@ -676,5 +686,61 @@ TEST(Instance, ConnTwoRoutes) {
     EXPECT_EQ(conn->attribute("explore loc1 : time 2"), "loc1(seg3:450.00:seg4) loc2\n");
 }
 
-// test: too slow when not expedited, too costly when expedited
-// go for 
+TEST(Instance, CostTimeCalculation) {
+    Ptr<Instance::Manager> m = shippingInstanceManager();
+    ASSERT_TRUE(m);
+    Ptr<Instance> conn = m->instanceNew("conn", "Conn");
+    ASSERT_TRUE(conn);
+    Ptr<Instance> fleet = m->instanceNew("fleet", "Fleet");
+    ASSERT_TRUE(fleet);
+
+    // set fleet attributes
+    fleet->attributeIs("Truck, speed", "1");
+    fleet->attributeIs("Truck, cost", "1");
+
+    // add three locations
+    Ptr<Instance> loc1 = m->instanceNew("loc1", "Customer");
+    ASSERT_TRUE(loc1);
+    Ptr<Instance> loc2 = m->instanceNew("loc2", "Customer");
+    ASSERT_TRUE(loc2);
+
+    // add intermediate segments between two locations
+    Ptr<Instance> seg1 = m->instanceNew("seg1", "Truck segment");
+    ASSERT_TRUE(seg1);
+    Ptr<Instance> seg2 = m->instanceNew("seg2", "Truck segment");
+    ASSERT_TRUE(seg2);
+    seg1->attributeIs("source", "loc1");
+    seg2->attributeIs("source", "loc2");
+    seg1->attributeIs("return segment", "seg2");
+    EXPECT_EQ(seg2->attribute("return segment"), "seg1");
+    EXPECT_EQ(loc1->attribute("segment1"), "seg1");
+    EXPECT_EQ(loc2->attribute("segment1"), "seg2");
+
+    // turn on expedite support
+    seg1->attributeIs("expedite support", "yes");
+
+    // check cost
+    EXPECT_EQ(conn->attribute("connect loc1 : loc2"), "1.00 1.00 no; loc1(seg1:1.00:seg2) loc2\n1.50 0.77 yes; loc1(seg1:1.00:seg2) loc2\n");
+
+    // change fleet speed (time should decrease by factor of speed)
+    fleet->attributeIs("Truck, speed", "0.50");
+    EXPECT_EQ(conn->attribute("connect loc1 : loc2"), "1.00 2.00 no; loc1(seg1:1.00:seg2) loc2\n1.50 1.54 yes; loc1(seg1:1.00:seg2) loc2\n");
+    fleet->attributeIs("Truck, speed", "1.00");
+
+    // change fleet cost
+    fleet->attributeIs("Truck, cost", "2.00");
+    EXPECT_EQ(conn->attribute("connect loc1 : loc2"), "2.00 1.00 no; loc1(seg1:1.00:seg2) loc2\n3.00 0.77 yes; loc1(seg1:1.00:seg2) loc2\n");
+    fleet->attributeIs("Truck, cost", "1.00");
+
+    // change seg difficulty
+    seg1->attributeIs("difficulty", "2.00");
+    EXPECT_EQ(conn->attribute("connect loc1 : loc2"), "2.00 1.00 no; loc1(seg1:1.00:seg2) loc2\n3.00 0.77 yes; loc1(seg1:1.00:seg2) loc2\n");
+    seg1->attributeIs("difficulty", "1.00");
+
+    // change seg length
+    seg1->attributeIs("length", "2.00");
+    EXPECT_EQ(conn->attribute("connect loc1 : loc2"), "2.00 2.00 no; loc1(seg1:2.00:seg2) loc2\n3.00 1.54 yes; loc1(seg1:2.00:seg2) loc2\n");
+    seg1->attributeIs("length", "1.00");
+}
+
+

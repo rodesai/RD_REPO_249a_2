@@ -51,6 +51,12 @@ public:
         if (num < 0.0) throw ArgumentException();
     }
     Mile() : Ordinal<Mile,double>(defaultValue_){}
+    std::string str() {
+        std::stringstream s;
+        s.precision(2);
+        s << std::fixed << value_;
+        return s.str();
+    }
     static Mile defaultValue(){ return defaultValue_; }
 private:
     static const double defaultValue_ = 1.0;
@@ -62,6 +68,12 @@ public:
         if(num < 0) throw ArgumentException();
     }
     MilePerHour() : Nominal<MilePerHour, double>(defaultValue_) {}
+    std::string str() {
+        std::stringstream s;
+        s.precision(2);
+        s << std::fixed << value_;
+        return s.str();
+    }
     static MilePerHour defaultValue(){ return defaultValue_; }
 private:
     static const double defaultValue_ = 1.0;
@@ -73,6 +85,12 @@ public:
         if (num < 0) throw ArgumentException();
     }
     Dollar() : Ordinal<Dollar,double>(defaultValue_){}
+    std::string str() {
+        std::stringstream s;
+        s.precision(2);
+        s << std::fixed << value_;
+        return s.str();
+    }
     static Dollar defaultValue(){ return defaultValue_; }
 private:
     static const double defaultValue_ = 1.0;
@@ -84,6 +102,12 @@ public:
         if(num < 0.0) throw ArgumentException();
     }
     DollarPerMile() : Nominal<DollarPerMile, double>(defaultValue_) {}
+    std::string str() {
+        std::stringstream s;
+        s.precision(2);
+        s << std::fixed << value_;
+        return s.str();
+    }
     static DollarPerMile defaultValue(){ return defaultValue_; }
 private:
     static const double defaultValue_ = 1.0;
@@ -95,6 +119,12 @@ public:
         if (num < 0) throw ArgumentException();
     }
     Hour() : Ordinal<Hour,double>(defaultValue_){}
+    std::string str() {
+        std::stringstream s;
+        s.precision(2);
+        s << std::fixed << value_;
+        return s.str();
+    }
     static Hour defaultValue(){ return defaultValue_; }
 private:
     static const double defaultValue_ = 1.0;
@@ -105,6 +135,12 @@ public:
     Difficulty(double num) : Nominal<Difficulty, double>(num) {
         if (num < 1.0 || num > 5.0) throw ArgumentException();
     }
+    std::string str() {
+        std::stringstream s;
+        s.precision(2);
+        s << std::fixed << value_;
+        return s.str();
+    }
     static Difficulty defaultValue(){ return defaultValue_; }
 private:
     static const double defaultValue_ = 1.0;
@@ -114,7 +150,26 @@ class PackageNum : public Ordinal<PackageNum, uint64_t> {
 public:
     PackageNum(uint64_t num) : Ordinal<PackageNum, uint64_t>(num) {}
     PackageNum() : Ordinal<PackageNum, uint64_t>(defaultValue_) {}
+    std::string str() {
+        std::stringstream s;
+        s << value_;
+        return s.str();
+    }
     static PackageNum defaultValue(){ return defaultValue_; }
+private:
+    static const uint64_t defaultValue_ = 1;
+};
+
+class ShipmentPerDay : public Ordinal<ShipmentPerDay, uint64_t> {
+public:
+    ShipmentPerDay(uint64_t num) : Ordinal<ShipmentPerDay, uint64_t>(num) {}
+    ShipmentPerDay() : Ordinal<ShipmentPerDay, uint64_t>(defaultValue_) {}
+    std::string str() {
+        std::stringstream s;
+        s << value_;
+        return s.str();
+    }
+    static ShipmentPerDay defaultValue(){ return defaultValue_; }
 private:
     static const uint64_t defaultValue_ = 1;
 };
@@ -155,6 +210,7 @@ public:
 // Client Types
 class Segment;
 class Location;
+class Customer;
 class ShippingNetwork;
 class Path;
 class Conn;
@@ -169,6 +225,7 @@ class StatsReactor;
 // Pointers
 typedef Fwk::Ptr<Segment> SegmentPtr;
 typedef Fwk::Ptr<Location> LocationPtr;
+typedef Fwk::Ptr<Customer> CustomerPtr;
 typedef Fwk::Ptr<ShippingNetwork> ShippingNetworkPtr;
 typedef Fwk::Ptr<Path> PathPtr;
 typedef Fwk::Ptr<Conn> ConnPtr;
@@ -227,6 +284,79 @@ private:
     EntityType entityType_;
     typedef std::vector<SegmentPtr> SegmentList;
     SegmentList segments_;
+};
+
+class Customer : public Location{
+public:
+    // mutators
+    void transferRateIs(ShipmentPerDay spd);
+    void shipmentSize(PackageNum pn);
+    void destinationIs(LocationPtr lp);
+
+    // accessors
+    ShipmentPerDay transferRate() const { return transferRate_; }
+    PackageNum shipmentSize() const { return shipmentSize_; }
+    LocationPtr destination() const { return destination_; }
+
+    // TODO: these should be updated using a reactor
+    uint32_t shipmentsReceived() const { return shipmentsReceived_; }
+    Hour totalLatency() const { return totalLatency_; }
+    Dollar totalCost() const { return totalCost_; }
+
+    class NotifieeConst : public virtual Fwk::NamedInterface::NotifieeConst {
+    public:
+        virtual void onTransferRate(){}
+        virtual void onShipmentSize(){}
+        virtual void onDestination(){}
+        LocationPtrConst notifier() const { return notifier_; }
+        void notifierIs(LocationPtrConst notifier) { notifier_ = notifier; }
+    protected:
+        NotifieeConst(){}
+        virtual ~NotifieeConst(){}
+        LocationPtrConst notifier_;
+    };
+    class Notifiee : public virtual NotifieeConst, public virtual Fwk::NamedInterface::Notifiee {
+    public:
+        LocationPtr notifier() const { return const_cast<Location*>(NotifieeConst::notifier().ptr()); }
+    protected:
+        Notifiee(){}
+        virtual ~Notifiee(){}
+    };
+    typedef Fwk::Ptr<Customer::Notifiee> NotifieePtr;
+    typedef Fwk::Ptr<Customer::Notifiee const> NotifieePtrConst;
+    void notifieeIs(Customer::Notifiee* notifiee);
+protected:
+    Customer(EntityID name, EntityType type);
+private:
+    ShipmentPerDay transferRate_;
+    PackageNum shipmentSize_;
+    // TODO: make Ptr::Customer?
+    LocationPtr destination_;
+    uint32_t shipmentsReceived_;
+    Hour totalLatency_;
+    Dollar totalCost_;
+    typedef std::vector<Customer::NotifieePtr> NotifieeList;
+    NotifieeList notifieeList_;
+};
+
+
+// TODO: why do we have a separate customer reactor? we could do this within customer
+class CustomerReactor : public Customer::Notifiee{
+public:
+    void onTransferRate();
+    void onShipmentSize();
+    void onDestination();
+    CustomerReactor() {
+        transferRateSet_ = false;
+        shipmentSizeSet_ = false;
+        destinationSet_ = false;
+    }
+private:
+    void checkAndCreateInjectActivity();
+    // TODO: change from bool?
+    bool transferRateSet_;
+    bool shipmentSizeSet_;
+    bool destinationSet_;
 };
 
 class Segment : public Fwk::NamedInterface {
