@@ -52,6 +52,100 @@ void Location::segmentDel(SegmentPtr segment){
 }
 
 /*
+ * Customer 
+ *
+ */
+
+void Customer::transferRateIs(ShipmentPerDay spd){
+    transferRate_ = spd; 
+    // TODO: notify notifiees
+
+    // Call Notifiees
+    Customer::NotifieeList::iterator it;
+    for ( it=notifieeList_.begin(); it < notifieeList_.end(); it++ ){
+        try{
+            (*it)->onTransferRate();
+        }
+        catch(...){
+            // ERROR: maybe we should log something here
+        }
+    }
+}
+void Customer::shipmentSize(PackageNum pn) {
+    shipmentSize_ = pn; 
+
+    // Call Notifiees
+    Customer::NotifieeList::iterator it;
+    for ( it=notifieeList_.begin(); it < notifieeList_.end(); it++ ){
+        try{
+            (*it)->onShipmentSize();
+        }
+        catch(...){
+            // ERROR: maybe we should log something here
+        }
+    }
+
+}
+void Customer::destinationIs(LocationPtr lp){
+    if (lp->entityType() != EntityType::customer()) {
+        throw ArgumentException();
+    }
+    destination_ = lp;
+
+
+    // Call Notifiees
+    Customer::NotifieeList::iterator it;
+    for ( it=notifieeList_.begin(); it < notifieeList_.end(); it++ ){
+        try{
+            (*it)->onDestination();
+        }
+        catch(...){
+            // ERROR: maybe we should log something here
+        }
+    }
+}
+
+Customer::Customer(EntityID name, EntityType type) : Location(name, type), destination_(NULL), shipmentsReceived_(0){
+    // create CustomerReactor
+    Customer::Notifiee* notifiee = new CustomerReactor();
+    this->notifieeIs(notifiee);
+}
+
+void Customer::notifieeIs(Customer::Notifiee* notifiee){
+    // Ensure idempotency
+    std::vector<Customer::NotifieePtr>::iterator it;
+    for ( it=notifieeList_.begin(); it < notifieeList_.end(); it++ ){
+        if( (*it) == notifiee ) return;
+    }
+
+    // Register this notifiee
+    notifiee->notifierIs(this);
+    notifieeList_.push_back(notifiee);
+}
+
+void CustomerReactor::onTransferRate() {
+    transferRateSet_ = true;
+    checkAndCreateInjectActivity();
+}
+
+void CustomerReactor::onShipmentSize() {
+    shipmentSizeSet_ = true;
+    checkAndCreateInjectActivity();
+}
+
+void CustomerReactor::onDestination() {
+    destinationSet_ = true;
+    checkAndCreateInjectActivity();
+}
+
+void CustomerReactor::checkAndCreateInjectActivity() {
+    if ( transferRateSet_ && shipmentSizeSet_ && destinationSet_) {
+        // TODO: create activity
+    }
+}
+
+
+/*
  * Segment 
  *
  */
