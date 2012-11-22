@@ -164,6 +164,20 @@ private:
     static const uint64_t defaultValue_ = 1;
 };
 
+class ShipmentNum : public Ordinal<ShipmentNum, uint64_t> {
+public:
+    ShipmentNum(uint64_t num) : Ordinal<ShipmentNum, uint64_t>(num) {}
+    ShipmentNum() : Ordinal<ShipmentNum, uint64_t>(defaultValue_) {}
+    std::string str() {
+        std::stringstream s;
+        s << value_;
+        return s.str();
+    }
+    static ShipmentNum defaultValue(){ return defaultValue_; }
+private:
+    static const uint64_t defaultValue_ = 10;
+};
+
 class ShipmentPerDay : public Ordinal<ShipmentPerDay, uint64_t> {
 public:
     ShipmentPerDay(uint64_t num) : Ordinal<ShipmentPerDay, uint64_t>(num) {}
@@ -394,6 +408,9 @@ public:
 
     inline LocationPtr source() const { return source_; }
     inline Mile length() const { return length_; }
+    inline ShipmentNum capacity() const { return capacity_; }
+    inline uint32_t shipmentsReceived() const { return shipmentsReceived_; }
+    inline uint32_t shipmentsRefused() const { return shipmentsRefused_; }
     inline SegmentPtr returnSegment() const { return returnSegment_; }
     inline Difficulty difficulty() const { return difficulty_; }
     inline TransportMode transportMode() const { return transportMode_; }
@@ -402,6 +419,7 @@ public:
     PathMode mode(uint16_t) const;
     void sourceIs(EntityID source);
     void lengthIs(Mile l);
+    void capacityIs(ShipmentNum sn);
     void returnSegmentIs(EntityID segment); 
     void difficultyIs(Difficulty d); 
     void notifieeIs(Segment::Notifiee* notifiee);
@@ -416,6 +434,8 @@ private:
     Segment(ShippingNetworkPtrConst network, EntityID name, TransportMode transportMode, PathMode mode) : 
         Fwk::NamedInterface(name), length_(1.0), difficulty_(1.0), transportMode_(transportMode), network_(network){
         mode_.insert(mode);
+        shipmentsReceived_ = 0;
+        shipmentsRefused_ = 0;
     }
     void sourceIs(LocationPtr source);
     void returnSegmentIs(SegmentPtr returnSegment);
@@ -423,6 +443,10 @@ private:
     Mile length_;
     Difficulty difficulty_;
     TransportMode transportMode_;
+    ShipmentNum capacity_;
+    // TODO: these should be updated using a reactor
+    uint32_t shipmentsReceived_;
+    uint32_t shipmentsRefused_;
     std::set<PathMode> mode_;
     SegmentPtr returnSegment_;
     LocationPtr source_;

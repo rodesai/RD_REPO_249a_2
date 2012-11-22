@@ -317,6 +317,16 @@ public:
             return (representee_->mode(PathMode::expedited()) == 
                             PathMode::expedited()) ?
                 "yes" : "no";
+        } else if (name == shipmentsReceivedStr) {
+            stringstream s;
+            s << fixed << representee_->shipmentsReceived();
+            return s.str();
+        } else if (name == shipmentsRefusedStr) {
+            stringstream s;
+            s << fixed << representee_->shipmentsRefused();
+            return s.str();
+        } else if (name == capacityStr2) {
+            return representee_->capacity().str();
         }
         fprintf(stderr, "Invalid attribute input: %s.\n", name.data());
         return "";
@@ -440,7 +450,6 @@ public:
 
     // Instance method
     string attributeImpl(const string& name) {
-        stringstream ss;
         FleetAttribute fa = fleetAttribute(name);
         if (fa.attribute == speedStr) {
             return fleet_->speed(fa.mode).str();
@@ -451,7 +460,7 @@ public:
         } else {
             fprintf(stderr, "Invalid attribute input: %s.\n", name.data());
         }
-        return ss.str();
+        return "";
     }
     void attributeIsImpl(const string& name, const string& v) {
         FleetAttribute fa = fleetAttribute(name);

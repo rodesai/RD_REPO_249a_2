@@ -105,7 +105,10 @@ void Customer::destinationIs(LocationPtr lp){
     }
 }
 
-Customer::Customer(EntityID name, EntityType type) : Location(name, type), destination_(NULL), shipmentsReceived_(0){
+Customer::Customer(EntityID name, EntityType type) : Location(name, type), destination_(NULL){
+    shipmentsReceived_ = 0;
+    totalLatency_ = Hour(0);
+    totalCost_ = Dollar(0);
     // create CustomerReactor
     Customer::Notifiee* notifiee = new CustomerReactor();
     this->notifieeIs(notifiee);
@@ -276,6 +279,10 @@ void Segment::notifieeIs(Segment::Notifiee* notifiee){
 
 void Segment::lengthIs(Mile length){
     length_=length;
+}
+
+void Segment::capacityIs(ShipmentNum capacity){
+    capacity_=capacity;
 }
 
 void Segment::difficultyIs(Difficulty difficulty){
