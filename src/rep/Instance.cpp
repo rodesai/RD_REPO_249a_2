@@ -368,6 +368,8 @@ public:
             representee_->lengthIs(Mile(atof(v.data())));
         } else if (name == "difficulty") {
             representee_->difficultyIs(Difficulty(atof(v.data())));
+        } else if (name == capacityStr2) {
+            representee_->capacityIs(ShipmentNum(atoi(v.data())));
         } else if (name == "expedite support") {
             if (v == "yes")
                 representee_->modeIs(PathMode::expedited());
