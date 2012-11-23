@@ -57,6 +57,7 @@ void Location::segmentDel(SegmentPtr segment){
  */
 
 void Customer::transferRateIs(ShipmentPerDay spd){
+    // TODO: NOT IDEMPOTENT
     transferRate_ = spd; 
     // TODO: notify notifiees
 
@@ -385,6 +386,25 @@ SegmentPtr ShippingNetwork::segment(EntityID name) const {
         return NULL;
     }
     return pos->second;
+}
+
+uint32_t ShippingNetwork::locationCount() const {
+    return locationMap_.size();
+}
+
+LocationPtr ShippingNetwork::location(int32_t index) {
+    if(locationIteratorPos_ == -1 || index < locationIteratorPos_){
+        locationIteratorPos_=0;
+        locationIterator_ = locationMap_.begin();
+    }
+    while(locationIterator_ != locationMap_.end()){
+        if(locationIteratorPos_==index){
+            return locationIterator_->second;
+        }
+        locationIteratorPos_++;
+        locationIterator_++;
+    }
+    return NULL;
 }
 
 LocationPtr ShippingNetwork::location(EntityID name) const {
@@ -801,6 +821,33 @@ PathMode Conn::PathSelector::modeDel(PathMode mode){
     pathModes_.erase(mode);
     return mode;
 }
+
+void Conn::notifieeIs(Conn::NotifieePtr notifiee){
+    // Ensure idempotency
+    std::vector<Conn::NotifieePtr>::iterator it;
+    for ( it=notifieeList_.begin(); it < notifieeList_.end(); it++ ){
+        if( (*it) == notifiee ) return;
+    }
+
+    // Register this notifiee
+    notifiee->notifierIs(this);
+    notifieeList_.push_back(notifiee);
+}
+
+void Conn::routingIs(RoutingAlgorithm routingAlgorithm){
+    if(routingAlgorithm_==routingAlgorithm) return;
+    routingAlgorithm_=routingAlgorithm;
+    // Call Notifiees
+    Conn::NotifieeList::iterator it;
+    for ( it=notifieeList_.begin(); it < notifieeList_.end(); it++ ){
+        try{
+            (*it)->onRouting();
+        }
+        catch(...){
+            // ERROR: maybe we should log something here
+        }
+    } 
+}
  
 Conn::PathList Conn::paths(Conn::PathSelectorPtr selector) const {
     Conn::PathSelector::Type type = selector->type();
@@ -1062,3 +1109,34 @@ LocationPtr Path::location(LocationPtr location) const{
 void Path::PathElement::segmentIs(SegmentPtr segment){
     segment_=segment;
 }
+
+/* Routing Reactor */
+void RoutingReactor::onRouting(){
+    Conn::RoutingAlgorithm algo = notifier_->routing();
+    notifier_->nextHopClear();
+    if(algo == Conn::minHops()){
+        initMinHopsRoutingTable();
+    }
+    else if(algo == Conn::minDistance()){
+        initMinDistanceRoutingTable();
+    }
+}
+
+void RoutingReactor::initMinHopsRoutingTable(){
+    // Iterate over each location and entries for it to the route table
+    uint32_t index;
+    for(index = 0; index < network_->locationCount(); index++){
+        LocationPtr location = network_->location(index);
+        Conn::PathSelectorPtr selector = Conn::PathSelector::PathSelectorIs(Conn::PathSelector::spantree(),NULL,location,NULL);
+        Conn::PathList paths = notifier_->paths(selector);
+        // Add each path to routing table
+        for(uint32_t i = 0;i < paths.size(); i++){
+            PathPtr path = paths[0];
+            EntityID endLocation = path->lastLocation()->name();
+            EntityID nxtLocation = path->pathElement(1)->source()->name();
+            notifier_->nextHopIs(location->name(),endLocation,nxtLocation);
+        }
+    }
+}
+
+void RoutingReactor::initMinDistanceRoutingTable(){}
