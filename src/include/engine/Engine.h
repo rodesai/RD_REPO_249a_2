@@ -10,6 +10,7 @@
 #include <map>
 #include <exception>
 #include <iostream>
+#include <utility>
 
 #include "fwk/Ptr.h"
 #include "fwk/NamedInterface.h"
@@ -553,31 +554,64 @@ public:
         PathPtr path_;
         ConstraintPtr nxt_;
     };
-    class PathSelector{
+    class PathSelector;
+    typedef Fwk::Ptr<PathSelector> PathSelectorPtr;
+    typedef Fwk::Ptr<PathSelector const> PathSelectorPtrConst;
+    class PathSelector : public Fwk::PtrInterface<PathSelector>{
     public:
+        enum Type{
+            explore_=0,
+            connect_=1,
+            spantree_=2
+        };
+        static Type explore(){ return explore_; }
+        static Type connect(){ return connect_; }
+        static Type spantree(){ return spantree_; }
         // Mutators
-        PathSelector(ConstraintPtr constraints, LocationPtr start) : start_(start), end_(NULL), constraints_(constraints){}
-        PathSelector(ConstraintPtr constraints, LocationPtr start, LocationPtr end) : start_(start), end_(end), constraints_(constraints){}
         void modeIs(PathMode mode);
         PathMode modeDel(PathMode mode);
+        static PathSelectorPtr PathSelectorIs(Type type, ConstraintPtr constraints, LocationPtr start, LocationPtr end);
     private:
         friend class Conn;
+        PathSelector(Type type, ConstraintPtr constraints, LocationPtr start, LocationPtr end)
+            : type_(type), start_(start), end_(end), constraints_(constraints){}
+        inline Type type() const { return type_; }
         inline LocationPtr start() const { return start_; }
         inline LocationPtr end() const { return end_; }
         inline ConstraintPtr constraints() const { return constraints_; }
         inline std::set<PathMode> modes(){ return pathModes_; }
+        Type type_;
         LocationPtr start_;
         LocationPtr end_;
         ConstraintPtr constraints_;
         std::set<PathMode> pathModes_;
     };
-    PathList paths(PathSelector selector) const;
+
+    enum RoutingAlgorithm{
+        minDistance_,
+        minHops_
+    };
+    static RoutingAlgorithm minDistance(){ return minDistance_; }
+    static RoutingAlgorithm minHops(){ return minHops_; }
+
+    // Accessors
+    PathList paths(PathSelectorPtr selector) const;
+    RoutingAlgorithm routing() const { return routingAlgorithm_; }
+
+    // Mutators
+    void routingIs(RoutingAlgorithm routingAlgorithm);
+
+    // Instantiating Mutators for Constraints
     static ConstraintPtr DistanceConstraintIs(Mile distance);
     static ConstraintPtr TimeConstraintIs(Hour time);
     static ConstraintPtr CostConstraintIs(Dollar cost);
 
 private:
-    PathList paths(std::set<PathMode> pathModes,ConstraintPtr constraints,LocationPtr start,LocationPtr endpoint) const ;
+
+    EntityID nextHop(EntityID startLocation,EntityID targetLocation) const;
+
+    PathList paths(Conn::PathSelector::Type type, std::set<PathMode> pathModes,
+                    ConstraintPtr constraints,LocationPtr start,LocationPtr endpoint) const ;
     bool validSegment(SegmentPtr segment) const;
     PathPtr pathElementEnque(Path::PathElementPtr pathElement, PathPtr path, FleetPtr fleet) const;
     PathPtr copyPath(PathPtr path, FleetPtr fleet) const;
@@ -588,8 +622,13 @@ private:
 
     Conn(std::string name,ShippingNetworkPtrConst shippingNetwork, FleetPtr fleet) : NamedInterface(name), shippingNetwork_(shippingNetwork), fleet_(fleet){}
 
+    typedef std::pair<EntityID,EntityID> RoutingTableKey;
+    typedef std::map<RoutingTableKey,EntityID> RoutingTable;
+
     ShippingNetworkPtrConst shippingNetwork_;
     FleetPtr fleet_;
+    RoutingAlgorithm routingAlgorithm_;
+    RoutingTable routingTable_;
 };
 
 class Stats : public Fwk::NamedInterface {

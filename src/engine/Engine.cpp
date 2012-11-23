@@ -778,6 +778,20 @@ Conn::ConstraintPtr Conn::CostConstraintIs(Dollar cost){
     return CostConstraint::CostConstraintIs(cost);
 }
 
+Conn::PathSelectorPtr Conn::PathSelector::PathSelectorIs(Type type, ConstraintPtr constraints, LocationPtr start, LocationPtr end){
+    if(type == Conn::PathSelector::connect() && end == NULL){
+        throw new ArgumentException();
+    }
+    if(type == Conn::PathSelector::explore() && end != NULL){
+        throw new ArgumentException();
+    }
+    if(type == Conn::PathSelector::spantree() && end != NULL){
+        throw new ArgumentException();
+    }
+
+    return new PathSelector(type, constraints,start,end);
+}
+
 void Conn::PathSelector::modeIs(PathMode mode){
     pathModes_.insert(mode);
 }
@@ -788,18 +802,22 @@ PathMode Conn::PathSelector::modeDel(PathMode mode){
     return mode;
 }
  
-Conn::PathList Conn::paths(Conn::PathSelector selector) const {
-    LocationPtr startPtr = selector.start();
-    LocationPtr endPtr = selector.end();
+Conn::PathList Conn::paths(Conn::PathSelectorPtr selector) const {
+    Conn::PathSelector::Type type = selector->type();
+    LocationPtr startPtr = selector->start();
+    LocationPtr endPtr = selector->end();
+    /* Check Pre-Conditions */
     // Make Sure endPtr is valid Location in my network
-    if(endPtr && shippingNetwork_->location(endPtr->name()) != endPtr){
+    if(type == Conn::PathSelector::connect() &&
+        (shippingNetwork_->location(endPtr->name()) != endPtr)
+    ){
         return PathList();
     }
     // Make sure startPtr is valid Location in my network
-    if(!startPtr || (startPtr && shippingNetwork_->location(startPtr->name()) != startPtr)) {
+    if(shippingNetwork_->location(startPtr->name()) != startPtr) {
         return PathList();
     }
-    return paths(selector.modes(), selector.constraints(),startPtr,endPtr); 
+    return paths(selector->type(),selector->modes(), selector->constraints(),startPtr,endPtr); 
 }
 
 bool Conn::validSegment(SegmentPtr segment) const{
@@ -849,20 +867,21 @@ std::set<PathMode> Conn::modeIntersection(SegmentPtr segment,std::set<PathMode> 
     return retval;
 }
 
-Conn::PathList Conn::paths(std::set<PathMode> modes, ConstraintPtr constraints,LocationPtr start, LocationPtr endpoint) const {
+Conn::PathList Conn::paths(Conn::PathSelector::Type type, std::set<PathMode> modes, ConstraintPtr constraints,LocationPtr start, LocationPtr endpoint) const {
 
     Conn::PathList retval;
 
     DEBUG_LOG << "Starting location: " << start->name() << std::endl;
 
     // Setup 
-    std::stack<PathPtr> pathStack;
-    pathStack.push(Path::PathIs(start));
+    std::queue<PathPtr> pathContainer;
+    std::set<EntityID> visited;
+    pathContainer.push(Path::PathIs(start));
     // Traverse
-    while(pathStack.size() > 0){
+    while(pathContainer.size() > 0){
 
-        PathPtr currentPath = pathStack.top();
-        pathStack.pop();
+        PathPtr currentPath = pathContainer.front();
+        pathContainer.pop();
 
         DEBUG_LOG << "Visiting location: " << currentPath->lastLocation()->name() << std::endl;
 
@@ -872,30 +891,48 @@ Conn::PathList Conn::paths(std::set<PathMode> modes, ConstraintPtr constraints,L
             continue;
         }
 
-        // Should we output the path?
-        if(    (!endpoint || endpoint->name() == currentPath->lastLocation()->name()) // We have reached an endpoint
-            && (currentPath->pathElementCount() > 0)                                  // Don't ouput 0-hop path (Instructor's Requirement)
-          ){
-            DEBUG_LOG << "Output path" << std::endl;
-            retval.push_back(currentPath);
+        /* Special Processing for different Query Types */
+
+        // Spanning Tree
+        if(type == Conn::PathSelector::spantree()){
+            if(visited.count(currentPath->lastLocation()->name()) > 0)
+                continue;
+            visited.insert(currentPath->lastLocation()->name());
+            if(currentPath->pathElementCount() > 0) 
+                retval.push_back(currentPath);
         }
 
-        // Stop traversing if we have hit the endpoint (THIS IS AN OPTIMIZATION)
-        if(endpoint && endpoint == currentPath->lastLocation()) continue;
+        // Explore
+        if(type == Conn::PathSelector::explore()){
+            if(currentPath->pathElementCount() > 0) 
+                retval.push_back(currentPath);
+        }
+
+        // Connect
+        if(type == Conn::PathSelector::connect()){
+            // Only output if we have reached the endpoint
+            // Also, if enpoint is reached then stop traversing
+            if(endpoint->name() == currentPath->lastLocation()->name()){
+                if(currentPath->pathElementCount() > 0)
+                     retval.push_back(currentPath);
+                continue;
+            }
+        }
 
         // Continue traversal
         for(uint32_t i = 1; i <= currentPath->lastLocation()->segmentCount().value(); i++){
             SegmentPtr segment = currentPath->lastLocation()->segment(i); 
-            if( validSegment(segment)                                                // Valid Segment
-                && segment->returnSegment()->source()                                // AND Valid Return Segment
-                && !(currentPath->location(segment->returnSegment()->source())))      // AND Not a Loop
+            if( validSegment(segment)                                                 // Valid Segment
+                && segment->returnSegment()->source()                                 // AND Valid Return Segment
+                && !(currentPath->location(segment->returnSegment()->source()))       // AND Not a Loop
+              )
               {
                   std::set<PathMode> overlap = modeIntersection(segment,modes);  
                   DEBUG_LOG << "Segment Modes: " << segment->modeCount().value() << ", Transport Modes: " << modes.size() << ", Overlap Size: " << overlap.size() << std::endl;               
                   for(std::set<PathMode>::const_iterator it = overlap.begin(); it != overlap.end(); it++){
                       PathPtr pathCopy = copyPath(currentPath,fleet_);
                       pathElementEnque(Path::PathElement::PathElementIs(segment,*it),pathCopy,fleet_);
-                      pathStack.push(pathCopy);
+                      pathContainer.push(pathCopy);
                   }
             }
         }

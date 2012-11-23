@@ -606,14 +606,15 @@ public:
             }
 
             // create pathselector object, run expedited query
-            Conn::PathSelector selector(NULL,loc1->representee(), loc2->representee());
-            selector.modeIs(PathMode::expedited());
+            Conn::PathSelectorPtr selector;
+            selector = Conn::PathSelector::PathSelectorIs(Conn::PathSelector::connect(),NULL,loc1->representee(), loc2->representee());
+            selector->modeIs(PathMode::expedited());
             paths = conn_->paths(selector);
 
             // submit unexpedited query, add to original paths list
             expeditedIndex=paths.size();
-            selector = Conn::PathSelector(NULL,loc1->representee(), loc2->representee());
-            selector.modeIs(PathMode::unexpedited());
+            selector = Conn::PathSelector::PathSelectorIs(Conn::PathSelector::connect(),NULL,loc1->representee(), loc2->representee());;
+            selector->modeIs(PathMode::unexpedited());
             std::vector<PathPtr> unexpeditedpaths = conn_->paths(selector);
             paths.insert(paths.end(),unexpeditedpaths.begin(),unexpeditedpaths.end());
 
@@ -632,15 +633,16 @@ public:
             }
 
             // create pathselector object, run expedited query
-            Conn::PathSelector selector(constraints,loc->representee());
-            selector.modeIs(PathMode::expedited());
+            Conn::PathSelectorPtr selector;
+            selector = Conn::PathSelector::PathSelectorIs(Conn::PathSelector::explore(),constraints,loc->representee(),NULL);
+            selector->modeIs(PathMode::expedited());
             paths = conn_->paths(selector);
 
             // add unexpedited paths if no constraint on expedite support
             expeditedIndex = paths.size();
             if (!expedited) {
-                selector = Conn::PathSelector(constraints,loc->representee());
-                selector.modeIs(PathMode::unexpedited());
+                selector = Conn::PathSelector::PathSelectorIs(Conn::PathSelector::explore(),constraints,loc->representee(),NULL);
+                selector->modeIs(PathMode::unexpedited());
                 std::vector<PathPtr> unexpeditedPaths = conn_->paths(selector);
                 paths.insert(paths.end(), unexpeditedPaths.begin(), unexpeditedPaths.end());
             }
