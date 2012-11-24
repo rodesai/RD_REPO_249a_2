@@ -448,6 +448,7 @@ ShippingNetworkPtr ShippingNetwork::ShippingNetworkIs(EntityID name){
     retval->fleetPtr_ = new Fleet("The Fleet");
     retval->statPtr_ = new Stats("The Stat");
     retval->connPtr_ = new Conn("The Conn",retval,retval->fleetPtr_);
+    retval->connPtr_->notifieeIs(new RoutingReactor(retval));
 
     // Setup my reactors
     retval->notifieeIs(new StatsReactor(retval->statPtr_));
@@ -834,6 +835,12 @@ void Conn::notifieeIs(Conn::NotifieePtr notifiee){
     notifieeList_.push_back(notifiee);
 }
 
+EntityID Conn::nextHop(EntityID source, EntityID dest) const {
+    RoutingTable::const_iterator iter = nextHop_.find(pair<EntityID,EntityID>(source,dest));
+    if(iter == nextHop_.end()) return "";
+    return iter->second;
+}
+
 void Conn::routingIs(RoutingAlgorithm routingAlgorithm){
     if(routingAlgorithm_==routingAlgorithm) return;
     routingAlgorithm_=routingAlgorithm;
@@ -945,8 +952,9 @@ Conn::PathList Conn::paths(Conn::PathSelector::Type type, std::set<PathMode> mod
             if(visited.count(currentPath->lastLocation()->name()) > 0)
                 continue;
             visited.insert(currentPath->lastLocation()->name());
-            if(currentPath->pathElementCount() > 0) 
+            if(currentPath->pathElementCount() > 0){ 
                 retval.push_back(currentPath);
+            }
         }
 
         // Explore
@@ -1112,8 +1120,8 @@ void Path::PathElement::segmentIs(SegmentPtr segment){
 
 /* Routing Reactor */
 void RoutingReactor::onRouting(){
-    Conn::RoutingAlgorithm algo = notifier_->routing();
-    notifier_->nextHopClear();
+    Conn::RoutingAlgorithm algo = notifier()->routing();
+    notifier()->nextHopClear();
     if(algo == Conn::minHops()){
         initMinHopsRoutingTable();
     }
@@ -1128,13 +1136,14 @@ void RoutingReactor::initMinHopsRoutingTable(){
     for(index = 0; index < network_->locationCount(); index++){
         LocationPtr location = network_->location(index);
         Conn::PathSelectorPtr selector = Conn::PathSelector::PathSelectorIs(Conn::PathSelector::spantree(),NULL,location,NULL);
-        Conn::PathList paths = notifier_->paths(selector);
+        selector->modeIs(PathMode::unexpedited());
+        Conn::PathList paths = notifier()->paths(selector);
         // Add each path to routing table
         for(uint32_t i = 0;i < paths.size(); i++){
-            PathPtr path = paths[0];
+            PathPtr path = paths[i];
             EntityID endLocation = path->lastLocation()->name();
-            EntityID nxtLocation = path->pathElement(1)->source()->name();
-            notifier_->nextHopIs(location->name(),endLocation,nxtLocation);
+            EntityID nxtLocation = path->pathElement(0)->dest()->name();
+            notifier()->nextHopIs(location->name(),endLocation,nxtLocation);
         }
     }
 }

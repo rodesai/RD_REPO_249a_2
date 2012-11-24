@@ -646,6 +646,9 @@ public:
                 std::vector<PathPtr> unexpeditedPaths = conn_->paths(selector);
                 paths.insert(paths.end(), unexpeditedPaths.begin(), unexpeditedPaths.end());
             }
+        } else if (strcmp(namePtr, "routing") == 0) {
+            Conn::RoutingAlgorithm algo = conn_->routing();
+            //if(rout
         }
 
         // output paths

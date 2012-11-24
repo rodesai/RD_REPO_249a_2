@@ -496,6 +496,7 @@ public:
     class PathElement : public Fwk::PtrInterface<Path::PathElement> {
     public:
         inline LocationPtr source() const { return segment_->source(); }
+        LocationPtr dest() const { return segment_->returnSegment()->source(); }
         inline SegmentPtr segment() const { return segment_; }
         inline PathMode elementMode() const { return elementMode_; }
         void segmentIs(SegmentPtr s); 
@@ -550,7 +551,6 @@ public:
     protected:
         Notifiee() {}
         virtual ~Notifiee(){}
-        ConnPtr notifier_;
     };
     typedef Fwk::Ptr<Conn::Notifiee> NotifieePtr;
     typedef Fwk::Ptr<Conn::Notifiee const> NotifieePtrConst;
@@ -621,6 +621,7 @@ public:
 
     // Accessors
     PathList paths(PathSelectorPtr selector) const;
+    EntityID nextHop(EntityID startLocation,EntityID targetLocation) const;
     RoutingAlgorithm routing() const { return routingAlgorithm_; }
 
     // Mutators
@@ -633,8 +634,6 @@ public:
     static ConstraintPtr CostConstraintIs(Dollar cost);
 
 private:
-
-    EntityID nextHop(EntityID startLocation,EntityID targetLocation) const;
 
     PathList paths(Conn::PathSelector::Type type, std::set<PathMode> pathModes,
                     ConstraintPtr constraints,LocationPtr start,LocationPtr endpoint) const ;
@@ -723,7 +722,6 @@ public:
     protected:
         Notifiee() {}
         virtual ~Notifiee(){}
-        ShippingNetworkPtr notifier_;
     };
     typedef Fwk::Ptr<ShippingNetwork::Notifiee> NotifieePtr;
     typedef Fwk::Ptr<ShippingNetwork::Notifiee const> NotifieePtrConst;
