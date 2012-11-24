@@ -36,11 +36,42 @@ TEST(Engine, minHop_basic){
     LocationPtr l1 = nwk->LocationNew("l1",Location::EntityType::port());
     LocationPtr l2 = nwk->LocationNew("l2",Location::EntityType::port());
     LocationPtr l3 = nwk->LocationNew("l3",Location::EntityType::port());
-    connectLocations(l1,l2,nwk,10.0);
-    connectLocations(l3,l2,nwk,10.0);
+    LocationPtr l4 = nwk->LocationNew("l4",Location::EntityType::port());
+    LocationPtr l5 = nwk->LocationNew("l5",Location::EntityType::port());
+    LocationPtr l6 = nwk->LocationNew("l6",Location::EntityType::port());
+    LocationPtr l7 = nwk->LocationNew("l7",Location::EntityType::port());
+    connectLocations(l1,l2,nwk,1.0);
+    connectLocations(l1,l3,nwk,10.0);
+    connectLocations(l1,l4,nwk,1.0);
+    connectLocations(l2,l5,nwk,1.0);
+    connectLocations(l3,l7,nwk,10.0);
+    connectLocations(l4,l6,nwk,1.0);
+    connectLocations(l5,l7,nwk,1.0);
+    connectLocations(l6,l7,nwk,1.0);
     ConnPtr conn = nwk->ConnNew("conn");
     conn->routingIs(Conn::minHops());
-    ASSERT_TRUE(conn->nextHop("l1","l3")=="l2");
+    ASSERT_TRUE(conn->nextHop("l1","l7")=="l1-l3");
+
+}
+
+TEST(Engine, minDistance_basic){
+    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
+    LocationPtr l1 = nwk->LocationNew("l1",Location::EntityType::port());
+    LocationPtr l2 = nwk->LocationNew("l2",Location::EntityType::port());
+    LocationPtr l3 = nwk->LocationNew("l3",Location::EntityType::port());
+    LocationPtr l4 = nwk->LocationNew("l4",Location::EntityType::port());
+    LocationPtr l5 = nwk->LocationNew("l5",Location::EntityType::port());
+    LocationPtr l6 = nwk->LocationNew("l6",Location::EntityType::port());
+    connectLocations(l1,l2,nwk,10.0);
+    connectLocations(l1,l3,nwk,1.0);
+    connectLocations(l1,l4,nwk,10.0);
+    connectLocations(l2,l6,nwk,10.0);
+    connectLocations(l3,l5,nwk,1.0);
+    connectLocations(l5,l6,nwk,1.0);
+    connectLocations(l4,l6,nwk,10.0);
+    ConnPtr conn = nwk->ConnNew("conn");
+    conn->routingIs(Conn::minDistance());
+    ASSERT_TRUE(conn->nextHop("l1","l5")=="l1-l3");
 }
 
 TEST(Engine, locationDel){
@@ -88,10 +119,12 @@ TEST(Engine, conn_loopy){
     segmentR->sourceIs(l1->name());
     segment->returnSegmentIs(segmentR->name());
 
+    //NULL,l1)
 
     ConnPtr conn = nwk->ConnNew("conn");
-    Conn::PathSelector selector(NULL,l1);
-    selector.modeIs(PathMode::unexpedited());
+    Conn::PathSelectorPtr selector;
+    selector = Conn::PathSelector::PathSelectorIs(Conn::PathSelector::explore(),NULL,l1,NULL);
+    selector->modeIs(PathMode::unexpedited());
     Conn::PathList paths = conn->paths(selector);
 
     ASSERT_TRUE(paths.size()==0);
@@ -99,14 +132,16 @@ TEST(Engine, conn_loopy){
     LocationPtr l2 = nwk->LocationNew("l2",Location::EntityType::port());
     connectLocations(l2,l1,nwk);
 
-    Conn::PathSelector selector2(NULL,l2);
-    selector2.modeIs(PathMode::unexpedited());
+    Conn::PathSelectorPtr selector2;
+    selector2 = Conn::PathSelector::PathSelectorIs(Conn::PathSelector::explore(),NULL,l2,NULL);
+    selector2->modeIs(PathMode::unexpedited());
     paths = conn->paths(selector2);
 
     ASSERT_TRUE(paths.size()==1);
     ASSERT_TRUE(paths[0]->pathElementCount() == 1);
     ASSERT_TRUE(paths[0]->pathElement(0)->segment()->name() == "l2-l1");
 }
+
 
 TEST(Engine, conn_invalid_segment){
 ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
@@ -125,8 +160,9 @@ ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
     segment->sourceIs(l1->name());
 
     ConnPtr conn = nwk->ConnNew("conn");
-    Conn::PathSelector selector(NULL,l1);
-    selector.modeIs(PathMode::unexpedited());
+    Conn::PathSelectorPtr selector;
+    selector = Conn::PathSelector::PathSelectorIs(Conn::PathSelector::explore(),NULL,l1,NULL);
+    selector->modeIs(PathMode::unexpedited());
     Conn::PathList paths = conn->paths(selector);
 
     ASSERT_TRUE(paths.size() == 0);
@@ -140,6 +176,7 @@ ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
     paths = conn->paths(selector);
 
     ASSERT_TRUE(paths.size() == 1);
+
 }
 
 TEST(Engine, conn_0_length_segment){
@@ -153,8 +190,9 @@ TEST(Engine, conn_0_length_segment){
 
     ConnPtr conn = nwk->ConnNew("conn");
 
-    Conn::PathSelector selector(NULL,l1);
-    selector.modeIs(PathMode::unexpedited());
+    Conn::PathSelectorPtr selector;
+    selector = Conn::PathSelector::PathSelectorIs(Conn::PathSelector::explore(),NULL,l1,NULL);
+    selector->modeIs(PathMode::unexpedited());
     Conn::PathList paths = conn->paths(selector);
 
     ASSERT_TRUE(paths.size()==1);
@@ -162,6 +200,7 @@ TEST(Engine, conn_0_length_segment){
     ASSERT_TRUE(paths[0]->pathElement(0)->segment()->name() == "l1-l2"); 
     ASSERT_TRUE(paths[0]->distance() == 0.0);
 }
+
 
 TEST(Engine, conn_no_modes){
 
@@ -174,11 +213,13 @@ TEST(Engine, conn_no_modes){
 
     ConnPtr conn = nwk->ConnNew("conn");
 
-    Conn::PathSelector selector(NULL,l1);
+    Conn::PathSelectorPtr selector;
+    selector = Conn::PathSelector::PathSelectorIs(Conn::PathSelector::explore(),NULL,l1,NULL);
     Conn::PathList paths = conn->paths(selector);
 
     ASSERT_TRUE(paths.size()==0);
 }
+
 
 TEST(Engine, conn_invalid_start){
 
@@ -191,21 +232,15 @@ TEST(Engine, conn_invalid_start){
 
     ConnPtr conn = nwk->ConnNew("conn");
 
-    Conn::PathSelector selector(NULL,NULL);
-    selector.modeIs(PathMode::expedited());
-    Conn::PathList paths = conn->paths(selector);
-
-    ASSERT_TRUE(paths.size()==0);
-
     // Add Locations to another network with same name and make sure not paths returned with conn of nwk1
     ShippingNetworkPtr nwk2 = ShippingNetwork::ShippingNetworkIs("network2");
     nwk2->LocationNew("l1",Location::EntityType::port());
     nwk2->LocationNew("l2",Location::EntityType::port());
     connectLocations(nwk2->location("l1"),nwk2->location("l2"),nwk2);
 
-    selector=Conn::PathSelector(NULL,nwk2->location("l1"));
-    selector.modeIs(PathMode::unexpedited());
-    paths = conn->paths(selector);
+    Conn::PathSelectorPtr selector=Conn::PathSelector::PathSelectorIs(Conn::PathSelector::explore(),NULL,nwk2->location("l1"),NULL);
+    selector->modeIs(PathMode::unexpedited());
+    Conn::PathList paths = conn->paths(selector);
 
     ASSERT_TRUE(paths.size()==0);
 }
@@ -221,22 +256,14 @@ TEST(Engine, conn_invalid_end){
     
     ConnPtr conn = nwk->ConnNew("conn");
  
-    Conn::PathSelector selector(NULL,l1);
-    selector.modeIs(PathMode::expedited()); selector.modeIs(PathMode::unexpedited());
-    Conn::PathList paths = conn->paths(selector);
-
-    ASSERT_TRUE(paths.size()==1);
-    ASSERT_TRUE(paths[0]->pathElementCount().value() == 1);
-    ASSERT_TRUE(paths[0]->pathElement(0)->segment()->name() == "l1-l2");
-
     // Create a location with same name in nwk2 and do query with that location. ensure no paths returned
 
     ShippingNetworkPtr nwk2 = ShippingNetwork::ShippingNetworkIs("network2");
     nwk2->LocationNew("l2",Location::EntityType::port());
 
-    selector=Conn::PathSelector(NULL,l1,nwk2->location("l2"));
-    selector.modeIs(PathMode::expedited());
-    paths = conn->paths(selector);
+    Conn::PathSelectorPtr selector=Conn::PathSelector::PathSelectorIs(Conn::PathSelector::connect(),NULL,l1,nwk2->location("l2"));
+    selector->modeIs(PathMode::expedited());
+    Conn::PathList paths = conn->paths(selector);
 
     ASSERT_TRUE(paths.size()==0);
 }
@@ -260,8 +287,9 @@ TEST(Engine, conn_line){
     fleet->capacityIs(TransportMode::truck(),100);
     fleet->costIs(TransportMode::truck(),100);
  
-    Conn::PathSelector selector(NULL,l1,l2);
-    selector.modeIs(PathMode::expedited()); selector.modeIs(PathMode::unexpedited());
+    Conn::PathSelectorPtr selector;
+    selector = Conn::PathSelector::PathSelectorIs(Conn::PathSelector::connect(),NULL,l1,l2);
+    selector->modeIs(PathMode::expedited()); selector->modeIs(PathMode::unexpedited());
     Conn::PathList paths = conn->paths(selector);
 
     ASSERT_TRUE(paths.size()==2);
@@ -270,8 +298,8 @@ TEST(Engine, conn_line){
     ASSERT_TRUE(paths[1]->pathElementCount().value() == 1);
     ASSERT_TRUE(paths[1]->pathElement(0)->segment()->name() == "l1-l2");
 
-    selector = Conn::PathSelector(NULL,l1,l3);
-    selector.modeIs(PathMode::expedited()); selector.modeIs(PathMode::unexpedited());
+    selector = Conn::PathSelector::PathSelectorIs(Conn::PathSelector::connect(),NULL,l1,l3);
+    selector->modeIs(PathMode::expedited()); selector->modeIs(PathMode::unexpedited());
     paths = conn->paths(selector);
   
     ASSERT_TRUE(paths.size()==4);
@@ -289,6 +317,7 @@ TEST(Engine, conn_line){
     ASSERT_TRUE(paths[3]->pathElement(1)->segment()->name() == "l2-l3");
 }
 
+/*
 TEST(Engine, conn_endpoint_basic){
 
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
@@ -318,95 +347,97 @@ TEST(Engine, conn_endpoint_basic){
     fleet->costMultiplierIs(PathMode::expedited(),1.5);
     fleet->speedMultiplierIs(PathMode::expedited(),1.3);
 
-    Conn::PathSelector selector(NULL,l1,l4);
-    selector.modeIs(PathMode::expedited()); selector.modeIs(PathMode::unexpedited());
+    Conn::PathSelectorPtr selector;
+    selector = Conn::PathSelector::PathSelectorIs(Conn::PathSelector::connect(),NULL,l1,l4);
+    selector->modeIs(PathMode::expedited()); selector->modeIs(PathMode::unexpedited());
     Conn::PathList paths = conn->paths(selector);
 
     ASSERT_TRUE(paths.size()==8);
     ASSERT_TRUE(paths[0]->pathElementCount().value() == 2);
-    ASSERT_TRUE(paths[0]->pathElement(0)->segment()->name() == "l1-l3");
-    ASSERT_TRUE(paths[0]->pathElement(0)->elementMode() == PathMode::unexpedited());
-    ASSERT_TRUE(paths[0]->pathElement(1)->segment()->name() == "l3-l4");
-    ASSERT_TRUE(paths[0]->pathElement(1)->elementMode() == PathMode::unexpedited());
-    ASSERT_TRUE(paths[0]->cost() == 300.0);
-    ASSERT_TRUE(paths[0]->time() == 12.0);
-    ASSERT_TRUE(paths[0]->distance() == 30.0);
-    ASSERT_TRUE(paths[1]->pathElementCount().value() == 2);
-    ASSERT_TRUE(paths[1]->pathElement(0)->segment()->name() == "l1-l3");
-    ASSERT_TRUE(paths[1]->pathElement(0)->elementMode() == PathMode::unexpedited());
-    ASSERT_TRUE(paths[1]->pathElement(1)->segment()->name() == "l3-l4");
-    ASSERT_TRUE(paths[1]->pathElement(1)->elementMode() == PathMode::expedited());
-    ASSERT_TRUE(paths[1]->cost() == 400.0);
-    ASSERT_TRUE(paths[1]->time() == (4.0 + (20.0/(2.5*1.3)))); 
-    ASSERT_TRUE(paths[1]->distance() == 30.0);
-    ASSERT_TRUE(paths[2]->pathElementCount().value() == 2);
-    ASSERT_TRUE(paths[2]->pathElement(0)->segment()->name() == "l1-l3");
-    ASSERT_TRUE(paths[2]->pathElement(0)->elementMode() == PathMode::expedited());
-    ASSERT_TRUE(paths[2]->pathElement(1)->segment()->name() == "l3-l4");
-    ASSERT_TRUE(paths[2]->pathElement(1)->elementMode() == PathMode::unexpedited());
-    ASSERT_TRUE(paths[3]->pathElementCount().value() == 2);
-    ASSERT_TRUE(paths[3]->pathElement(0)->segment()->name() == "l1-l3");
-    ASSERT_TRUE(paths[3]->pathElement(0)->elementMode() == PathMode::expedited());
-    ASSERT_TRUE(paths[3]->pathElement(1)->segment()->name() == "l3-l4");
-    ASSERT_TRUE(paths[3]->pathElement(1)->elementMode() == PathMode::expedited());
-    ASSERT_TRUE(paths[4]->pathElementCount().value() == 2);
-    ASSERT_TRUE(paths[4]->pathElement(0)->segment()->name() == "l1-l2");
-    ASSERT_TRUE(paths[4]->pathElement(0)->elementMode() == PathMode::unexpedited());
-    ASSERT_TRUE(paths[4]->pathElement(1)->segment()->name() == "l2-l4");
-    ASSERT_TRUE(paths[4]->pathElement(1)->elementMode() == PathMode::unexpedited());
-    ASSERT_TRUE(paths[5]->pathElementCount().value() == 2);
-    ASSERT_TRUE(paths[5]->pathElement(0)->segment()->name() == "l1-l2");
-    ASSERT_TRUE(paths[5]->pathElement(0)->elementMode() == PathMode::unexpedited());
-    ASSERT_TRUE(paths[5]->pathElement(1)->segment()->name() == "l2-l4");
-    ASSERT_TRUE(paths[5]->pathElement(1)->elementMode() == PathMode::expedited());
-    ASSERT_TRUE(paths[6]->pathElementCount().value() == 2);
-    ASSERT_TRUE(paths[6]->pathElement(0)->segment()->name() == "l1-l2");
-    ASSERT_TRUE(paths[6]->pathElement(0)->elementMode() == PathMode::expedited());
-    ASSERT_TRUE(paths[6]->pathElement(1)->segment()->name() == "l2-l4");
-    ASSERT_TRUE(paths[6]->pathElement(1)->elementMode() == PathMode::unexpedited());
-    ASSERT_TRUE(paths[6]->cost() == 575.00);
-    ASSERT_TRUE(paths[6]->time() == (10.0/(2.5*1.3)) + 8.0);
-    ASSERT_TRUE(paths[6]->distance() == 30.0);
-    ASSERT_TRUE(paths[7]->pathElementCount().value() == 2);
-    ASSERT_TRUE(paths[7]->pathElement(0)->segment()->name() == "l1-l2");
-    ASSERT_TRUE(paths[7]->pathElement(0)->elementMode() == PathMode::expedited());
-    ASSERT_TRUE(paths[7]->pathElement(1)->segment()->name() == "l2-l4");
-    ASSERT_TRUE(paths[7]->pathElement(1)->elementMode() == PathMode::expedited());
-
-    selector = Conn::PathSelector(NULL,l1,l4);
-    selector.modeIs(PathMode::expedited());
-    paths = conn->paths(selector);
-
-    ASSERT_TRUE(paths.size()==2);
-    ASSERT_TRUE(paths[0]->pathElementCount().value() == 2);
-    ASSERT_TRUE(paths[0]->pathElement(0)->segment()->name() == "l1-l3");
+    ASSERT_TRUE(paths[0]->pathElement(0)->segment()->name() == "l1-l2");
     ASSERT_TRUE(paths[0]->pathElement(0)->elementMode() == PathMode::expedited());
-    ASSERT_TRUE(paths[0]->pathElement(1)->segment()->name() == "l3-l4");
-    ASSERT_TRUE(paths[0]->pathElement(1)->elementMode() == PathMode::expedited());
+    ASSERT_TRUE(paths[0]->pathElement(1)->segment()->name() == "l2-l4");
+    ASSERT_TRUE(paths[0]->pathElement(1)->elementMode() == PathMode::unexpedited());
+    ASSERT_TRUE(paths[0]->cost() == 575.00);
+    ASSERT_TRUE(paths[0]->time() == (10.0/(2.5*1.3)) + 8.0);
+    ASSERT_TRUE(paths[0]->distance() == 30.0);
     ASSERT_TRUE(paths[1]->pathElementCount().value() == 2);
     ASSERT_TRUE(paths[1]->pathElement(0)->segment()->name() == "l1-l2");
     ASSERT_TRUE(paths[1]->pathElement(0)->elementMode() == PathMode::expedited());
     ASSERT_TRUE(paths[1]->pathElement(1)->segment()->name() == "l2-l4");
     ASSERT_TRUE(paths[1]->pathElement(1)->elementMode() == PathMode::expedited());
+    ASSERT_TRUE(paths[2]->pathElementCount().value() == 2);
+    ASSERT_TRUE(paths[2]->pathElement(0)->segment()->name() == "l1-l2");
+    ASSERT_TRUE(paths[2]->pathElement(0)->elementMode() == PathMode::unexpedited());
+    ASSERT_TRUE(paths[2]->pathElement(1)->segment()->name() == "l2-l4");
+    ASSERT_TRUE(paths[2]->pathElement(1)->elementMode() == PathMode::expedited());
+    ASSERT_TRUE(paths[3]->pathElementCount().value() == 2);
+    ASSERT_TRUE(paths[3]->pathElement(0)->segment()->name() == "l1-l2");
+    ASSERT_TRUE(paths[3]->pathElement(0)->elementMode() == PathMode::unexpedited());
+    ASSERT_TRUE(paths[3]->pathElement(1)->segment()->name() == "l2-l4");
+    ASSERT_TRUE(paths[3]->pathElement(1)->elementMode() == PathMode::unexpedited());
 
-    selector = Conn::PathSelector(NULL,l1,l4);
-    selector.modeIs(PathMode::unexpedited());
+    ASSERT_TRUE(paths[4]->pathElementCount().value() == 2);
+    ASSERT_TRUE(paths[4]->pathElement(0)->segment()->name() == "l1-l3");
+    ASSERT_TRUE(paths[4]->pathElement(0)->elementMode() == PathMode::expedited());
+    ASSERT_TRUE(paths[4]->pathElement(1)->segment()->name() == "l3-l4");
+    ASSERT_TRUE(paths[4]->pathElement(1)->elementMode() == PathMode::expedited());
+    ASSERT_TRUE(paths[5]->pathElementCount().value() == 2);
+    ASSERT_TRUE(paths[5]->pathElement(0)->segment()->name() == "l1-l3");
+    ASSERT_TRUE(paths[5]->pathElement(0)->elementMode() == PathMode::expedited());
+    ASSERT_TRUE(paths[5]->pathElement(1)->segment()->name() == "l3-l4");
+    ASSERT_TRUE(paths[5]->pathElement(1)->elementMode() == PathMode::unexpedited());
+    ASSERT_TRUE(paths[6]->pathElementCount().value() == 2);
+    ASSERT_TRUE(paths[6]->pathElement(0)->segment()->name() == "l1-l3");
+    ASSERT_TRUE(paths[6]->pathElement(0)->elementMode() == PathMode::unexpedited());
+    ASSERT_TRUE(paths[6]->pathElement(1)->segment()->name() == "l3-l4");
+    ASSERT_TRUE(paths[6]->pathElement(1)->elementMode() == PathMode::expedited());
+    ASSERT_TRUE(paths[6]->cost() == 400.0);
+    ASSERT_TRUE(paths[6]->time() == (4.0 + (20.0/(2.5*1.3))));
+    ASSERT_TRUE(paths[6]->distance() == 30.0);
+    ASSERT_TRUE(paths[7]->pathElementCount().value() == 2);
+    ASSERT_TRUE(paths[7]->pathElement(0)->segment()->name() == "l1-l3");
+    ASSERT_TRUE(paths[7]->pathElement(0)->elementMode() == PathMode::unexpedited());
+    ASSERT_TRUE(paths[7]->pathElement(1)->segment()->name() == "l3-l4");
+    ASSERT_TRUE(paths[7]->pathElement(1)->elementMode() == PathMode::unexpedited());
+    ASSERT_TRUE(paths[7]->cost() == 300.0);
+    ASSERT_TRUE(paths[7]->time() == 12.0);
+    ASSERT_TRUE(paths[7]->distance() == 30.0);
+
+    selector = Conn::PathSelector::PathSelectorIs(Conn::PathSelector::connect(),NULL,l1,l4);
+    selector->modeIs(PathMode::expedited());
     paths = conn->paths(selector);
 
     ASSERT_TRUE(paths.size()==2);
-    ASSERT_TRUE(paths[0]->pathElementCount().value() == 2);
-    ASSERT_TRUE(paths[0]->pathElement(0)->segment()->name() == "l1-l3");
-    ASSERT_TRUE(paths[0]->pathElement(0)->elementMode() == PathMode::unexpedited());
-    ASSERT_TRUE(paths[0]->pathElement(1)->segment()->name() == "l3-l4");
-    ASSERT_TRUE(paths[0]->pathElement(1)->elementMode() == PathMode::unexpedited());
-    ASSERT_TRUE(paths[0]->cost() == 300.0);
-    ASSERT_TRUE(paths[0]->time() == 12.0);
-    ASSERT_TRUE(paths[0]->distance() == 30.0);
     ASSERT_TRUE(paths[1]->pathElementCount().value() == 2);
-    ASSERT_TRUE(paths[1]->pathElement(0)->segment()->name() == "l1-l2");
+    ASSERT_TRUE(paths[1]->pathElement(0)->segment()->name() == "l1-l3");
+    ASSERT_TRUE(paths[1]->pathElement(0)->elementMode() == PathMode::expedited());
+    ASSERT_TRUE(paths[1]->pathElement(1)->segment()->name() == "l3-l4");
+    ASSERT_TRUE(paths[1]->pathElement(1)->elementMode() == PathMode::expedited());
+    ASSERT_TRUE(paths[0]->pathElementCount().value() == 2);
+    ASSERT_TRUE(paths[0]->pathElement(0)->segment()->name() == "l1-l2");
+    ASSERT_TRUE(paths[0]->pathElement(0)->elementMode() == PathMode::expedited());
+    ASSERT_TRUE(paths[0]->pathElement(1)->segment()->name() == "l2-l4");
+    ASSERT_TRUE(paths[0]->pathElement(1)->elementMode() == PathMode::expedited());
+
+    selector = Conn::PathSelector::PathSelectorIs(Conn::PathSelector::connect(),NULL,l1,l4); 
+    selector->modeIs(PathMode::unexpedited());
+    paths = conn->paths(selector);
+
+    ASSERT_TRUE(paths.size()==2);
+    ASSERT_TRUE(paths[1]->pathElementCount().value() == 2);
+    ASSERT_TRUE(paths[1]->pathElement(0)->segment()->name() == "l1-l3");
     ASSERT_TRUE(paths[1]->pathElement(0)->elementMode() == PathMode::unexpedited());
-    ASSERT_TRUE(paths[1]->pathElement(1)->segment()->name() == "l2-l4");
+    ASSERT_TRUE(paths[1]->pathElement(1)->segment()->name() == "l3-l4");
     ASSERT_TRUE(paths[1]->pathElement(1)->elementMode() == PathMode::unexpedited());
+    ASSERT_TRUE(paths[1]->cost() == 300.0);
+    ASSERT_TRUE(paths[1]->time() == 12.0);
+    ASSERT_TRUE(paths[1]->distance() == 30.0);
+    ASSERT_TRUE(paths[0]->pathElementCount().value() == 2);
+    ASSERT_TRUE(paths[0]->pathElement(0)->segment()->name() == "l1-l2");
+    ASSERT_TRUE(paths[0]->pathElement(0)->elementMode() == PathMode::unexpedited());
+    ASSERT_TRUE(paths[0]->pathElement(1)->segment()->name() == "l2-l4");
+    ASSERT_TRUE(paths[0]->pathElement(1)->elementMode() == PathMode::unexpedited());
 }
 
 TEST(Engine, conn_endpoint_no_loop_pre_endpoint){
@@ -813,6 +844,7 @@ TEST(Engine, conn_no_endpoint_distance_time_constraint){
     ASSERT_TRUE(paths[3]->pathElement(0)->segment()->name() == "l1-l2");
 }
 
+*/
 
 TEST(Engine, SegmentNew){
 
