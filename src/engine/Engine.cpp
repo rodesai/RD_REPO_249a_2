@@ -95,6 +95,7 @@ void LocationReactor::onShipment(ShipmentPtr shipment) {
  */
 
 void Customer::transferRateIs(ShipmentPerDay spd){
+    // TODO: NOT IDEMPOTENT
     transferRate_ = spd; 
 
     // Call Notifiees
@@ -557,6 +558,25 @@ SegmentPtr ShippingNetwork::segment(EntityID name) const {
     return pos->second;
 }
 
+uint32_t ShippingNetwork::locationCount() const {
+    return locationMap_.size();
+}
+
+LocationPtr ShippingNetwork::location(int32_t index) {
+    if(locationIteratorPos_ == -1 || index < locationIteratorPos_){
+        locationIteratorPos_=0;
+        locationIterator_ = locationMap_.begin();
+    }
+    while(locationIterator_ != locationMap_.end()){
+        if(locationIteratorPos_==index){
+            return locationIterator_->second;
+        }
+        locationIteratorPos_++;
+        locationIterator_++;
+    }
+    return NULL;
+}
+
 LocationPtr ShippingNetwork::location(EntityID name) const {
     ShippingNetwork::LocationMap::const_iterator pos = locationMap_.find(name);
     if(pos == locationMap_.end()){
@@ -598,6 +618,7 @@ ShippingNetworkPtr ShippingNetwork::ShippingNetworkIs(EntityID name){
     retval->fleetPtr_ = new Fleet("The Fleet");
     retval->statPtr_ = new Stats("The Stat");
     retval->connPtr_ = new Conn("The Conn",retval,retval->fleetPtr_);
+    retval->connPtr_->notifieeIs(new RoutingReactor(retval));
 
     // Setup my reactors
     retval->notifieeIs(new StatsReactor(retval->statPtr_));
@@ -1014,6 +1035,20 @@ Conn::ConstraintPtr Conn::CostConstraintIs(Dollar cost){
     return CostConstraint::CostConstraintIs(cost);
 }
 
+Conn::PathSelectorPtr Conn::PathSelector::PathSelectorIs(Type type, ConstraintPtr constraints, LocationPtr start, LocationPtr end){
+    if(type == Conn::PathSelector::connect() && end == NULL){
+        throw new ArgumentException();
+    }
+    if(type == Conn::PathSelector::explore() && end != NULL){
+        throw new ArgumentException();
+    }
+    if(type == Conn::PathSelector::spantree() && end != NULL){
+        throw new ArgumentException();
+    }
+
+    return new PathSelector(type, constraints,start,end);
+}
+
 void Conn::PathSelector::modeIs(PathMode mode){
     pathModes_.insert(mode);
 }
@@ -1023,19 +1058,56 @@ PathMode Conn::PathSelector::modeDel(PathMode mode){
     pathModes_.erase(mode);
     return mode;
 }
+
+void Conn::notifieeIs(Conn::NotifieePtr notifiee){
+    // Ensure idempotency
+    std::vector<Conn::NotifieePtr>::iterator it;
+    for ( it=notifieeList_.begin(); it < notifieeList_.end(); it++ ){
+        if( (*it) == notifiee ) return;
+    }
+
+    // Register this notifiee
+    notifiee->notifierIs(this);
+    notifieeList_.push_back(notifiee);
+}
+
+EntityID Conn::nextHop(EntityID source, EntityID dest) const {
+    RoutingTable::const_iterator iter = nextHop_.find(pair<EntityID,EntityID>(source,dest));
+    if(iter == nextHop_.end()) return "";
+    return iter->second;
+}
+
+void Conn::routingIs(RoutingAlgorithm routingAlgorithm){
+    if(routingAlgorithm_==routingAlgorithm) return;
+    routingAlgorithm_=routingAlgorithm;
+    // Call Notifiees
+    Conn::NotifieeList::iterator it;
+    for ( it=notifieeList_.begin(); it < notifieeList_.end(); it++ ){
+        try{
+            (*it)->onRouting();
+        }
+        catch(...){
+            // ERROR: maybe we should log something here
+        }
+    } 
+}
  
-Conn::PathList Conn::paths(Conn::PathSelector selector) const {
-    LocationPtr startPtr = selector.start();
-    LocationPtr endPtr = selector.end();
+Conn::PathList Conn::paths(Conn::PathSelectorPtr selector) const {
+    Conn::PathSelector::Type type = selector->type();
+    LocationPtr startPtr = selector->start();
+    LocationPtr endPtr = selector->end();
+    /* Check Pre-Conditions */
     // Make Sure endPtr is valid Location in my network
-    if(endPtr && shippingNetwork_->location(endPtr->name()) != endPtr){
+    if(type == Conn::PathSelector::connect() &&
+        (shippingNetwork_->location(endPtr->name()) != endPtr)
+    ){
         return PathList();
     }
     // Make sure startPtr is valid Location in my network
-    if(!startPtr || (startPtr && shippingNetwork_->location(startPtr->name()) != startPtr)) {
+    if(shippingNetwork_->location(startPtr->name()) != startPtr) {
         return PathList();
     }
-    return paths(selector.modes(), selector.constraints(),startPtr,endPtr); 
+    return paths(selector->type(),selector->modes(), selector->constraints(),startPtr,endPtr); 
 }
 
 bool Conn::validSegment(SegmentPtr segment) const{
@@ -1085,20 +1157,21 @@ std::set<PathMode> Conn::modeIntersection(SegmentPtr segment,std::set<PathMode> 
     return retval;
 }
 
-Conn::PathList Conn::paths(std::set<PathMode> modes, ConstraintPtr constraints,LocationPtr start, LocationPtr endpoint) const {
+Conn::PathList Conn::paths(Conn::PathSelector::Type type, std::set<PathMode> modes, ConstraintPtr constraints,LocationPtr start, LocationPtr endpoint) const {
 
     Conn::PathList retval;
 
     DEBUG_LOG << "Starting location: " << start->name() << std::endl;
 
     // Setup 
-    std::stack<PathPtr> pathStack;
-    pathStack.push(Path::PathIs(start));
+    std::queue<PathPtr> pathContainer;
+    std::set<EntityID> visited;
+    pathContainer.push(Path::PathIs(start));
     // Traverse
-    while(pathStack.size() > 0){
+    while(pathContainer.size() > 0){
 
-        PathPtr currentPath = pathStack.top();
-        pathStack.pop();
+        PathPtr currentPath = pathContainer.front();
+        pathContainer.pop();
 
         DEBUG_LOG << "Visiting location: " << currentPath->lastLocation()->name() << std::endl;
 
@@ -1108,30 +1181,49 @@ Conn::PathList Conn::paths(std::set<PathMode> modes, ConstraintPtr constraints,L
             continue;
         }
 
-        // Should we output the path?
-        if(    (!endpoint || endpoint->name() == currentPath->lastLocation()->name()) // We have reached an endpoint
-            && (currentPath->pathElementCount() > 0)                                  // Don't ouput 0-hop path (Instructor's Requirement)
-          ){
-            DEBUG_LOG << "Output path" << std::endl;
-            retval.push_back(currentPath);
+        /* Special Processing for different Query Types */
+
+        // Spanning Tree
+        if(type == Conn::PathSelector::spantree()){
+            if(visited.count(currentPath->lastLocation()->name()) > 0)
+                continue;
+            visited.insert(currentPath->lastLocation()->name());
+            if(currentPath->pathElementCount() > 0){ 
+                retval.push_back(currentPath);
+            }
         }
 
-        // Stop traversing if we have hit the endpoint (THIS IS AN OPTIMIZATION)
-        if(endpoint && endpoint == currentPath->lastLocation()) continue;
+        // Explore
+        if(type == Conn::PathSelector::explore()){
+            if(currentPath->pathElementCount() > 0) 
+                retval.push_back(currentPath);
+        }
+
+        // Connect
+        if(type == Conn::PathSelector::connect()){
+            // Only output if we have reached the endpoint
+            // Also, if enpoint is reached then stop traversing
+            if(endpoint->name() == currentPath->lastLocation()->name()){
+                if(currentPath->pathElementCount() > 0)
+                     retval.push_back(currentPath);
+                continue;
+            }
+        }
 
         // Continue traversal
         for(uint32_t i = 1; i <= currentPath->lastLocation()->segmentCount().value(); i++){
             SegmentPtr segment = currentPath->lastLocation()->segment(i); 
-            if( validSegment(segment)                                                // Valid Segment
-                && segment->returnSegment()->source()                                // AND Valid Return Segment
-                && !(currentPath->location(segment->returnSegment()->source())))      // AND Not a Loop
+            if( validSegment(segment)                                                 // Valid Segment
+                && segment->returnSegment()->source()                                 // AND Valid Return Segment
+                && !(currentPath->location(segment->returnSegment()->source()))       // AND Not a Loop
+              )
               {
                   std::set<PathMode> overlap = modeIntersection(segment,modes);  
                   DEBUG_LOG << "Segment Modes: " << segment->modeCount().value() << ", Transport Modes: " << modes.size() << ", Overlap Size: " << overlap.size() << std::endl;               
                   for(std::set<PathMode>::const_iterator it = overlap.begin(); it != overlap.end(); it++){
                       PathPtr pathCopy = copyPath(currentPath,fleet_);
                       pathElementEnque(Path::PathElement::PathElementIs(segment,*it),pathCopy,fleet_);
-                      pathStack.push(pathCopy);
+                      pathContainer.push(pathCopy);
                   }
             }
         }
@@ -1261,3 +1353,35 @@ LocationPtr Path::location(LocationPtr location) const{
 void Path::PathElement::segmentIs(SegmentPtr segment){
     segment_=segment;
 }
+
+/* Routing Reactor */
+void RoutingReactor::onRouting(){
+    Conn::RoutingAlgorithm algo = notifier()->routing();
+    notifier()->nextHopClear();
+    if(algo == Conn::minHops()){
+        initMinHopsRoutingTable();
+    }
+    else if(algo == Conn::minDistance()){
+        initMinDistanceRoutingTable();
+    }
+}
+
+void RoutingReactor::initMinHopsRoutingTable(){
+    // Iterate over each location and entries for it to the route table
+    uint32_t index;
+    for(index = 0; index < network_->locationCount(); index++){
+        LocationPtr location = network_->location(index);
+        Conn::PathSelectorPtr selector = Conn::PathSelector::PathSelectorIs(Conn::PathSelector::spantree(),NULL,location,NULL);
+        selector->modeIs(PathMode::unexpedited());
+        Conn::PathList paths = notifier()->paths(selector);
+        // Add each path to routing table
+        for(uint32_t i = 0;i < paths.size(); i++){
+            PathPtr path = paths[i];
+            EntityID endLocation = path->lastLocation()->name();
+            EntityID nxtLocation = path->pathElement(0)->dest()->name();
+            notifier()->nextHopIs(location->name(),endLocation,nxtLocation);
+        }
+    }
+}
+
+void RoutingReactor::initMinDistanceRoutingTable(){}

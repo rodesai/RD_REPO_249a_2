@@ -566,7 +566,6 @@ public:
         return ss.str();
     }
     void attributeIsImpl(const string& name, const string& v) {
-        // nothing to do here
     }
 private:
     Ptr<ManagerImpl> manager_;
@@ -583,6 +582,20 @@ public:
 
     // Instance method
     string attributeImpl(const string& name) {
+
+        if(name == "routing"){
+            Conn::RoutingAlgorithm algo = conn_->routing(); 
+            if(algo == Conn::none()){
+                return "none";
+            }
+            if(algo == Conn::minHops()){
+                return "minHops";
+            }
+            if(algo == Conn::minDistance()){
+                return "minDistance";
+            }
+        }
+
         // create types useful for parsing
         stringstream ss;
         bool explore = false;
@@ -606,14 +619,15 @@ public:
             }
 
             // create pathselector object, run expedited query
-            Conn::PathSelector selector(NULL,loc1->representee(), loc2->representee());
-            selector.modeIs(PathMode::expedited());
+            Conn::PathSelectorPtr selector;
+            selector = Conn::PathSelector::PathSelectorIs(Conn::PathSelector::connect(),NULL,loc1->representee(), loc2->representee());
+            selector->modeIs(PathMode::expedited());
             paths = conn_->paths(selector);
 
             // submit unexpedited query, add to original paths list
             expeditedIndex=paths.size();
-            selector = Conn::PathSelector(NULL,loc1->representee(), loc2->representee());
-            selector.modeIs(PathMode::unexpedited());
+            selector = Conn::PathSelector::PathSelectorIs(Conn::PathSelector::connect(),NULL,loc1->representee(), loc2->representee());;
+            selector->modeIs(PathMode::unexpedited());
             std::vector<PathPtr> unexpeditedpaths = conn_->paths(selector);
             paths.insert(paths.end(),unexpeditedpaths.begin(),unexpeditedpaths.end());
 
@@ -632,19 +646,20 @@ public:
             }
 
             // create pathselector object, run expedited query
-            Conn::PathSelector selector(constraints,loc->representee());
-            selector.modeIs(PathMode::expedited());
+            Conn::PathSelectorPtr selector;
+            selector = Conn::PathSelector::PathSelectorIs(Conn::PathSelector::explore(),constraints,loc->representee(),NULL);
+            selector->modeIs(PathMode::expedited());
             paths = conn_->paths(selector);
 
             // add unexpedited paths if no constraint on expedite support
             expeditedIndex = paths.size();
             if (!expedited) {
-                selector = Conn::PathSelector(constraints,loc->representee());
-                selector.modeIs(PathMode::unexpedited());
+                selector = Conn::PathSelector::PathSelectorIs(Conn::PathSelector::explore(),constraints,loc->representee(),NULL);
+                selector->modeIs(PathMode::unexpedited());
                 std::vector<PathPtr> unexpeditedPaths = conn_->paths(selector);
                 paths.insert(paths.end(), unexpeditedPaths.begin(), unexpeditedPaths.end());
             }
-        }
+        } 
 
         // output paths
         DEBUG_LOG << "Reading path.\n";
@@ -683,7 +698,16 @@ public:
         return ss.str();
     }
     void attributeIsImpl(const string& name, const string& v) {
-        // nothing to do here
+        if(name == "routing"){
+            Conn::RoutingAlgorithm algo = Conn::none();
+            if(v == "minHops"){
+                algo = Conn::minHops();
+            }
+            else if(v == "minDistance"){
+                algo = Conn::minDistance();
+            }
+            conn_->routingIs(algo);
+        }
     }
 private:
     Conn::ConstraintPtr parseConstraints(char* s, bool& expedited) {

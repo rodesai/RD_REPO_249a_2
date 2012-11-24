@@ -11,6 +11,7 @@
 #include <exception>
 #include <iostream>
 #include <queue>
+#include <utility>
 
 #include "fwk/Ptr.h"
 #include "fwk/NamedInterface.h"
@@ -659,6 +660,7 @@ public:
     class PathElement : public Fwk::PtrInterface<Path::PathElement> {
     public:
         inline LocationPtr source() const { return segment_->source(); }
+        LocationPtr dest() const { return segment_->returnSegment()->source(); }
         inline SegmentPtr segment() const { return segment_; }
         inline PathMode elementMode() const { return elementMode_; }
         void segmentIs(SegmentPtr s); 
@@ -694,6 +696,29 @@ private:
 
 class Conn : public Fwk::NamedInterface {
 public:
+
+    class NotifieeConst : public virtual Fwk::NamedInterface::NotifieeConst {
+    public:
+        virtual void onRouting() {}
+        void notifierIs(ConnPtr notifier){ notifier_=notifier; }
+        ConnPtrConst notifier() const { return notifier_; }
+    protected:
+        NotifieeConst() {}
+        virtual ~NotifieeConst(){}
+        ConnPtrConst notifier_;
+    };
+    typedef Fwk::Ptr<Conn::NotifieeConst> NotifieeConstPtr;
+    typedef Fwk::Ptr<Conn::NotifieeConst const> NotifieeConstPtrConst;
+    class Notifiee : public virtual NotifieeConst, public virtual Fwk::NamedInterface::Notifiee {
+    public:
+        ConnPtr notifier() const { return const_cast<Conn*>(NotifieeConst::notifier().ptr()); }
+    protected:
+        Notifiee() {}
+        virtual ~Notifiee(){}
+    };
+    typedef Fwk::Ptr<Conn::Notifiee> NotifieePtr;
+    typedef Fwk::Ptr<Conn::Notifiee const> NotifieePtrConst;
+
     typedef std::vector<PathPtr> PathList;
     class Constraint;
     typedef Fwk::Ptr<Conn::Constraint> ConstraintPtr;
@@ -717,43 +742,96 @@ public:
         PathPtr path_;
         ConstraintPtr nxt_;
     };
-    class PathSelector{
+
+    class PathSelector;
+    typedef Fwk::Ptr<PathSelector> PathSelectorPtr;
+    typedef Fwk::Ptr<PathSelector const> PathSelectorPtrConst;
+    class PathSelector : public Fwk::PtrInterface<PathSelector>{
     public:
+        enum Type{
+            explore_=0,
+            connect_=1,
+            spantree_=2
+        };
+        static Type explore(){ return explore_; }
+        static Type connect(){ return connect_; }
+        static Type spantree(){ return spantree_; }
         // Mutators
-        PathSelector(ConstraintPtr constraints, LocationPtr start) : start_(start), end_(NULL), constraints_(constraints){}
-        PathSelector(ConstraintPtr constraints, LocationPtr start, LocationPtr end) : start_(start), end_(end), constraints_(constraints){}
         void modeIs(PathMode mode);
         PathMode modeDel(PathMode mode);
+        static PathSelectorPtr PathSelectorIs(Type type, ConstraintPtr constraints, LocationPtr start, LocationPtr end);
     private:
         friend class Conn;
+        PathSelector(Type type, ConstraintPtr constraints, LocationPtr start, LocationPtr end)
+            : type_(type), start_(start), end_(end), constraints_(constraints){}
+        inline Type type() const { return type_; }
         inline LocationPtr start() const { return start_; }
         inline LocationPtr end() const { return end_; }
         inline ConstraintPtr constraints() const { return constraints_; }
         inline std::set<PathMode> modes(){ return pathModes_; }
+        Type type_;
         LocationPtr start_;
         LocationPtr end_;
         ConstraintPtr constraints_;
         std::set<PathMode> pathModes_;
     };
-    PathList paths(PathSelector selector) const;
+
+    enum RoutingAlgorithm{
+        minDistance_,
+        minHops_,
+        none_
+    };
+    static RoutingAlgorithm minDistance(){ return minDistance_; }
+    static RoutingAlgorithm minHops(){ return minHops_; }
+    static RoutingAlgorithm none(){ return none_; }
+
+    // Accessors
+    PathList paths(PathSelectorPtr selector) const;
+    EntityID nextHop(EntityID startLocation,EntityID targetLocation) const;
+    RoutingAlgorithm routing() const { return routingAlgorithm_; }
+
+    // Mutators
+    void routingIs(RoutingAlgorithm routingAlgorithm);
+    void notifieeIs(Conn::NotifieePtr notifiee);
+
+    // Instantiating Mutators for Constraints
     static ConstraintPtr DistanceConstraintIs(Mile distance);
     static ConstraintPtr TimeConstraintIs(Hour time);
     static ConstraintPtr CostConstraintIs(Dollar cost);
 
 private:
-    PathList paths(std::set<PathMode> pathModes,ConstraintPtr constraints,LocationPtr start,LocationPtr endpoint) const ;
+
+    PathList paths(Conn::PathSelector::Type type, std::set<PathMode> pathModes,
+                    ConstraintPtr constraints,LocationPtr start,LocationPtr endpoint) const ;
     bool validSegment(SegmentPtr segment) const;
     PathPtr pathElementEnque(Path::PathElementPtr pathElement, PathPtr path, FleetPtr fleet) const;
     PathPtr copyPath(PathPtr path, FleetPtr fleet) const;
     Constraint::EvalOutput checkConstraints(ConstraintPtr constraints, PathPtr path) const;
     std::set<PathMode> modeIntersection(SegmentPtr segment,std::set<PathMode> pathModes) const;
 
+    friend class RoutingReactor;
     friend class ShippingNetwork;
 
     Conn(std::string name,ShippingNetworkPtrConst shippingNetwork, FleetPtr fleet) : NamedInterface(name), shippingNetwork_(shippingNetwork), fleet_(fleet){}
 
+    typedef std::pair<EntityID,EntityID> RoutingTableKey;
+    typedef std::map<RoutingTableKey,EntityID> RoutingTable;
+
+    // Next hop mutators
+    void nextHopClear(){
+        nextHop_.clear();
+    }
+    void nextHopIs(EntityID source, EntityID sink, EntityID next){
+        RoutingTableKey key(source,sink);
+        nextHop_.insert(pair<RoutingTableKey,EntityID>(key,next));
+    }
+
     ShippingNetworkPtrConst shippingNetwork_;
     FleetPtr fleet_;
+    RoutingAlgorithm routingAlgorithm_;
+    RoutingTable nextHop_;
+    typedef std::vector<Conn::NotifieePtr> NotifieeList;
+    NotifieeList notifieeList_;
 };
 
 class Stats : public Fwk::NamedInterface {
@@ -810,7 +888,6 @@ public:
     protected:
         Notifiee() {}
         virtual ~Notifiee(){}
-        ShippingNetworkPtr notifier_;
     };
     typedef Fwk::Ptr<ShippingNetwork::Notifiee> NotifieePtr;
     typedef Fwk::Ptr<ShippingNetwork::Notifiee const> NotifieePtrConst;
@@ -818,6 +895,8 @@ public:
     ManagerPtr manager() const { return manager_; }
     SegmentPtr segment(EntityID name) const; 
     LocationPtr location(EntityID name) const;
+    uint32_t locationCount() const;
+    LocationPtr location(int32_t index) ;
     ConnPtrConst conn(EntityID name) const; 
     StatsPtrConst stats(EntityID name) const; 
     FleetPtr fleet(EntityID name) const;
@@ -838,10 +917,13 @@ public:
 private:
     ShippingNetwork(EntityID name) : Fwk::NamedInterface(name){
         manager_=Manager::ManagerIs();
+        locationIteratorPos_=-1;
     }
     ManagerPtr manager_;
     typedef std::map<EntityID, LocationPtr> LocationMap;
     LocationMap locationMap_;
+    LocationMap::const_iterator locationIterator_;
+    int32_t locationIteratorPos_;
     typedef std::map<EntityID, SegmentPtr> SegmentMap;
     SegmentMap segmentMap_;
     typedef std::map<EntityID,ConnPtr> ConnMap;
@@ -856,6 +938,20 @@ private:
     // notifiees
     typedef std::vector<ShippingNetwork::NotifieePtr> NotifieeList;
     NotifieeList notifieeList_;
+};
+
+class RoutingReactor : public Conn::Notifiee {
+public:
+    /* Setup a routing table 
+     * based on the current routing mechanism
+     */
+    void onRouting();
+private:
+    friend class ShippingNetwork;
+    RoutingReactor(ShippingNetworkPtr network) : network_(network){}
+    void initMinHopsRoutingTable();
+    void initMinDistanceRoutingTable();
+    ShippingNetworkPtr network_;
 };
 
 class SegmentReactor : public Segment::Notifiee {

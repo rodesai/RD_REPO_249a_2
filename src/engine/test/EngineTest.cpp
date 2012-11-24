@@ -31,6 +31,18 @@ void connectLocations(LocationPtr l1,LocationPtr l2,ShippingNetworkPtr nwk){
     connectLocations(l1,l2,nwk,100,1.0);
 }
 
+TEST(Engine, minHop_basic){
+    ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
+    LocationPtr l1 = nwk->LocationNew("l1",Location::EntityType::port());
+    LocationPtr l2 = nwk->LocationNew("l2",Location::EntityType::port());
+    LocationPtr l3 = nwk->LocationNew("l3",Location::EntityType::port());
+    connectLocations(l1,l2,nwk,10.0);
+    connectLocations(l3,l2,nwk,10.0);
+    ConnPtr conn = nwk->ConnNew("conn");
+    conn->routingIs(Conn::minHops());
+    ASSERT_TRUE(conn->nextHop("l1","l3")=="l2");
+}
+
 TEST(Engine, locationDel){
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network");
     LocationPtr l1 = nwk->LocationNew("l1",Location::EntityType::port());
