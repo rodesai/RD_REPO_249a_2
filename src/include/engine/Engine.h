@@ -10,6 +10,7 @@
 #include <map>
 #include <exception>
 #include <iostream>
+#include <queue>
 
 #include "fwk/Ptr.h"
 #include "fwk/NamedInterface.h"
@@ -96,6 +97,9 @@ public:
         return s.str();
     }
     static Dollar defaultValue(){ return defaultValue_; }
+    Dollar operator+(const Dollar other) const {
+        return Dollar(value_ + other.value());
+    }
 private:
     static const double defaultValue_ = 1.0;
 };
@@ -160,6 +164,12 @@ public:
         return s.str();
     }
     static PackageNum defaultValue(){ return defaultValue_; }
+    PackageNum operator+(const PackageNum other) const {
+        return PackageNum(value_ + other.value());
+    }
+    PackageNum operator-(const PackageNum other) const {
+        return PackageNum(value_ - other.value());
+    }
 private:
     static const uint64_t defaultValue_ = 1;
 };
@@ -226,6 +236,8 @@ public:
 };
 
 // Client Types
+class Shipment;
+class Subshipment;
 class Segment;
 class Location;
 class Customer;
@@ -236,11 +248,17 @@ class Fleet;
 class Stats;
 
 // Reactors
+class LocationReactor;
+class CustomerReactor;
+class InjectActivityReactor;
+class ForwardActivityReactor;
 class SegmentReactor;
 class ShippingNetworkReactor;
 class StatsReactor;
 
 // Pointers
+typedef Fwk::Ptr<Shipment> ShipmentPtr;
+typedef Fwk::Ptr<Subshipment> SubshipmentPtr;
 typedef Fwk::Ptr<Segment> SegmentPtr;
 typedef Fwk::Ptr<Location> LocationPtr;
 typedef Fwk::Ptr<Customer> CustomerPtr;
@@ -288,11 +306,33 @@ public:
         static EntityType planeTerminal(){ return planeTerminal_; }
         EntityType(uint8_t m) : Ordinal<EntityType,uint8_t>(m){}
     };
+    void shipmentIs(ShipmentPtr shipment);
     SegmentCount segmentCount() const; 
     SegmentPtr segment(uint32_t index) const; 
     inline EntityType entityType() const { return entityType_; }
+
+    class NotifieeConst : public virtual Fwk::NamedInterface::NotifieeConst {
+    public:
+        virtual void onShipment(ShipmentPtr shipment){}
+        LocationPtrConst notifier() const { return notifier_; }
+        void notifierIs(LocationPtrConst notifier) { notifier_ = notifier; }
+    protected:
+        NotifieeConst(){}
+        virtual ~NotifieeConst(){}
+        LocationPtrConst notifier_;
+    };
+    class Notifiee : public virtual NotifieeConst, public virtual Fwk::NamedInterface::Notifiee {
+    public:
+        LocationPtr notifier() const { return const_cast<Location*>(NotifieeConst::notifier().ptr()); }
+    protected:
+        Notifiee(){}
+        virtual ~Notifiee(){}
+    };
+    typedef Fwk::Ptr<Location::Notifiee> NotifieePtr;
+    typedef Fwk::Ptr<Location::Notifiee const> NotifieePtrConst;
+    void notifieeIs(Location::Notifiee* notifiee);
 protected: 
-    Location(EntityID name, EntityType type): Fwk::NamedInterface(name), entityType_(type){}
+    Location(EntityID name, EntityType type);
 private:
     friend class ShippingNetwork;
     friend class SegmentReactor;
@@ -302,6 +342,17 @@ private:
     EntityType entityType_;
     typedef std::vector<SegmentPtr> SegmentList;
     SegmentList segments_;
+
+    typedef std::vector<Location::NotifieePtr> NotifieeList;
+    NotifieeList notifieeList_;
+};
+
+class LocationReactor : public Location::Notifiee {
+public:
+    void onShipment(ShipmentPtr shipment);
+private:
+    friend class Location;
+    void forwardShipmentToSegment(ShipmentPtr shipment);
 };
 
 class Customer : public Location{
@@ -310,22 +361,26 @@ public:
     void transferRateIs(ShipmentPerDay spd);
     void shipmentSize(PackageNum pn);
     void destinationIs(LocationPtr lp);
+    void shipmentIs(ShipmentPtr shipment);
 
     // accessors
     ShipmentPerDay transferRate() const { return transferRate_; }
+    Time nextShipmentTime() const;
     PackageNum shipmentSize() const { return shipmentSize_; }
     LocationPtr destination() const { return destination_; }
 
-    // TODO: these should be updated using a reactor
+    // TODO: these should be updated using ForwardActivityReactor
     uint32_t shipmentsReceived() const { return shipmentsReceived_; }
     Hour totalLatency() const { return totalLatency_; }
     Dollar totalCost() const { return totalCost_; }
 
+    // reactor
     class NotifieeConst : public virtual Fwk::NamedInterface::NotifieeConst {
     public:
         virtual void onTransferRate(){}
         virtual void onShipmentSize(){}
         virtual void onDestination(){}
+        virtual void onShipment(ShipmentPtr shipment) {}
         LocationPtrConst notifier() const { return notifier_; }
         void notifierIs(LocationPtrConst notifier) { notifier_ = notifier; }
     protected:
@@ -346,6 +401,8 @@ public:
 protected:
     Customer(EntityID name, EntityType type);
 private:
+    friend class ShippingNetwork;
+    friend class CustomerReactor;
     ShipmentPerDay transferRate_;
     PackageNum shipmentSize_;
     // TODO: make Ptr::Customer?
@@ -353,6 +410,8 @@ private:
     uint32_t shipmentsReceived_;
     Hour totalLatency_;
     Dollar totalCost_;
+    ManagerPtr manager_;
+
     typedef std::vector<Customer::NotifieePtr> NotifieeList;
     NotifieeList notifieeList_;
 };
@@ -364,17 +423,107 @@ public:
     void onTransferRate();
     void onShipmentSize();
     void onDestination();
+    void onShipment(ShipmentPtr shipment);
     CustomerReactor() {
         transferRateSet_ = false;
         shipmentSizeSet_ = false;
         destinationSet_ = false;
     }
 private:
+    friend class ShippingNetwork;
+    ManagerPtr manager_;
     void checkAndCreateInjectActivity();
     // TODO: change from bool?
     bool transferRateSet_;
     bool shipmentSizeSet_;
     bool destinationSet_;
+};
+
+class Shipment: public Fwk::NamedInterface {
+public:
+    // accessors
+    inline PackageNum load() const { return load_; }
+    inline LocationPtr destination() const { return destination_; }
+    inline LocationPtr source() const { return source_; }
+    inline Dollar cost() const { return cost_; }
+    inline Activity::Time startTime() const { return startTime_; }
+
+    // mutators
+    void loadIs(PackageNum load) { load_ = load; }
+    void destinationIs(LocationPtr loc) { destination_ = loc; }
+    void sourceIs(LocationPtr src) { source_ = src;}
+    void startTimeIs(Activity::Time t) { startTime_ = t; }
+    void costInc(Dollar cost) {cost_ = cost_ + cost;}
+
+    // constructor
+    Shipment(std::string name) : NamedInterface(name), cost_(0), startTime_(0) {}
+private:
+    PackageNum load_;
+    // TODO: make this customer pointer?
+    LocationPtr destination_;
+    LocationPtr source_;
+    Dollar cost_;
+    Activity::Time startTime_;
+};
+
+class InjectActivityReactor : public Activity::Activity::Notifiee {
+public:
+    void onStatus();
+    void onNextTime(){};
+
+    void sourceIs(CustomerPtr customer) { source_ = customer; } 
+    void managerIs(ManagerPtr m) { manager_ = m; }
+
+    inline CustomerPtr source() const { return source_; }
+private:
+    ManagerPtr manager_;
+    CustomerPtr source_;
+};
+
+class ForwardActivityReactor : public Activity::Activity::Notifiee {
+public:
+    void onStatus();
+    void onNextTime(){};
+
+    inline ManagerPtr manager() { return manager_; }
+    inline SegmentPtr segment() { return segment_; }
+    inline SubshipmentPtr subshipment() { return subshipment_; }
+
+    void managerIs(ManagerPtr m) { manager_ = m; }
+    void segmentIs(SegmentPtr s) { segment_ = s; }
+    void subshipmentIs(SubshipmentPtr s) { subshipment_ = s; }
+    ForwardActivityReactor(): subshipment_(NULL){};
+private:
+    SegmentPtr segment_;
+    SubshipmentPtr subshipment_;
+    ManagerPtr manager_;
+};
+
+class Subshipment : public Fwk::NamedInterface {
+public:
+    enum ShipmentOrder {
+        last_ = 0,
+        first_ = 1,
+        other_
+    };
+
+    Subshipment(string name) : Fwk::NamedInterface(name) {};
+
+    static inline ShipmentOrder last() { return last_; }
+    static inline ShipmentOrder other() { return other_; }
+    static inline ShipmentOrder first() { return first_; }
+
+    inline ShipmentPtr shipment() const { return shipment_; }
+    inline ShipmentOrder shipmentOrder() const { return shipmentOrder_; }
+    inline PackageNum remainingLoad() const { return remainingLoad_; }
+
+    void shipmentIs(ShipmentPtr shipment) { shipment_ = shipment; }
+    void shipmentOrderIs(ShipmentOrder so) { shipmentOrder_ = so; }
+    void remainingLoadIs(PackageNum pn) { remainingLoad_ = pn; }
+private:
+    ShipmentPtr shipment_;
+    ShipmentOrder shipmentOrder_;
+    PackageNum remainingLoad_;
 };
 
 class Segment : public Fwk::NamedInterface {
@@ -387,6 +536,7 @@ public:
         virtual void onReturnSegment(){}
         virtual void onMode(PathMode mode){}
         virtual void onModeDel(PathMode mode){}
+        virtual void onShipment(ShipmentPtr shipment) {}
         SegmentPtrConst notifier() const { return notifier_; }
         void notifierIs(SegmentPtrConst notifier){ notifier_=notifier; }
     protected:
@@ -414,9 +564,17 @@ public:
     inline SegmentPtr returnSegment() const { return returnSegment_; }
     inline Difficulty difficulty() const { return difficulty_; }
     inline TransportMode transportMode() const { return transportMode_; }
+    inline uint32_t carriersUsed() const { return carriersUsed_; }
+    Hour carrierLatency() const;
+    PackageNum carrierCapacity() const;
+    Dollar carrierCost() const;
     PathMode mode(PathMode mode) const;
     ModeCount modeCount() const;
     PathMode mode(uint16_t) const;
+    void shipmentIs(ShipmentPtr shipment);
+    void shipmentsRefusedInc() { shipmentsRefused_++; }
+    void carriersUsedInc() { carriersUsed_ ++; }
+    void carriersUsedDec() { carriersUsed_ --; }
     void sourceIs(EntityID source);
     void lengthIs(Mile l);
     void capacityIs(ShipmentNum sn);
@@ -426,7 +584,8 @@ public:
     void transportModeIs(TransportMode transportMode);
     void modeIs(PathMode mode);
     PathMode modeDel(PathMode mode);
-
+    void subshipmentEnqueue(SubshipmentPtr sp) { subshipmentQueue_.push(sp); }
+    SubshipmentPtr subshipmentDequeue(PackageNum);
 private:
     friend class ShippingNetwork;
     friend class ShippingNetworkReactor;
@@ -436,6 +595,7 @@ private:
         mode_.insert(mode);
         shipmentsReceived_ = 0;
         shipmentsRefused_ = 0;
+        carriersUsed_ = 0;
     }
     void sourceIs(LocationPtr source);
     void returnSegmentIs(SegmentPtr returnSegment);
@@ -444,15 +604,19 @@ private:
     Difficulty difficulty_;
     TransportMode transportMode_;
     ShipmentNum capacity_;
-    // TODO: these should be updated using a reactor
-    uint32_t shipmentsReceived_;
-    uint32_t shipmentsRefused_;
     std::set<PathMode> mode_;
     SegmentPtr returnSegment_;
     LocationPtr source_;
     typedef std::vector<Segment::NotifieePtr> NotifieeList;
     NotifieeList notifieeList_;
     ShippingNetworkPtrConst network_;
+
+    // for activity forwarding
+    uint32_t carriersUsed_;
+    uint32_t shipmentsReceived_;
+    uint32_t shipmentsRefused_;
+    typedef queue<SubshipmentPtr> SubshipmentQueue;
+    SubshipmentQueue subshipmentQueue_;
 };
 
 class Fleet : public Fwk::NamedInterface {
@@ -657,6 +821,7 @@ public:
     ConnPtrConst conn(EntityID name) const; 
     StatsPtrConst stats(EntityID name) const; 
     FleetPtr fleet(EntityID name) const;
+    FleetPtr fleet() const { return fleetPtr_; }
     SegmentPtr SegmentNew(EntityID name, TransportMode mode, PathMode pathMode); 
     SegmentPtr segmentDel(EntityID name);
     LocationPtr LocationNew(EntityID name, Location::EntityType entityType);
@@ -708,6 +873,7 @@ public:
     void onReturnSegment();  
     void onMode(PathMode mode);
     void onModeDel(PathMode mode);
+    void onShipment(ShipmentPtr shipment);
 private:
     // Factory Class
     friend class ShippingNetwork;
@@ -716,6 +882,7 @@ private:
     SegmentPtr  currentReturnSegment_;
     ShippingNetworkPtr network_;
     StatsPtr stats_;
+    ManagerPtr manager_;
 };
 
 class ShippingNetworkReactor : public ShippingNetwork::Notifiee{

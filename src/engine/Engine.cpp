@@ -11,6 +11,10 @@ using namespace Shipping;
  *
  */
 
+Location::Location(EntityID name, EntityType type): Fwk::NamedInterface(name), entityType_(type){
+        notifieeIs(new LocationReactor());
+    }
+
 SegmentCount Location::segmentCount() const { 
     return segments_.size(); 
 }
@@ -51,6 +55,40 @@ void Location::segmentDel(SegmentPtr segment){
     }
 }
 
+void Location::notifieeIs(Location::Notifiee* notifiee){
+    // Ensure idempotency
+    std::vector<Location::NotifieePtr>::iterator it;
+    for ( it=notifieeList_.begin(); it < notifieeList_.end(); it++ ){
+        if( (*it) == notifiee ) return;
+    }
+
+    // Register this notifiee
+    notifiee->notifierIs(this);
+    notifieeList_.push_back(notifiee);
+}
+
+void Location::shipmentIs(ShipmentPtr shipment) {
+    // Call Notifiees if not destination
+    // TODO: this shouldn't occur at all
+    if (entityType_ == EntityType::customer())
+        return;
+    Location::NotifieeList::iterator it;
+    for ( it=notifieeList_.begin(); it < notifieeList_.end(); it++ ){
+        try{
+            (*it)->onShipment(shipment);
+        }
+        catch(...){
+            // ERROR: maybe we should log something here
+        }
+    }
+}
+
+void LocationReactor::onShipment(ShipmentPtr shipment) {
+    // TODO: use routing information
+    SegmentPtr segment = notifier_->segment(1);
+    segment->shipmentIs(shipment);
+}
+
 /*
  * Customer 
  *
@@ -58,7 +96,6 @@ void Location::segmentDel(SegmentPtr segment){
 
 void Customer::transferRateIs(ShipmentPerDay spd){
     transferRate_ = spd; 
-    // TODO: notify notifiees
 
     // Call Notifiees
     Customer::NotifieeList::iterator it;
@@ -71,6 +108,17 @@ void Customer::transferRateIs(ShipmentPerDay spd){
         }
     }
 }
+
+Time Customer::nextShipmentTime() const {
+    // TODO: add different ranges of times
+    double HoursPerShipment = 24 / transferRate_.value();
+    // TODO: casting takes floor, right?
+    int daysBeforeToday = manager_->now().value() / 24;
+    int hoursToday = manager_->now().value() - daysBeforeToday * 24;
+    int shipmentsToday = hoursToday / HoursPerShipment;
+    return Time(daysBeforeToday * 24 + (shipmentsToday + 1) * HoursPerShipment);
+}
+
 void Customer::shipmentSize(PackageNum pn) {
     shipmentSize_ = pn; 
 
@@ -109,9 +157,6 @@ Customer::Customer(EntityID name, EntityType type) : Location(name, type), desti
     shipmentsReceived_ = 0;
     totalLatency_ = Hour(0);
     totalCost_ = Dollar(0);
-    // create CustomerReactor
-    Customer::Notifiee* notifiee = new CustomerReactor();
-    this->notifieeIs(notifiee);
 }
 
 void Customer::notifieeIs(Customer::Notifiee* notifiee){
@@ -141,10 +186,77 @@ void CustomerReactor::onDestination() {
     checkAndCreateInjectActivity();
 }
 
-void CustomerReactor::checkAndCreateInjectActivity() {
-    if ( transferRateSet_ && shipmentSizeSet_ && destinationSet_) {
-        // TODO: create activity
+void Customer::shipmentIs(ShipmentPtr shipment) {
+    Customer::NotifieeList::iterator it;
+    for ( it=notifieeList_.begin(); it < notifieeList_.end(); it++ ){
+        try{
+            (*it)->onShipment(shipment);
+        }
+        catch(...){
+            // ERROR: maybe we should log something here
+        }
     }
+}
+
+void CustomerReactor::onShipment(ShipmentPtr shipment) {
+    // if shipment is arriving at destination, udpate stats
+    if (shipment->destination()->name() == this->name()) {
+        // TODO: these are probably not in the right units
+        CustomerPtr cust = dynamic_cast<Customer*> (shipment->destination().ptr());
+        cust->totalLatency_ = Hour(cust->totalLatency_.value() + manager_->now().value() - shipment->startTime().value());
+        cust->totalCost_ = cust->totalCost_ + shipment->cost();
+        cust->shipmentsReceived_ ++;
+        return;
+    }
+
+    // otherwise, if arriving at the source, forward activity to segment
+    else if (shipment->source()->name() == this->name()) {
+        // TODO: use routing information
+        SegmentPtr segment = notifier_->segment(1);
+        segment->shipmentIs(shipment);
+        return;
+    }
+
+    // shipment ended up at wrong customer
+    // TODO: this is certainly the wrong error type
+    throw EntityExistsException();
+}
+
+void CustomerReactor::checkAndCreateInjectActivity() {
+    CustomerPtr cust = dynamic_cast<Customer*>(const_cast<Location*> (notifier_.ptr()));
+
+    if (transferRateSet_ && shipmentSizeSet_ && destinationSet_) {
+        // retrieve / create activity
+        Activity::ActivityPtr ia = manager_->activity(notifier_->name());
+        if (!ia) {
+            ia = manager_->activityNew(notifier_->name());
+            InjectActivityReactor* iar = new InjectActivityReactor();
+            ia->lastNotifieeIs(iar);
+            iar->managerIs(manager_);
+            iar->sourceIs(cust);
+
+            // TODO: do I need to call manager_->lastActivityIs(ia)?
+        }
+
+        ia->nextTimeIs(cust->nextShipmentTime());
+    }
+}
+
+void InjectActivityReactor::onStatus() {
+    // create new shipment
+
+    // TODO: better name?
+    ShipmentPtr shipment = new Shipment("name");
+    shipment->loadIs(source_->shipmentSize());
+    shipment->sourceIs(source_);
+    shipment->destinationIs(source_->destination());
+    shipment->startTimeIs(manager_->now());
+
+    // add shipment to location
+    source_->shipmentIs(shipment);
+
+    // reschedule activity
+    notifier_->nextTimeIs(source_->nextShipmentTime());
 }
 
 
@@ -287,6 +399,64 @@ void Segment::capacityIs(ShipmentNum capacity){
 
 void Segment::difficultyIs(Difficulty difficulty){
     difficulty_=difficulty;
+}
+
+void Segment::shipmentIs(ShipmentPtr shipment) {
+    // add subshipments to queue
+    // TODO: better name?
+    SubshipmentPtr s = new Subshipment("name");
+    s->shipmentIs(shipment);
+    s->shipmentOrderIs(Subshipment::other());
+    s->remainingLoadIs(shipment->load());
+    subshipmentEnqueue(s);
+
+    // notify segment reactor
+    Segment::NotifieeList::iterator it;
+    for ( it=notifieeList_.begin(); it < notifieeList_.end(); it++ ){
+        try{
+            (*it)->onShipment(shipment);
+        }
+        catch(...){
+            // ERROR: maybe we should log something here
+        }
+    }
+}
+
+SubshipmentPtr Segment::subshipmentDequeue(PackageNum capacity) {
+    // return null if queue is empty
+    if (subshipmentQueue_.empty())
+        return NULL;
+
+    // remove subshipment if remaining packages can be delivered at once
+    SubshipmentPtr lastSubshipment = subshipmentQueue_.front();
+    if (capacity >= lastSubshipment->remainingLoad()) {
+        subshipmentQueue_.pop();
+        lastSubshipment->shipmentOrderIs(Subshipment::last());
+        return lastSubshipment;
+    }
+
+    // otherwise return partial shipment
+    lastSubshipment->remainingLoadIs(lastSubshipment->remainingLoad() - capacity);
+    SubshipmentPtr result = new Subshipment("name");
+    result->shipmentIs(lastSubshipment->shipment());
+    result->shipmentOrderIs(Subshipment::other());
+    result->remainingLoadIs(capacity);
+    return result;
+
+}
+
+Hour Segment::carrierLatency() const {
+    // TODO: can make this more general (include difficulty, expedite)
+    return Hour(length_.value() * network_->fleet()->speed(transportMode_).value());
+}
+
+PackageNum Segment::carrierCapacity() const {
+    return network_->fleet()->capacity(transportMode_);
+}
+
+Dollar Segment::carrierCost() const {
+    // TODO: can make this more general
+    return Dollar(length_.value() * network_->fleet()->cost(transportMode_).value());
 }
 
 /*
@@ -437,7 +607,6 @@ ShippingNetworkPtr ShippingNetwork::ShippingNetworkIs(EntityID name){
 }
 
 void ShippingNetwork::notifieeIs(ShippingNetwork::NotifieePtr notifiee){
-
     // Ensure idempotency
     ShippingNetwork::NotifieeList::iterator it;
     for ( it=notifieeList_.begin(); it < notifieeList_.end(); it++ ){
@@ -462,7 +631,10 @@ SegmentPtr ShippingNetwork::SegmentNew(EntityID name, TransportMode entityType, 
     segmentMap_[name]=retval;
 
     // Setup Reactor
-    retval->notifieeIs(new SegmentReactor(this,statPtr_));
+    // TODO: is it an issue that I'm not using Ptr?
+    SegmentReactor* sr = new SegmentReactor(this,statPtr_);
+    sr->manager_ = manager_;
+    retval->notifieeIs(sr);
 
     // Issue Notifications
     ShippingNetwork::NotifieeList::iterator it;
@@ -505,7 +677,7 @@ SegmentPtr ShippingNetwork::segmentDel(EntityID name){
 }
 
 LocationPtr ShippingNetwork::LocationNew(EntityID name, Location::EntityType entityType){
-    
+
     // If Segment with this name already exists, just return it
     LocationPtr existing = location(name);
     if(existing){
@@ -513,7 +685,20 @@ LocationPtr ShippingNetwork::LocationNew(EntityID name, Location::EntityType ent
     }
 
     // Create a New Segment
-    LocationPtr retval(new Location(name,entityType));
+    LocationPtr retval;
+    if (entityType == Location::EntityType::customer()) {
+        retval = new Customer(name, entityType);
+        CustomerPtr cust = (dynamic_cast<Customer*> (retval.ptr()));
+        cust->manager_ = manager_;
+
+        // create CustomerReactor
+        // TODO: is this pointer a problem?
+        CustomerReactor* notifiee = new CustomerReactor();
+        notifiee->manager_ = manager_;
+        cust->notifieeIs(notifiee);
+    } else {
+        retval = new Location(name,entityType);
+    }
     locationMap_[name]=retval;
 
     // Issue Notifications
@@ -655,6 +840,57 @@ void SegmentReactor::onMode(PathMode mode){
 
 void SegmentReactor::onModeDel(PathMode mode){
     stats_->segmentCountDecr(mode);
+}
+
+void SegmentReactor::onShipment(ShipmentPtr shipment) {
+    // wait for other carriers to finish if none are available
+    SegmentPtr segment = const_cast<Segment*> (notifier_.ptr());
+    if (segment->carriersUsed() == segment->capacity().value()) {
+        segment->shipmentsRefusedInc();
+    }
+
+    // otherwise, create a new forward activity and execute immediately
+    else {
+        // generate activity name
+        std::stringstream s;
+        s << segment->name() << "-" << segment->carriersUsed();
+
+        // create new activity and activity reactor
+        Activity::ActivityPtr fa = manager_->activityNew(s.str());
+        ForwardActivityReactor* far = new ForwardActivityReactor();
+        far->managerIs(manager_);
+        far->segmentIs(segment);
+        fa->nextTimeIs(manager_->now());
+        fa->lastNotifieeIs(far);
+        segment->carriersUsedInc();
+    }
+}
+
+
+void ForwardActivityReactor::onStatus() {
+    // deliver shipment if the shipment is complete
+    if (subshipment_) {
+        subshipment_->shipment()->costInc(segment_->carrierCost());
+        if (subshipment_->shipmentOrder() == Subshipment::last()) {
+            segment_->returnSegment()->source()->shipmentIs(subshipment_->shipment());
+        }
+        // TODO: delete subshipment?
+    }
+
+    // pick up next shipment if there is one
+    SubshipmentPtr subshipment = segment_->subshipmentDequeue(segment_->carrierCapacity());
+
+    // TODO: add carriers if capacity increases
+    // delete activity if there is no remaining subshipment or there are too many carriers
+    if (!subshipment || segment_->carriersUsed() > segment_->capacity().value()) {
+        manager_->activityDel(notifier_->name());
+        segment_->carriersUsedDec();
+        return; 
+    }
+
+    // sleep for required time
+    Time nextTime = Time(manager_->now().value() + segment_->carrierLatency().value());
+    notifier_->nextTimeIs(nextTime);
 }
 
 /*
