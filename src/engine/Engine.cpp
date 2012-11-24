@@ -1040,6 +1040,9 @@ Conn::ConstraintPtr Conn::CostConstraintIs(Dollar cost){
 }
 
 Conn::PathSelectorPtr Conn::PathSelector::PathSelectorIs(Type type, ConstraintPtr constraints, LocationPtr start, LocationPtr end){
+    if(start == NULL){
+        throw new ArgumentException();
+    }
     if(type == Conn::PathSelector::connect() && end == NULL){
         throw new ArgumentException();
     }
@@ -1081,6 +1084,10 @@ EntityID Conn::nextHop(EntityID source, EntityID dest) const {
     return iter->second;
 }
 
+void Conn::endLocationTypeIs(Location::EntityType type){
+    endLocationType_.insert(type);
+}
+
 void Conn::routingIs(RoutingAlgorithm routingAlgorithm){
     if(routingAlgorithm_==routingAlgorithm) return;
     routingAlgorithm_=routingAlgorithm;
@@ -1111,7 +1118,12 @@ Conn::PathList Conn::paths(Conn::PathSelectorPtr selector) const {
     if(shippingNetwork_->location(startPtr->name()) != startPtr) {
         return PathList();
     }
-    return paths(selector->type(),selector->modes(), selector->constraints(),startPtr,endPtr); 
+
+    MinHopTraversal traversal = MinHopTraversal();
+    ((Conn*) this)->traversalOrderIs(&traversal);
+    return paths(selector->type(), std::set<Location::EntityType>(), selector->modes(),
+                    priority_queue<PathPtr,vector<PathPtr>,TraversalCompare>(TraversalCompare(this)), 
+                    selector->constraints(), startPtr, endPtr); 
 }
 
 bool Conn::validSegment(SegmentPtr segment) const{
@@ -1161,20 +1173,21 @@ std::set<PathMode> Conn::modeIntersection(SegmentPtr segment,std::set<PathMode> 
     return retval;
 }
 
-Conn::PathList Conn::paths(Conn::PathSelector::Type type, std::set<PathMode> modes, ConstraintPtr constraints,LocationPtr start, LocationPtr endpoint) const {
+Conn::PathList Conn::paths(Conn::PathSelector::Type type, std::set<Location::EntityType> endLocationTypes, std::set<PathMode> modes, 
+                             priority_queue<PathPtr,vector<PathPtr>,TraversalCompare> pathContainer, ConstraintPtr constraints,
+                             LocationPtr start, LocationPtr endpoint) const {
 
     Conn::PathList retval;
 
     DEBUG_LOG << "Starting location: " << start->name() << std::endl;
 
     // Setup 
-    std::queue<PathPtr> pathContainer;
     std::set<EntityID> visited;
     pathContainer.push(Path::PathIs(start));
     // Traverse
     while(pathContainer.size() > 0){
 
-        PathPtr currentPath = pathContainer.front();
+        PathPtr currentPath = pathContainer.top();
         pathContainer.pop();
 
         DEBUG_LOG << "Visiting location: " << currentPath->lastLocation()->name() << std::endl;
@@ -1214,6 +1227,10 @@ Conn::PathList Conn::paths(Conn::PathSelector::Type type, std::set<PathMode> mod
             }
         }
 
+        if(endLocationTypes.count(currentPath->lastLocation()->entityType()) > 0){
+            continue;
+        }
+
         // Continue traversal
         for(uint32_t i = 1; i <= currentPath->lastLocation()->segmentCount().value(); i++){
             SegmentPtr segment = currentPath->lastLocation()->segment(i); 
@@ -1235,17 +1252,6 @@ Conn::PathList Conn::paths(Conn::PathSelector::Type type, std::set<PathMode> mod
     return retval;
 }
 
-/*
-std::vector<PathPtr> Conn::connect(LocationPtr start, LocationPtr end, ShippingNetwork* network, Fleet* fleet) const {
-    Conn::LocationSet ls;
-    ls.insert(end->name());
-    return paths(NULL,ls,start,network,fleet);
-}
-
-std::vector<PathPtr> explore(LocationPtr start,
-                                       Mile distance, Dollar cost, Hour time, Segment::ExpediteSupport expedited
-                                       ShippingNetwork* network, Fleet* fleet) const;
-*/
 /*
  * Fleet
  *
@@ -1374,18 +1380,50 @@ void RoutingReactor::initMinHopsRoutingTable(){
     // Iterate over each location and entries for it to the route table
     uint32_t index;
     for(index = 0; index < network_->locationCount(); index++){
-        LocationPtr location = network_->location(index);
-        Conn::PathSelectorPtr selector = Conn::PathSelector::PathSelectorIs(Conn::PathSelector::spantree(),NULL,location,NULL);
-        selector->modeIs(PathMode::unexpedited());
-        Conn::PathList paths = notifier()->paths(selector);
+        LocationPtr location; 
+        std::set<PathMode> modes;
+        Conn::PathList paths;
+        Conn::PathSelector::Type pathType;
+        Conn::MinHopTraversal traversal;
+        pathType = Conn::PathSelector::spantree();
+        modes.insert(PathMode::unexpedited());
+        location = network_->location(index);
+        notifier()->traversalOrderIs(&traversal);
+        paths = notifier()->paths(pathType,notifier()->endLocationTypes(),modes,
+                                  priority_queue<PathPtr,vector<PathPtr>,Conn::TraversalCompare>(Conn::TraversalCompare(notifier())),
+                                  NULL,location,NULL);
         // Add each path to routing table
         for(uint32_t i = 0;i < paths.size(); i++){
             PathPtr path = paths[i];
             EntityID endLocation = path->lastLocation()->name();
-            EntityID nxtLocation = path->pathElement(0)->dest()->name();
-            notifier()->nextHopIs(location->name(),endLocation,nxtLocation);
+            EntityID segment = path->pathElement(0)->segment()->name();
+            notifier()->nextHopIs(location->name(),endLocation,segment);
         }
     }
 }
 
-void RoutingReactor::initMinDistanceRoutingTable(){}
+void RoutingReactor::initMinDistanceRoutingTable(){
+    // Iterate over each location and entries for it to the route table
+    uint32_t index;
+    for(index = 0; index < network_->locationCount(); index++){
+        LocationPtr location;
+        std::set<PathMode> modes;
+        Conn::PathList paths;
+        Conn::PathSelector::Type pathType;
+        Conn::MinDistanceTraversal traversal;
+        pathType = Conn::PathSelector::spantree();
+        modes.insert(PathMode::unexpedited());
+        location = network_->location(index);
+        notifier()->traversalOrderIs(&traversal);
+        paths = notifier()->paths(pathType,notifier()->endLocationTypes(),modes,
+                                  priority_queue<PathPtr,vector<PathPtr>,Conn::TraversalCompare>(Conn::TraversalCompare(notifier())),
+                                  NULL,location,NULL);
+        // Add each path to routing table
+        for(uint32_t i = 0;i < paths.size(); i++){
+            PathPtr path = paths[i];
+            EntityID endLocation = path->lastLocation()->name();
+            EntityID segment = path->pathElement(0)->segment()->name();
+            notifier()->nextHopIs(location->name(),endLocation,segment);
+        }
+    }
+}

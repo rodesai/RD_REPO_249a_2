@@ -20,7 +20,7 @@ GUNIT_PATH += $(GUNIT_BASE)/include
 MAIN_FILES += engine/Engine 
 
 # Secondary Files
-SECONDARY_FILES += fwk/BaseCollection fwk/BaseNotifiee fwk/Exception
+SECONDARY_FILES += fwk/BaseCollection fwk/BaseNotifiee fwk/Exception activity/Activity
 
 # The objects corresponding to the tested files.
 MAIN_OBJ_PATH = $(addsuffix .o, $(addprefix $(SRC_PATH), $(MAIN_FILES)))

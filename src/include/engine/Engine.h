@@ -797,6 +797,7 @@ public:
     // Mutators
     void routingIs(RoutingAlgorithm routingAlgorithm);
     void notifieeIs(Conn::NotifieePtr notifiee);
+    void endLocationTypeIs(Location::EntityType type);
 
     // Instantiating Mutators for Constraints
     static ConstraintPtr DistanceConstraintIs(Mile distance);
@@ -805,21 +806,54 @@ public:
 
 private:
 
-    PathList paths(Conn::PathSelector::Type type, std::set<PathMode> pathModes,
-                    ConstraintPtr constraints,LocationPtr start,LocationPtr endpoint) const ;
+    friend class RoutingReactor;
+    friend class ShippingNetwork;
+
+    class TraversalCompare : public binary_function<PathPtr,PathPtr,bool>{
+    public:
+        TraversalCompare(ConnPtrConst conn) : conn_(conn){}
+        bool operator()(PathPtr a, PathPtr b) const {
+            return conn_->traversalOrder()->compare(a,b);
+        }
+    private:
+        ConnPtrConst conn_;
+    };
+    class TraversalOrder{
+    public:
+        TraversalOrder(){}
+        virtual bool compare(PathPtr a, PathPtr b) const = 0;
+    };
+    class MinHopTraversal : public TraversalOrder{
+    public:
+        MinHopTraversal(){}
+        virtual bool compare(PathPtr a, PathPtr b) const {
+            return (a->pathElementCount() > b->pathElementCount());
+        }
+    };
+    class MinDistanceTraversal : public TraversalOrder{
+    public:
+        MinDistanceTraversal(){}
+        virtual bool compare(PathPtr a, PathPtr b) const {
+            return (a->distance() > b->distance());
+        }
+    };
+
+    Conn(std::string name,ShippingNetworkPtrConst shippingNetwork, FleetPtr fleet) : NamedInterface(name), shippingNetwork_(shippingNetwork), fleet_(fleet){}
+
+    PathList paths(Conn::PathSelector::Type type, std::set<Location::EntityType> endLocationTypes, std::set<PathMode> pathModes,
+                    priority_queue<PathPtr,vector<PathPtr>,TraversalCompare> pathContainer, ConstraintPtr constraints,LocationPtr start,LocationPtr endpoint) const ;
     bool validSegment(SegmentPtr segment) const;
     PathPtr pathElementEnque(Path::PathElementPtr pathElement, PathPtr path, FleetPtr fleet) const;
     PathPtr copyPath(PathPtr path, FleetPtr fleet) const;
     Constraint::EvalOutput checkConstraints(ConstraintPtr constraints, PathPtr path) const;
     std::set<PathMode> modeIntersection(SegmentPtr segment,std::set<PathMode> pathModes) const;
 
-    friend class RoutingReactor;
-    friend class ShippingNetwork;
-
-    Conn(std::string name,ShippingNetworkPtrConst shippingNetwork, FleetPtr fleet) : NamedInterface(name), shippingNetwork_(shippingNetwork), fleet_(fleet){}
-
     typedef std::pair<EntityID,EntityID> RoutingTableKey;
     typedef std::map<RoutingTableKey,EntityID> RoutingTable;
+
+    TraversalOrder* traversalOrder() const { return traversalOrder_; }
+    void traversalOrderIs(TraversalOrder* traversalOrder){ traversalOrder_=traversalOrder; }
+    std::set<Location::EntityType> endLocationTypes() const { return endLocationType_; }
 
     // Next hop mutators
     void nextHopClear(){
@@ -834,6 +868,8 @@ private:
     FleetPtr fleet_;
     RoutingAlgorithm routingAlgorithm_;
     RoutingTable nextHop_;
+    std::set<Location::EntityType> endLocationType_;
+    TraversalOrder* traversalOrder_;
     typedef std::vector<Conn::NotifieePtr> NotifieeList;
     NotifieeList notifieeList_;
 };
