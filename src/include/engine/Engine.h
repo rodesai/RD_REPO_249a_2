@@ -614,10 +614,12 @@ public:
 
     enum RoutingAlgorithm{
         minDistance_,
-        minHops_
+        minHops_,
+        none_
     };
     static RoutingAlgorithm minDistance(){ return minDistance_; }
     static RoutingAlgorithm minHops(){ return minHops_; }
+    static RoutingAlgorithm none(){ return none_; }
 
     // Accessors
     PathList paths(PathSelectorPtr selector) const;
