@@ -353,6 +353,8 @@ public:
     void onShipment(ShipmentPtr shipment);
 private:
     friend class Location;
+    friend class ShippingNetwork;
+    ShippingNetworkPtrConst network_;
     void forwardShipmentToSegment(ShipmentPtr shipment);
 };
 
@@ -432,8 +434,10 @@ public:
     }
 private:
     friend class ShippingNetwork;
+    ShippingNetworkPtrConst network_;
     ManagerPtr manager_;
     void checkAndCreateInjectActivity();
+
     // TODO: change from bool?
     bool transferRateSet_;
     bool shipmentSizeSet_;
@@ -897,7 +901,8 @@ public:
     LocationPtr location(EntityID name) const;
     uint32_t locationCount() const;
     LocationPtr location(int32_t index) ;
-    ConnPtrConst conn(EntityID name) const; 
+    ConnPtrConst conn(EntityID name) const;
+    ConnPtr conn() const { return connPtr_; }
     StatsPtrConst stats(EntityID name) const; 
     FleetPtr fleet(EntityID name) const;
     FleetPtr fleet() const { return fleetPtr_; }

@@ -12,8 +12,7 @@ using namespace Shipping;
  */
 
 Location::Location(EntityID name, EntityType type): Fwk::NamedInterface(name), entityType_(type){
-        notifieeIs(new LocationReactor());
-    }
+}
 
 SegmentCount Location::segmentCount() const { 
     return segments_.size(); 
@@ -85,6 +84,7 @@ void Location::shipmentIs(ShipmentPtr shipment) {
 
 void LocationReactor::onShipment(ShipmentPtr shipment) {
     // TODO: use routing information
+    EntityID nextLocation = network_->conn()->nextHop(notifier_->name(), shipment->destination()->name());
     SegmentPtr segment = notifier_->segment(1);
     segment->shipmentIs(shipment);
 }
@@ -716,9 +716,13 @@ LocationPtr ShippingNetwork::LocationNew(EntityID name, Location::EntityType ent
         // TODO: is this pointer a problem?
         CustomerReactor* notifiee = new CustomerReactor();
         notifiee->manager_ = manager_;
+        notifiee->network_ = this;
         cust->notifieeIs(notifiee);
     } else {
         retval = new Location(name,entityType);
+        LocationReactor* notifiee = new LocationReactor();
+        notifiee->network_ = this;
+        retval->notifieeIs(notifiee);
     }
     locationMap_[name]=retval;
 
