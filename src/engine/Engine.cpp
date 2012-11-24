@@ -241,6 +241,8 @@ void CustomerReactor::onShipment(ShipmentPtr shipment) {
 }
 
 void CustomerReactor::checkAndCreateInjectActivity() {
+    // TODO: if transferRate is changed, we should update this
+
     CustomerPtr cust = dynamic_cast<Customer*>(const_cast<Location*> (notifier_.ptr()));
 
     if (transferRateSet_ && shipmentSizeSet_ && destinationSet_) {
@@ -254,8 +256,6 @@ void CustomerReactor::checkAndCreateInjectActivity() {
             ia->lastNotifieeIs(iar);
             iar->managerIs(manager_);
             iar->sourceIs(cust);
-
-            // TODO: do I need to call manager_->lastActivityIs(ia)?
         }
 
         try {
@@ -268,9 +268,10 @@ void CustomerReactor::checkAndCreateInjectActivity() {
 }
 
 void InjectActivityReactor::onStatus() {
-    DEBUG_LOG << "Inject activity notified.\n";
+    if (notifier_->status() != Activity::Activity::executing())
+        return;
 
-    // create new shipment
+    DEBUG_LOG << "Inject activity notified at " << manager_->now().value() << ".\n";
 
     // TODO: better name?
     ShipmentPtr shipment = new Shipment("name");
@@ -284,6 +285,7 @@ void InjectActivityReactor::onStatus() {
 
     // reschedule activity
     try {
+        DEBUG_LOG << "Next shipment time is " << source_->nextShipmentTime().value() << ".\n";
         notifier_->nextTimeIs(source_->nextShipmentTime());
     } catch (...) {
         // TODO: log?
