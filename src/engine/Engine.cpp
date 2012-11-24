@@ -226,9 +226,6 @@ void CustomerReactor::onShipment(ShipmentPtr shipment) {
         DEBUG_LOG << "  Customer is source; preparing shipment...\n";
         EntityID nextSegmentName = network_->conn()->nextHop(notifier_->name(), shipment->destination()->name());
 
-        std::cout << "DEBUGGING: remove the following code\n";
-        nextSegmentName = "seg1";
-
         SegmentPtr segment = network_->segment(nextSegmentName);
         if (!segment) {
             DEBUG_LOG << "Cannot find next hop: <" << nextSegmentName << "> to connect " << notifier_->name() << " and " << shipment->destination()->name() << ".\n";
@@ -1269,7 +1266,10 @@ Conn::PathList Conn::paths(Conn::PathSelector::Type type, std::set<Location::Ent
             }
         }
 
-        if(endLocationTypes.count(currentPath->lastLocation()->entityType()) > 0){
+        if( currentPath->pathElementCount() > 0 && 
+            endLocationTypes.count(currentPath->lastLocation()->entityType()) > 0
+          )
+        {
             continue;
         }
 
@@ -1422,7 +1422,7 @@ void RoutingReactor::initMinHopsRoutingTable(){
     // Iterate over each location and entries for it to the route table
     uint32_t index;
     for(index = 0; index < network_->locationCount(); index++){
-        LocationPtr location; 
+        LocationPtr location;
         std::set<PathMode> modes;
         Conn::PathList paths;
         Conn::PathSelector::Type pathType;

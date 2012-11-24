@@ -43,10 +43,10 @@ TEST(Activity, BasicShipments) {
     Ptr<Instance> seg2 = m->instanceNew("seg2", "Truck segment");
     seg1->attributeIs("source", "loc1");
     seg1->attributeIs("length", "1.0");
+    seg1->attributeIs("return segment", "seg2");
     seg2->attributeIs("source", "loc2");
     seg2->attributeIs("length", "1.5");
-    seg1->attributeIs("return segment", "seg2");
-
+    
     // connectivity
     std::cout<< conn->attribute("explore loc1");
     conn->attributeIs("routing", "minHops");

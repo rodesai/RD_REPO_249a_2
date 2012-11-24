@@ -35,6 +35,10 @@ static const string shipmentsRefusedStr = "Shipments Refused";
 static const string capacityStr2 = "Capacity";
 static const int segmentStrlen = segmentStr.length();
 
+class StatsRep;
+class ConnRep;
+class FleetRep;
+
 class ManagerImpl : public Instance::Manager {
 public:
     enum InstanceType {
@@ -66,10 +70,7 @@ public:
     ManagerImpl();
     Ptr<Instance> instanceNew(const string& name, const string& type);
     Ptr<Instance> instance(const string& name);
-    void nowIs(Time t){
-        if(t > realTimeManager_->now())
-            realTimeManager_->nowIs(t);
-    }
+    void nowIs(Time t);
     void instanceDel(const string& name);
     ShippingNetworkPtr shippingNetwork()
         { return shippingNetwork_; }
@@ -104,9 +105,9 @@ private:
     };
     typedef Fwk::Ptr<RealToVirtualTimeActivity> R2VTimeActivityPtr;
 
-    Ptr<Instance> fleetInstance_;
-    Ptr<Instance> connInstance_;
-    Ptr<Instance> statsInstance_;
+    Ptr<FleetRep> fleetInstance_;
+    Ptr<ConnRep> connInstance_;
+    Ptr<StatsRep> statsInstance_;
     typedef struct InstanceMapElem_t {
         InstanceType type;
         Ptr<Instance> ptr;
@@ -579,6 +580,7 @@ public:
         manager_ = manager;
         conn_ = manager->shippingNetwork()->ConnNew(name);
         conn_->endLocationTypeIs(Location::EntityType::customer());
+        routingAlgorithm_ = Conn::none();
     }
 
     // Instance method
@@ -708,8 +710,14 @@ public:
                 algo = Conn::minDistance();
             }
             conn_->routingIs(algo);
+            routingAlgorithm_ = algo;
         }
     }
+    void resetRouting(){
+        conn_->routingIs(Conn::none());
+        conn_->routingIs(routingAlgorithm_);
+    }
+
 private:
     Conn::ConstraintPtr parseConstraints(char* s, bool& expedited) {
         Conn::ConstraintPtr result = NULL, lastPtr = NULL, newPtr = NULL;
@@ -737,6 +745,7 @@ private:
     }
     Ptr<ManagerImpl> manager_;
     ConnPtr conn_;
+    Conn::RoutingAlgorithm routingAlgorithm_;
 };
 
 ManagerImpl::ManagerImpl() {
@@ -758,6 +767,13 @@ ManagerImpl::ManagerImpl() {
     fleet->costMultiplierIs(PathMode::expedited(),1.5);
     fleet->speedMultiplierIs(PathMode::expedited(),1.3);
 }
+
+void ManagerImpl::nowIs(Time t){
+    connInstance_->resetRouting();
+    if(t > realTimeManager_->now())
+        realTimeManager_->nowIs(t);
+}
+
 
 Ptr<Instance> ManagerImpl::instanceNew(const string& name,
     const string& type) {
@@ -810,24 +826,24 @@ Ptr<Instance> ManagerImpl::instanceNew(const string& name,
     // Conn Type
     else if (type == "Conn") {
         if (connInstance_) return connInstance_;
-        inst = new ConnRep(name, this);
-        connInstance_ = inst;
+        connInstance_ = new ConnRep(name, this);
+        inst = connInstance_;
         instType = conn_;
     }
 
     // Fleet Type
     else if (type == "Fleet") {
         if (fleetInstance_) return fleetInstance_;
-        inst = new FleetRep(name, this);
-        fleetInstance_ = inst;
+        fleetInstance_ = new FleetRep(name, this);
+        inst = fleetInstance_;
         instType = fleet_;
     }
 
     // Stats Type
     else if (type == "Stats") {
         if (statsInstance_) return statsInstance_;
-        inst = new StatsRep(name, this);
-        statsInstance_ = inst;
+        statsInstance_ = new StatsRep(name, this);
+        inst = statsInstance_;
         instType = stats_;
     }
 
