@@ -83,9 +83,12 @@ void Location::shipmentIs(ShipmentPtr shipment) {
 }
 
 void LocationReactor::onShipment(ShipmentPtr shipment) {
-    // TODO: use routing information
-    EntityID nextLocation = network_->conn()->nextHop(notifier_->name(), shipment->destination()->name());
-    SegmentPtr segment = notifier_->segment(1);
+    EntityID nextSegmentName = network_->conn()->nextHop(notifier_->name(), shipment->destination()->name());
+    SegmentPtr segment = network_->segment(nextSegmentName);
+    if (!segment) {
+        DEBUG_LOG << "Cannot find next hop: <" << nextSegmentName << "> to connect " << notifier_->name() << " and " << shipment->destination()->name() << ".\n";
+        throw EntityExistsException();
+    }
     segment->shipmentIs(shipment);
 }
 
@@ -112,6 +115,9 @@ void Customer::transferRateIs(ShipmentPerDay spd){
 
 Time Customer::nextShipmentTime() const {
     // TODO: add different ranges of times
+    if (transferRate_.value() <= 0.00005)
+        // TODO: this is not the right error
+        throw EntityExistsException();
     double HoursPerShipment = 24 / transferRate_.value();
     // TODO: casting takes floor, right?
     int daysBeforeToday = manager_->now().value() / 24;
@@ -158,6 +164,8 @@ Customer::Customer(EntityID name, EntityType type) : Location(name, type), desti
     shipmentsReceived_ = 0;
     totalLatency_ = Hour(0);
     totalCost_ = Dollar(0);
+    transferRate_ = ShipmentPerDay(0);
+
 }
 
 void Customer::notifieeIs(Customer::Notifiee* notifiee){
@@ -200,8 +208,11 @@ void Customer::shipmentIs(ShipmentPtr shipment) {
 }
 
 void CustomerReactor::onShipment(ShipmentPtr shipment) {
+    DEBUG_LOG << "Shipment has arrived at customer.\n";
+
     // if shipment is arriving at destination, udpate stats
-    if (shipment->destination()->name() == this->name()) {
+    if (shipment->destination()->name() == notifier_->name()) {
+        DEBUG_LOG << "  > Customer is destination; udating stats...\n";
         // TODO: these are probably not in the right units
         CustomerPtr cust = dynamic_cast<Customer*> (shipment->destination().ptr());
         cust->totalLatency_ = Hour(cust->totalLatency_.value() + manager_->now().value() - shipment->startTime().value());
@@ -211,9 +222,14 @@ void CustomerReactor::onShipment(ShipmentPtr shipment) {
     }
 
     // otherwise, if arriving at the source, forward activity to segment
-    else if (shipment->source()->name() == this->name()) {
-        // TODO: use routing information
-        SegmentPtr segment = notifier_->segment(1);
+    else if (shipment->source()->name() == notifier_->name()) {
+        DEBUG_LOG << "  > Customer is source; preparing shipment...\n";
+        EntityID nextSegmentName = network_->conn()->nextHop(notifier_->name(), shipment->destination()->name());
+        SegmentPtr segment = network_->segment(nextSegmentName);
+        if (!segment) {
+            DEBUG_LOG << "Cannot find next hop: <" << nextSegmentName << "> to connect " << notifier_->name() << " and " << shipment->destination()->name() << ".\n";
+            throw EntityExistsException();
+        }
         segment->shipmentIs(shipment);
         return;
     }
@@ -227,6 +243,8 @@ void CustomerReactor::checkAndCreateInjectActivity() {
     CustomerPtr cust = dynamic_cast<Customer*>(const_cast<Location*> (notifier_.ptr()));
 
     if (transferRateSet_ && shipmentSizeSet_ && destinationSet_) {
+        DEBUG_LOG << "Criteria fully specified. Setting up shipment injection activity...\n";
+
         // retrieve / create activity
         Activity::ActivityPtr ia = manager_->activity(notifier_->name());
         if (!ia) {
@@ -239,11 +257,18 @@ void CustomerReactor::checkAndCreateInjectActivity() {
             // TODO: do I need to call manager_->lastActivityIs(ia)?
         }
 
-        ia->nextTimeIs(cust->nextShipmentTime());
+        try {
+            ia->nextTimeIs(cust->nextShipmentTime());
+            manager_->lastActivityIs(ia);
+        } catch (...) {
+            // TODO: log?
+        }
     }
 }
 
 void InjectActivityReactor::onStatus() {
+    DEBUG_LOG << "Inject activity notified.\n";
+
     // create new shipment
 
     // TODO: better name?
@@ -257,7 +282,11 @@ void InjectActivityReactor::onStatus() {
     source_->shipmentIs(shipment);
 
     // reschedule activity
-    notifier_->nextTimeIs(source_->nextShipmentTime());
+    try {
+        notifier_->nextTimeIs(source_->nextShipmentTime());
+    } catch (...) {
+        // TODO: log?
+    }
 }
 
 
@@ -403,14 +432,22 @@ void Segment::difficultyIs(Difficulty difficulty){
 }
 
 void Segment::shipmentIs(ShipmentPtr shipment) {
+    DEBUG_LOG << "Shipment has arrived at segment "<< this->name() << "\n";
+
     // add subshipments to queue
     // TODO: better name?
     SubshipmentPtr s = new Subshipment("name");
+    DEBUG_LOG << "Subshipment created.\n";
     s->shipmentIs(shipment);
+    DEBUG_LOG << "Subshipment points to shipment.\n";
     s->shipmentOrderIs(Subshipment::other());
+    DEBUG_LOG << "Subshipment order is defined.\n";
     s->remainingLoadIs(shipment->load());
+    DEBUG_LOG << "Remaining load is defined.\n";
     subshipmentEnqueue(s);
+    DEBUG_LOG << "Subshipment is enqueued.\n";
 
+    DEBUG_LOG << "Notifying segment reactors.\n";
     // notify segment reactor
     Segment::NotifieeList::iterator it;
     for ( it=notifieeList_.begin(); it < notifieeList_.end(); it++ ){
@@ -868,6 +905,8 @@ void SegmentReactor::onModeDel(PathMode mode){
 }
 
 void SegmentReactor::onShipment(ShipmentPtr shipment) {
+    DEBUG_LOG << "Segment reactor notified of new shipment.\n";
+
     // wait for other carriers to finish if none are available
     SegmentPtr segment = const_cast<Segment*> (notifier_.ptr());
     if (segment->carriersUsed() == segment->capacity().value()) {
@@ -876,6 +915,7 @@ void SegmentReactor::onShipment(ShipmentPtr shipment) {
 
     // otherwise, create a new forward activity and execute immediately
     else {
+        DEBUG_LOG << "Creating new ForwardActivityReactor...\n";
         // generate activity name
         std::stringstream s;
         s << segment->name() << "-" << segment->carriersUsed();
@@ -893,6 +933,8 @@ void SegmentReactor::onShipment(ShipmentPtr shipment) {
 
 
 void ForwardActivityReactor::onStatus() {
+    DEBUG_LOG << "ForwardActivityReactor notified.\n";
+
     // deliver shipment if the shipment is complete
     if (subshipment_) {
         subshipment_->shipment()->costInc(segment_->carrierCost());

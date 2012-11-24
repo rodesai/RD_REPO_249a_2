@@ -200,7 +200,7 @@ public:
     }
     static ShipmentPerDay defaultValue(){ return defaultValue_; }
 private:
-    static const uint64_t defaultValue_ = 1;
+    static const uint64_t defaultValue_ = 0;
 };
 
 class TransportMode : public Ordinal<TransportMode,uint8_t> {
