@@ -629,6 +629,7 @@ public:
     // Mutators
     void routingIs(RoutingAlgorithm routingAlgorithm);
     void notifieeIs(Conn::NotifieePtr notifiee);
+    void endLocationTypeIs(Location::EntityType type);
 
     // Instantiating Mutators for Constraints
     static ConstraintPtr DistanceConstraintIs(Mile distance);
@@ -637,7 +638,7 @@ public:
 
 private:
 
-    PathList paths(Conn::PathSelector::Type type, std::set<PathMode> pathModes,
+    PathList paths(Conn::PathSelector::Type type, std::set<Location::EntityType> endLocationTypes, std::set<PathMode> pathModes,
                     ConstraintPtr constraints,LocationPtr start,LocationPtr endpoint) const ;
     bool validSegment(SegmentPtr segment) const;
     PathPtr pathElementEnque(Path::PathElementPtr pathElement, PathPtr path, FleetPtr fleet) const;
@@ -653,6 +654,9 @@ private:
     typedef std::pair<EntityID,EntityID> RoutingTableKey;
     typedef std::map<RoutingTableKey,EntityID> RoutingTable;
 
+    // Access end location types
+    std::set<Location::EntityType> endLocationTypes() const { return endLocationType_; }
+
     // Next hop mutators
     void nextHopClear(){
         nextHop_.clear();
@@ -666,6 +670,7 @@ private:
     FleetPtr fleet_;
     RoutingAlgorithm routingAlgorithm_;
     RoutingTable nextHop_;
+    std::set<Location::EntityType> endLocationType_;
     typedef std::vector<Conn::NotifieePtr> NotifieeList;
     NotifieeList notifieeList_;
 };

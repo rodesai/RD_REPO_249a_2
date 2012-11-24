@@ -841,6 +841,10 @@ EntityID Conn::nextHop(EntityID source, EntityID dest) const {
     return iter->second;
 }
 
+void Conn::endLocationTypeIs(Location::EntityType type){
+    endLocationType_.insert(type);
+}
+
 void Conn::routingIs(RoutingAlgorithm routingAlgorithm){
     if(routingAlgorithm_==routingAlgorithm) return;
     routingAlgorithm_=routingAlgorithm;
@@ -871,7 +875,7 @@ Conn::PathList Conn::paths(Conn::PathSelectorPtr selector) const {
     if(shippingNetwork_->location(startPtr->name()) != startPtr) {
         return PathList();
     }
-    return paths(selector->type(),selector->modes(), selector->constraints(),startPtr,endPtr); 
+    return paths(selector->type(), std::set<Location::EntityType>(), selector->modes(), selector->constraints(),startPtr,endPtr); 
 }
 
 bool Conn::validSegment(SegmentPtr segment) const{
@@ -921,7 +925,8 @@ std::set<PathMode> Conn::modeIntersection(SegmentPtr segment,std::set<PathMode> 
     return retval;
 }
 
-Conn::PathList Conn::paths(Conn::PathSelector::Type type, std::set<PathMode> modes, ConstraintPtr constraints,LocationPtr start, LocationPtr endpoint) const {
+Conn::PathList Conn::paths(Conn::PathSelector::Type type, std::set<Location::EntityType> endLocationTypes,
+        std::set<PathMode> modes, ConstraintPtr constraints,LocationPtr start, LocationPtr endpoint) const {
 
     Conn::PathList retval;
 
@@ -972,6 +977,10 @@ Conn::PathList Conn::paths(Conn::PathSelector::Type type, std::set<PathMode> mod
                      retval.push_back(currentPath);
                 continue;
             }
+        }
+
+        if(endLocationTypes.count(currentPath->lastLocation()->entityType()) > 0){
+            continue;
         }
 
         // Continue traversal
@@ -1134,10 +1143,14 @@ void RoutingReactor::initMinHopsRoutingTable(){
     // Iterate over each location and entries for it to the route table
     uint32_t index;
     for(index = 0; index < network_->locationCount(); index++){
-        LocationPtr location = network_->location(index);
-        Conn::PathSelectorPtr selector = Conn::PathSelector::PathSelectorIs(Conn::PathSelector::spantree(),NULL,location,NULL);
-        selector->modeIs(PathMode::unexpedited());
-        Conn::PathList paths = notifier()->paths(selector);
+        LocationPtr location; 
+        std::set<PathMode> modes;
+        Conn::PathList paths;
+        Conn::PathSelector::Type pathType;
+        pathType = Conn::PathSelector::spantree();
+        modes.insert(PathMode::unexpedited());
+        location = network_->location(index);
+        paths = notifier()->paths(pathType,notifier()->endLocationTypes(),modes,NULL,location,NULL);
         // Add each path to routing table
         for(uint32_t i = 0;i < paths.size(); i++){
             PathPtr path = paths[i];
