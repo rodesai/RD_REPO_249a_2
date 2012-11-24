@@ -307,7 +307,7 @@ public:
         static EntityType planeTerminal(){ return planeTerminal_; }
         EntityType(uint8_t m) : Ordinal<EntityType,uint8_t>(m){}
     };
-    void shipmentIs(ShipmentPtr shipment);
+    virtual void shipmentIs(ShipmentPtr shipment);
     SegmentCount segmentCount() const; 
     SegmentPtr segment(uint32_t index) const; 
     inline EntityType entityType() const { return entityType_; }

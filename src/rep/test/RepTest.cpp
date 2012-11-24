@@ -7,6 +7,7 @@ TEST(Instance, CreateInstanceManager) {
 }
 
 /* TODO:
+    - make mutators idempotent
     - add tests for
         - input
             - cannot specify shipment details to Location
@@ -47,7 +48,8 @@ TEST(Activity, BasicShipments) {
     seg1->attributeIs("return segment", "seg2");
 
     // connectivity
-    std::cout<< conn->attribute("explore loc1") << "\n";
+    std::cout<< conn->attribute("explore loc1");
+    conn->attributeIs("routing", "minHops");
 
     // check defaults
     EXPECT_EQ("0", loc1->attribute("Transfer Rate"));
@@ -75,8 +77,8 @@ TEST(Activity, BasicShipments) {
 
     // check that one shipment has arrived
     ASSERT_EQ("1", loc2->attribute("Shipments Received"));
-    ASSERT_EQ("10.00", loc2->attribute("Average Latency"));
-    ASSERT_EQ("1000.00", loc2->attribute("Total Cost"));
+    ASSERT_EQ("1.00", loc2->attribute("Average Latency"));
+    ASSERT_EQ("100.00", loc2->attribute("Total Cost"));
 
     // check segment stats
 

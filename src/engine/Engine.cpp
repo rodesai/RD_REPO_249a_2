@@ -212,7 +212,7 @@ void CustomerReactor::onShipment(ShipmentPtr shipment) {
 
     // if shipment is arriving at destination, udpate stats
     if (shipment->destination()->name() == notifier_->name()) {
-        DEBUG_LOG << "  > Customer is destination; udating stats...\n";
+        DEBUG_LOG << "  Customer is destination; udating stats...\n";
         // TODO: these are probably not in the right units
         CustomerPtr cust = dynamic_cast<Customer*> (shipment->destination().ptr());
         cust->totalLatency_ = Hour(cust->totalLatency_.value() + manager_->now().value() - shipment->startTime().value());
@@ -223,8 +223,12 @@ void CustomerReactor::onShipment(ShipmentPtr shipment) {
 
     // otherwise, if arriving at the source, forward activity to segment
     else if (shipment->source()->name() == notifier_->name()) {
-        DEBUG_LOG << "  > Customer is source; preparing shipment...\n";
+        DEBUG_LOG << "  Customer is source; preparing shipment...\n";
         EntityID nextSegmentName = network_->conn()->nextHop(notifier_->name(), shipment->destination()->name());
+
+        std::cout << "DEBUGGING: remove the following code\n";
+        nextSegmentName = "seg1";
+
         SegmentPtr segment = network_->segment(nextSegmentName);
         if (!segment) {
             DEBUG_LOG << "Cannot find next hop: <" << nextSegmentName << "> to connect " << notifier_->name() << " and " << shipment->destination()->name() << ".\n";
@@ -437,17 +441,11 @@ void Segment::shipmentIs(ShipmentPtr shipment) {
     // add subshipments to queue
     // TODO: better name?
     SubshipmentPtr s = new Subshipment("name");
-    DEBUG_LOG << "Subshipment created.\n";
     s->shipmentIs(shipment);
-    DEBUG_LOG << "Subshipment points to shipment.\n";
     s->shipmentOrderIs(Subshipment::other());
-    DEBUG_LOG << "Subshipment order is defined.\n";
     s->remainingLoadIs(shipment->load());
-    DEBUG_LOG << "Remaining load is defined.\n";
     subshipmentEnqueue(s);
-    DEBUG_LOG << "Subshipment is enqueued.\n";
 
-    DEBUG_LOG << "Notifying segment reactors.\n";
     // notify segment reactor
     Segment::NotifieeList::iterator it;
     for ( it=notifieeList_.begin(); it < notifieeList_.end(); it++ ){
@@ -925,39 +923,41 @@ void SegmentReactor::onShipment(ShipmentPtr shipment) {
         ForwardActivityReactor* far = new ForwardActivityReactor();
         far->managerIs(manager_);
         far->segmentIs(segment);
-        fa->nextTimeIs(manager_->now());
+        fa->nextTimeIs(Time(manager_->now().value() + notifier_->carrierLatency().value()));
         fa->lastNotifieeIs(far);
         segment->carriersUsedInc();
+        manager_->lastActivityIs(fa);
     }
 }
 
 
 void ForwardActivityReactor::onStatus() {
-    DEBUG_LOG << "ForwardActivityReactor notified.\n";
+    DEBUG_LOG << "ForwardActivityReactor notified at " << manager_->now().value() << ".\n";
 
     // deliver shipment if the shipment is complete
     if (subshipment_) {
+        DEBUG_LOG << "  Delivering subshipment...\n";
         subshipment_->shipment()->costInc(segment_->carrierCost());
         if (subshipment_->shipmentOrder() == Subshipment::last()) {
+            DEBUG_LOG << "  Shipment is complete.\n";
             segment_->returnSegment()->source()->shipmentIs(subshipment_->shipment());
         }
         // TODO: delete subshipment?
     }
 
     // pick up next shipment if there is one
-    SubshipmentPtr subshipment = segment_->subshipmentDequeue(segment_->carrierCapacity());
+    subshipment_ = segment_->subshipmentDequeue(segment_->carrierCapacity());
 
     // TODO: add carriers if capacity increases
     // delete activity if there is no remaining subshipment or there are too many carriers
-    if (!subshipment || segment_->carriersUsed() > segment_->capacity().value()) {
+    if (!subshipment_ || segment_->carriersUsed() > segment_->capacity().value()) {
         manager_->activityDel(notifier_->name());
         segment_->carriersUsedDec();
         return; 
     }
 
     // sleep for required time
-    Time nextTime = Time(manager_->now().value() + segment_->carrierLatency().value());
-    notifier_->nextTimeIs(nextTime);
+    notifier_->nextTimeIs(Time(manager_->now().value() + segment_->carrierLatency().value()));
 }
 
 /*
