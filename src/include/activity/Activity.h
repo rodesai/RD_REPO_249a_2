@@ -38,7 +38,7 @@ public:
     class Notifiee : public virtual Fwk::NamedInterface::Notifiee{
     public:
         virtual void onNextTime() {}
-	virtual void onStatus() {}
+        virtual void onStatus() {}
         inline ActivityPtr notifier(){ return notifier_; }
         void notifierIs(ActivityPtr notifier){ notifier_=notifier; }
     protected:
