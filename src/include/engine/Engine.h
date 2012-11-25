@@ -541,7 +541,8 @@ public:
         virtual void onReturnSegment(){}
         virtual void onMode(PathMode mode){}
         virtual void onModeDel(PathMode mode){}
-        virtual void onShipment(ShipmentPtr shipment) {}
+        virtual void onShipment(ShipmentPtr shipment){}
+        virtual void onCapacity(){}
         SegmentPtrConst notifier() const { return notifier_; }
         void notifierIs(SegmentPtrConst notifier){ notifier_=notifier; }
     protected:
@@ -1011,10 +1012,12 @@ public:
     void onMode(PathMode mode);
     void onModeDel(PathMode mode);
     void onShipment(ShipmentPtr shipment);
+    void onCapacity();
 private:
     // Factory Class
     friend class ShippingNetwork;
     SegmentReactor(ShippingNetworkPtr network,StatsPtr stats);
+    void startupFAR();
     LocationPtr currentSource_;
     SegmentPtr  currentReturnSegment_;
     ShippingNetworkPtr network_;

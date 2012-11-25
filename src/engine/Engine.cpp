@@ -5,7 +5,6 @@
 #include "logging.h"
 
 using namespace Shipping;
-
 /*
  * Location 
  *
@@ -427,7 +426,22 @@ void Segment::lengthIs(Mile length){
 }
 
 void Segment::capacityIs(ShipmentNum capacity){
-    capacity_=capacity;
+    // ensure idempotency
+    if (capacity_ == capacity)
+        return;
+
+    capacity_ = capacity;
+
+    // Call Notifiees
+    Segment::NotifieeList::iterator it;
+    for ( it=notifieeList_.begin(); it < notifieeList_.end(); it++ ){
+        try{
+            (*it)->onCapacity();
+        }
+        catch(...){
+            // ERROR: maybe we should log something here
+        }
+    }
 }
 
 void Segment::difficultyIs(Difficulty difficulty){
@@ -901,39 +915,53 @@ void SegmentReactor::onModeDel(PathMode mode){
     stats_->segmentCountDecr(mode);
 }
 
+void SegmentReactor::onCapacity() {
+    // start up activities as needed
+    startupFAR();
+}
+
 void SegmentReactor::onShipment(ShipmentPtr shipment) {
     DEBUG_LOG << "Segment reactor notified of new shipment.\n";
 
-    // wait for other carriers to finish if none are available
+    // increase reject count if there are no available carriers
     SegmentPtr segment = const_cast<Segment*> (notifier_.ptr());
-    if (segment->carriersUsed() == segment->capacity().value()) {
+    if (segment->carriersUsed() >= segment->capacity().value()) {
         segment->shipmentsRefusedInc();
     }
 
-    // otherwise, create a new forward activity and execute immediately
+    // otherwise, start up a new FAR
     else {
-        DEBUG_LOG << "Creating new ForwardActivityReactor...\n";
-        // generate activity name
-        std::stringstream s;
-        s << segment->name() << "-" << segment->carriersUsed();
-
-        // create new activity and activity reactor
-        Activity::ActivityPtr fa = manager_->activityNew(s.str());
-        ForwardActivityReactor* far = new ForwardActivityReactor();
-        far->managerIs(manager_);
-        far->segmentIs(segment);
-        fa->nextTimeIs(Time(manager_->now().value() + notifier_->carrierLatency().value()));
-        fa->lastNotifieeIs(far);
-        segment->carriersUsedInc();
-        manager_->lastActivityIs(fa);
+        startupFAR();
     }
 }
 
+void SegmentReactor::startupFAR() {
+    SegmentPtr segment = const_cast<Segment*> (notifier_.ptr());
+    while (segment->carriersUsed() < segment->capacity().value() && !segment->subshipmentQueue_.empty()) {
+        DEBUG_LOG << "Creating new ForwardActivityReactor...\n";
+        // create new activity and activity reactor
+        Activity::ActivityPtr fa = manager_->activityNew();
+        ForwardActivityReactor* far = new ForwardActivityReactor();
+        far->managerIs(manager_);
+        far->segmentIs(segment);
+        fa->lastNotifieeIs(far);
+
+        // increment the number of carriers used
+        segment->carriersUsedInc();
+
+        // schedule activity to run immediately
+        fa->statusIs(Activity::Activity::executing());
+        far->onStatus();
+    }
+}
 
 void ForwardActivityReactor::onStatus() {
+    if (notifier_->status() != Activity::Activity::executing())
+        return;
+
     DEBUG_LOG << "ForwardActivityReactor notified at " << manager_->now().value() << ".\n";
 
-    // deliver shipment if the shipment is complete
+    // deliver the subshipment if there is one
     if (subshipment_) {
         DEBUG_LOG << "  Delivering subshipment...\n";
         subshipment_->shipment()->costInc(segment_->carrierCost());
@@ -941,22 +969,22 @@ void ForwardActivityReactor::onStatus() {
             DEBUG_LOG << "  Shipment is complete.\n";
             segment_->returnSegment()->source()->shipmentIs(subshipment_->shipment());
         }
-        // TODO: delete subshipment?
     }
 
-    // pick up next shipment if there is one
-    subshipment_ = segment_->subshipmentDequeue(segment_->carrierCapacity());
-
-    // TODO: add carriers if capacity increases
-    // delete activity if there is no remaining subshipment or there are too many carriers
-    if (!subshipment_ || segment_->carriersUsed() > segment_->capacity().value()) {
-        manager_->activityDel(notifier_->name());
-        segment_->carriersUsedDec();
-        return; 
+    // reschedule activity if there is another subshipment left and not exceeding carriers
+    if (segment_->carriersUsed() <= segment_->capacity().value()) {
+        subshipment_ = segment_->subshipmentDequeue(segment_->carrierCapacity());
+        if (subshipment_) {
+            notifier_->statusIs(Activity::Activity::nextTimeScheduled());
+            notifier_->nextTimeIs(Time(manager_->now().value() + segment_->carrierLatency().value()));
+            manager_->lastActivityIs(notifier_);
+            return;
+        }
     }
 
-    // sleep for required time
-    notifier_->nextTimeIs(Time(manager_->now().value() + segment_->carrierLatency().value()));
+    // otherwise, delete activity
+    manager_->activityDel(notifier_->name());
+    segment_->carriersUsedDec();
 }
 
 /*

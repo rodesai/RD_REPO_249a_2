@@ -29,6 +29,13 @@ void Activity::lastNotifieeIs(Activity::Notifiee* n){
     n->notifierIs(this);
 }
 
+ActivityPtr Manager::activityNew() {
+    std::stringstream s;
+    s << "act-auto-name-"<< activityName_;
+    activityName_++;
+    return activityNew(s.str());
+}
+
 ActivityPtr Manager::activityNew(const string& name) {
     ActivityPtr activity = activities_[name];
     if (activity != NULL) {
