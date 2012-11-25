@@ -362,7 +362,7 @@ class Customer : public Location{
 public:
     // mutators
     void transferRateIs(ShipmentPerDay spd);
-    void shipmentSize(PackageNum pn);
+    void shipmentSizeIs(PackageNum pn);
     void destinationIs(LocationPtr lp);
     void shipmentIs(ShipmentPtr shipment);
 
@@ -406,10 +406,13 @@ protected:
 private:
     friend class ShippingNetwork;
     friend class CustomerReactor;
+    friend class InjectActivityReactor;
+    ManagerPtr manager() const { return manager_; }
     ShipmentPerDay transferRate_;
     PackageNum shipmentSize_;
     // TODO: make Ptr::Customer?
     LocationPtr destination_;
+    uint32_t shipmentsSentToday_;
     uint32_t shipmentsReceived_;
     Hour totalLatency_;
     Dollar totalCost_;

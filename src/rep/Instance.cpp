@@ -268,7 +268,7 @@ public:
         if (name == transferRateStr) {
             cust->transferRateIs(ShipmentPerDay(atoi(v.data())));
         } else if (name == shipmentSizeStr) {
-            cust->shipmentSize(PackageNum(atoi(v.data())));
+            cust->shipmentSizeIs(PackageNum(atoi(v.data())));
         } else if (name == destinationStr) {
             Ptr<LocationRep> sr = dynamic_cast<LocationRep *> (manager_->instance(v).ptr());
             if (!sr) {
@@ -758,6 +758,7 @@ ManagerImpl::ManagerImpl() {
     // Setup activity
     Activity::ActivityPtr activityPtr = realTimeManager_->activityNew("r2vtime_activity");
     activityPtr->nextTimeIs(0.0);
+    activityPtr->statusIs(Activity::Activity::nextTimeScheduled());
     activityPtr->lastNotifieeIs(r2vTimeActivity_.ptr());
     realTimeManager_->lastActivityIs(activityPtr);
     // Update the expedited costs by their multipliers

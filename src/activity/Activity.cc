@@ -70,8 +70,10 @@ void Manager::nowIs(Time t) {
         now_ = nextToRun->nextTime();
         //run the minimum time activity and remove it from the queue
         scheduledActivities_.pop();
-        nextToRun->statusIs(Activity::executing());
-        nextToRun->statusIs(Activity::free());
+        if(nextToRun->status() == Activity::nextTimeScheduled()){
+            nextToRun->statusIs(Activity::executing());
+            nextToRun->statusIs(Activity::free());
+        }
     }
     //syncrhonize the time
     now_ = t;

@@ -11,8 +11,8 @@ using namespace Shipping;
  *
  */
 
-Location::Location(EntityID name, EntityType type): Fwk::NamedInterface(name), entityType_(type){
-}
+Location::Location(EntityID name, EntityType type): 
+    Fwk::NamedInterface(name), entityType_(type){}
 
 SegmentCount Location::segmentCount() const { 
     return segments_.size(); 
@@ -114,19 +114,25 @@ void Customer::transferRateIs(ShipmentPerDay spd){
 }
 
 Time Customer::nextShipmentTime() const {
-    // TODO: add different ranges of times
-    if (transferRate_.value() <= 0.00005)
-        // TODO: this is not the right error
-        throw EntityExistsException();
-    double HoursPerShipment = 24 / transferRate_.value();
-    // TODO: casting takes floor, right?
-    int daysBeforeToday = manager_->now().value() / 24;
-    int hoursToday = manager_->now().value() - daysBeforeToday * 24;
-    int shipmentsToday = hoursToday / HoursPerShipment;
-    return Time(daysBeforeToday * 24 + (shipmentsToday + 1) * HoursPerShipment);
+
+    Time shipmentFrequency = 24.0/(static_cast<double>(transferRate().value()));
+    return manager_->now().value()+shipmentFrequency.value();
+
+/*    // If we have already sent the full load for today then dont send any more 
+    if(shipmentsSentToday_ >= transferRate().value()){
+        return (static_cast<uint32_t>(manager_->now().value())/24)*24.0 + 24.0;
+    }
+
+    // Shipments remaining to send
+    uint64_t shipmentsLeft = transferRate().value()-shipmentsSentToday_;
+    // Hours left in the day
+    Time hoursLeft = (static_cast<uint32_t>(manager_->now().value())/24)*24.0 + 24.0 - manager_->now().value();
+    Time nextShipmentOffset = hoursLeft.value()/shipmentsLeft;
+    return manager_->now().value() + nextShipmentOffset.value();
+*/
 }
 
-void Customer::shipmentSize(PackageNum pn) {
+void Customer::shipmentSizeIs(PackageNum pn) {
     shipmentSize_ = pn; 
 
     // Call Notifiees
@@ -223,9 +229,8 @@ void CustomerReactor::onShipment(ShipmentPtr shipment) {
 
     // otherwise, if arriving at the source, forward activity to segment
     else if (shipment->source()->name() == notifier_->name()) {
-        DEBUG_LOG << "  Customer is source; preparing shipment...\n";
         EntityID nextSegmentName = network_->conn()->nextHop(notifier_->name(), shipment->destination()->name());
-
+        DEBUG_LOG << "Customer forwarding shipment to: " << nextSegmentName << std::endl;
         SegmentPtr segment = network_->segment(nextSegmentName);
         if (!segment) {
             DEBUG_LOG << "Cannot find next hop: <" << nextSegmentName << "> to connect " << notifier_->name() << " and " << shipment->destination()->name() << ".\n";
@@ -242,53 +247,48 @@ void CustomerReactor::onShipment(ShipmentPtr shipment) {
 
 void CustomerReactor::checkAndCreateInjectActivity() {
     // TODO: if transferRate is changed, we should update this
-
+    if (!(transferRateSet_ && shipmentSizeSet_ && destinationSet_)) return;
+  
     CustomerPtr cust = dynamic_cast<Customer*>(const_cast<Location*> (notifier_.ptr()));
+    DEBUG_LOG << "Criteria fully specified. Setting up shipment injection activity...\n";
 
-    if (transferRateSet_ && shipmentSizeSet_ && destinationSet_) {
-        DEBUG_LOG << "Criteria fully specified. Setting up shipment injection activity...\n";
-
-        // retrieve / create activity
-        Activity::ActivityPtr ia = manager_->activity(notifier_->name());
-        if (!ia) {
-            ia = manager_->activityNew(notifier_->name());
-            InjectActivityReactor* iar = new InjectActivityReactor();
-            ia->lastNotifieeIs(iar);
-            iar->managerIs(manager_);
-            iar->sourceIs(cust);
-        }
-
-        try {
-            ia->nextTimeIs(cust->nextShipmentTime());
-            manager_->lastActivityIs(ia);
-        } catch (...) {
-            // TODO: log?
-        }
+    Activity::ActivityPtr activity;
+    
+    // Clear the old activity
+    activity = manager_->activity(notifier_->name());
+    if(activity){
+        activity->statusIs(Activity::Activity::cancelled());
+        manager_->activityDel(activity->name());
     }
+
+    activity = manager_->activityNew(notifier_->name());
+    InjectActivityReactor* iar = new InjectActivityReactor();
+    iar->managerIs(manager_);
+    iar->sourceIs(cust);
+    activity->lastNotifieeIs(iar);
+    activity->nextTimeIs(cust->nextShipmentTime());
+    activity->statusIs(Activity::Activity::nextTimeScheduled());
+    manager_->lastActivityIs(activity);
+    std::cout << "Next time: " << activity->nextTime().value() << std::endl;
 }
 
 void InjectActivityReactor::onStatus() {
-    if (notifier_->status() != Activity::Activity::executing())
-        return;
-
-    DEBUG_LOG << "Inject activity notified at " << manager_->now().value() << ".\n";
-
-    // TODO: better name?
-    ShipmentPtr shipment = new Shipment("name");
-    shipment->loadIs(source_->shipmentSize());
-    shipment->sourceIs(source_);
-    shipment->destinationIs(source_->destination());
-    shipment->startTimeIs(manager_->now());
-
-    // add shipment to location
-    source_->shipmentIs(shipment);
-
-    // reschedule activity
-    try {
+    if (notifier_->status() == Activity::Activity::executing()){
+        DEBUG_LOG << "Inject activity notified at " << manager_->now().value() << ".\n";
+        // TODO: better name?
+        ShipmentPtr shipment = new Shipment("name");
+        shipment->loadIs(source_->shipmentSize());
+        shipment->sourceIs(source_);
+        shipment->destinationIs(source_->destination());
+        shipment->startTimeIs(manager_->now());
+        // add shipment to location
+        source_->shipmentIs(shipment);
+    }
+    else if(notifier_->status() == Activity::Activity::free()){
         DEBUG_LOG << "Next shipment time is " << source_->nextShipmentTime().value() << ".\n";
+        notifier_->statusIs(Activity::Activity::nextTimeScheduled());
         notifier_->nextTimeIs(source_->nextShipmentTime());
-    } catch (...) {
-        // TODO: log?
+        source_->manager()->lastActivityIs(notifier_);
     }
 }
 
@@ -912,11 +912,9 @@ void SegmentReactor::onShipment(ShipmentPtr shipment) {
 
     // otherwise, create a new forward activity and execute immediately
     else {
-        DEBUG_LOG << "Creating new ForwardActivityReactor...\n";
         // generate activity name
         std::stringstream s;
         s << segment->name() << "-" << segment->carriersUsed();
-
         // create new activity and activity reactor
         Activity::ActivityPtr fa = manager_->activityNew(s.str());
         ForwardActivityReactor* far = new ForwardActivityReactor();
@@ -926,6 +924,7 @@ void SegmentReactor::onShipment(ShipmentPtr shipment) {
         fa->lastNotifieeIs(far);
         segment->carriersUsedInc();
         manager_->lastActivityIs(fa);
+        DEBUG_LOG << "ForwardActivity scheduled for: " << fa->nextTime().value() << std::endl;
     }
 }
 
