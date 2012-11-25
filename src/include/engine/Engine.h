@@ -544,7 +544,8 @@ public:
         virtual void onReturnSegment(){}
         virtual void onMode(PathMode mode){}
         virtual void onModeDel(PathMode mode){}
-        virtual void onShipment(ShipmentPtr shipment) {}
+        virtual void onShipment(ShipmentPtr shipment){}
+        virtual void onCapacity(){}
         SegmentPtrConst notifier() const { return notifier_; }
         void notifierIs(SegmentPtrConst notifier){ notifier_=notifier; }
     protected:
@@ -580,6 +581,7 @@ public:
     ModeCount modeCount() const;
     PathMode mode(uint16_t) const;
     void shipmentIs(ShipmentPtr shipment);
+    void shipmentsReceivedInc() { shipmentsReceived_++; }
     void shipmentsRefusedInc() { shipmentsRefused_++; }
     void carriersUsedInc() { carriersUsed_ ++; }
     void carriersUsedDec() { carriersUsed_ --; }
@@ -598,6 +600,12 @@ private:
     friend class ShippingNetwork;
     friend class ShippingNetworkReactor;
     friend class SegmentReactor;
+    
+    // TODO: this isn't the cleanest. Should we move this into Location?
+    friend class ForwardActivityReactor;
+    typedef map<string,uint32_t> DeliveryMap;
+    DeliveryMap deliveryMap_;
+
     Segment(ShippingNetworkPtrConst network, EntityID name, TransportMode transportMode, PathMode mode) : 
         Fwk::NamedInterface(name), length_(1.0), difficulty_(1.0), transportMode_(transportMode), network_(network){
         mode_.insert(mode);
@@ -1014,10 +1022,12 @@ public:
     void onMode(PathMode mode);
     void onModeDel(PathMode mode);
     void onShipment(ShipmentPtr shipment);
+    void onCapacity();
 private:
     // Factory Class
     friend class ShippingNetwork;
     SegmentReactor(ShippingNetworkPtr network,StatsPtr stats);
+    void startupFAR();
     LocationPtr currentSource_;
     SegmentPtr  currentReturnSegment_;
     ShippingNetworkPtr network_;
