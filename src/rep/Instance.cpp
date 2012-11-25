@@ -9,6 +9,8 @@
 
 namespace Shipping {
 
+bool allowSleep = false;
+
 using namespace std;
 
 // strings
@@ -87,7 +89,7 @@ private:
             Activity::Activity::Status status = notifier_->status();
             if(status == Activity::Activity::executing()){
                 // sleep for the required time
-                usleep(usPerHour_);
+                if (allowSleep) usleep(usPerHour_);
                 // execute the virtual manager at correct time
                 virtualManager_->nowIs(notifier_->nextTime());
             }
