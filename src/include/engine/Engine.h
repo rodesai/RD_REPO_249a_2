@@ -597,6 +597,12 @@ private:
     friend class ShippingNetwork;
     friend class ShippingNetworkReactor;
     friend class SegmentReactor;
+    
+    // TODO: this isn't the cleanest. Should we move this into Location?
+    friend class ForwardActivityReactor;
+    typedef map<string,uint32_t> DeliveryMap;
+    DeliveryMap deliveryMap_;
+
     Segment(ShippingNetworkPtrConst network, EntityID name, TransportMode transportMode, PathMode mode) : 
         Fwk::NamedInterface(name), length_(1.0), difficulty_(1.0), transportMode_(transportMode), network_(network){
         mode_.insert(mode);
