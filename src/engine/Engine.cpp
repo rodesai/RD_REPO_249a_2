@@ -459,7 +459,6 @@ void Segment::shipmentIs(ShipmentPtr shipment) {
     // TODO: better name?
     SubshipmentPtr s = new Subshipment("name");
     s->shipmentIs(shipment);
-    // TODO: not using subshipmentOrder
     s->shipmentOrderIs(Subshipment::other());
     s->remainingLoadIs(shipment->load());
     subshipmentEnqueue(s);
@@ -969,10 +968,11 @@ void ForwardActivityReactor::onStatus() {
         DEBUG_LOG << "Delivering subshipment at " << manager_->now().value() << "\n";
         subshipment_->shipment()->costInc(segment_->carrierCost());
         segment_->deliveryMap_[subshipment_->shipment()->name()] += subshipment_->remainingLoad().value();
+
         if (segment_->deliveryMap_[subshipment_->shipment()->name()] == subshipment_->shipment()->load().value()) {
             DEBUG_LOG << "  Shipment is complete.\n";
             segment_->returnSegment()->source()->shipmentIs(subshipment_->shipment());
-            segment_->deliveryMap_.erase(subshipment_->shipment()->name());
+            segment_->deliveryMap_.erase(segment_->deliveryMap_.find(subshipment_->shipment()->name()));
         }
     }
 
@@ -980,16 +980,18 @@ void ForwardActivityReactor::onStatus() {
         // reschedule activity if there is another subshipment left and not exceeding carriers
         if (segment_->carriersUsed() <= segment_->capacity().value()) {
             subshipment_ = segment_->subshipmentDequeue(segment_->carrierCapacity());
+
             if (subshipment_) {
                 DEBUG_LOG << "  Picking up new subshipment...\n";
                 notifier_->statusIs(Activity::Activity::nextTimeScheduled());
                 notifier_->nextTimeIs(Time(manager_->now().value() + segment_->carrierLatency().value()));
                 manager_->lastActivityIs(notifier_);
-
                 if (segment_->deliveryMap_.find(subshipment_->shipment()->name()) == segment_->deliveryMap_.end()) {
+                    DEBUG_LOG << "  Shipment is complete.\n";
                     segment_->shipmentsReceivedInc();
                     segment_->deliveryMap_[subshipment_->shipment()->name()] = 0;
                 }
+
                 return;
             }
         }
