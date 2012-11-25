@@ -81,8 +81,18 @@ TEST(Activity, BasicShipments) {
     ASSERT_EQ("100.00", loc2->attribute("Total Cost"));
 
     // check segment stats
+    EXPECT_EQ("1", seg1->attribute("Shipments Received"));
+    EXPECT_EQ("0", seg1->attribute("Shipments Refused"));
 
     // update "now" and test again
+    m->nowIs(7);
+    ASSERT_EQ("2", loc2->attribute("Shipments Received"));
+    ASSERT_EQ("1.00", loc2->attribute("Average Latency"));
+    ASSERT_EQ("200.00", loc2->attribute("Total Cost"));
+
+    // check segment stats
+    EXPECT_EQ("2", seg1->attribute("Shipments Received"));
+    EXPECT_EQ("0", seg1->attribute("Shipments Refused"));
 }
 
 // Ptr<Instance> addSegment(Ptr<Instance::Manager> m, string name, string mode,

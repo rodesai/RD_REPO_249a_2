@@ -475,21 +475,27 @@ SubshipmentPtr Segment::subshipmentDequeue(PackageNum capacity) {
     // return null if queue is empty
     if (subshipmentQueue_.empty())
         return NULL;
+    SubshipmentPtr lastSubshipment = subshipmentQueue_.front();
+    bool first = lastSubshipment->remainingLoad() == lastSubshipment->shipment()->load();
 
     // remove subshipment if remaining packages can be delivered at once
-    SubshipmentPtr lastSubshipment = subshipmentQueue_.front();
     if (capacity >= lastSubshipment->remainingLoad()) {
         subshipmentQueue_.pop();
-        lastSubshipment->shipmentOrderIs(Subshipment::last());
+        lastSubshipment->remainingLoadIs(PackageNum(0));
+        // TODO: not using last()
+        if (first)
+            lastSubshipment->shipmentOrderIs(Subshipment::first());
         return lastSubshipment;
     }
 
     // otherwise return partial shipment
-    lastSubshipment->remainingLoadIs(lastSubshipment->remainingLoad() - capacity);
     SubshipmentPtr result = new Subshipment("name");
+    lastSubshipment->remainingLoadIs(lastSubshipment->remainingLoad() - capacity);
     result->shipmentIs(lastSubshipment->shipment());
     result->shipmentOrderIs(Subshipment::other());
-    result->remainingLoadIs(capacity);
+    if (first)
+        result->shipmentOrderIs(Subshipment::first());
+    result->remainingLoadIs(lastSubshipment->remainingLoad());
     return result;
 
 }
@@ -949,42 +955,41 @@ void SegmentReactor::startupFAR() {
         // increment the number of carriers used
         segment->carriersUsedInc();
 
-        // schedule activity to run immediately
-        fa->statusIs(Activity::Activity::executing());
+        // schedule activity to pick up new subshipment
+        fa->statusIs(Activity::Activity::free());
         far->onStatus();
     }
 }
 
 void ForwardActivityReactor::onStatus() {
-    if (notifier_->status() != Activity::Activity::executing())
-        return;
-
-    DEBUG_LOG << "ForwardActivityReactor notified at " << manager_->now().value() << ".\n";
-
-    // deliver the subshipment if there is one
-    if (subshipment_) {
-        DEBUG_LOG << "  Delivering subshipment...\n";
+    if (notifier_->status() == Activity::Activity::executing()) {
+        DEBUG_LOG << "Delivering subshipment at " << manager_->now().value() << "\n";
         subshipment_->shipment()->costInc(segment_->carrierCost());
-        if (subshipment_->shipmentOrder() == Subshipment::last()) {
+        if (subshipment_->remainingLoad().value() == 0) {
             DEBUG_LOG << "  Shipment is complete.\n";
             segment_->returnSegment()->source()->shipmentIs(subshipment_->shipment());
         }
     }
 
-    // reschedule activity if there is another subshipment left and not exceeding carriers
-    if (segment_->carriersUsed() <= segment_->capacity().value()) {
-        subshipment_ = segment_->subshipmentDequeue(segment_->carrierCapacity());
-        if (subshipment_) {
-            notifier_->statusIs(Activity::Activity::nextTimeScheduled());
-            notifier_->nextTimeIs(Time(manager_->now().value() + segment_->carrierLatency().value()));
-            manager_->lastActivityIs(notifier_);
-            return;
+    else if (notifier_->status() == Activity::Activity::free()) {
+        // reschedule activity if there is another subshipment left and not exceeding carriers
+        if (segment_->carriersUsed() <= segment_->capacity().value()) {
+            subshipment_ = segment_->subshipmentDequeue(segment_->carrierCapacity());
+            if (subshipment_) {
+                DEBUG_LOG << "  Picking up new subshipment...\n";
+                notifier_->statusIs(Activity::Activity::nextTimeScheduled());
+                notifier_->nextTimeIs(Time(manager_->now().value() + segment_->carrierLatency().value()));
+                manager_->lastActivityIs(notifier_);
+                if (subshipment_->shipmentOrder() == Subshipment::first())
+                    segment_->shipmentsReceivedInc();
+                return;
+            }
         }
-    }
 
-    // otherwise, delete activity
-    manager_->activityDel(notifier_->name());
-    segment_->carriersUsedDec();
+        // otherwise, delete activity
+        manager_->activityDel(notifier_->name());
+        segment_->carriersUsedDec();
+    }
 }
 
 /*

@@ -578,6 +578,7 @@ public:
     ModeCount modeCount() const;
     PathMode mode(uint16_t) const;
     void shipmentIs(ShipmentPtr shipment);
+    void shipmentsReceivedInc() { shipmentsReceived_++; }
     void shipmentsRefusedInc() { shipmentsRefused_++; }
     void carriersUsedInc() { carriersUsed_ ++; }
     void carriersUsedDec() { carriersUsed_ --; }
