@@ -106,7 +106,9 @@ void LocationReactor::onShipment(ShipmentPtr shipment) {
  */
 
 void Customer::transferRateIs(ShipmentPerDay spd){
-    // TODO: NOT IDEMPOTENT
+    if (spd == transferRate_)
+        return;
+
     transferRate_ = spd; 
 
     // Call Notifiees
@@ -141,6 +143,9 @@ Time Customer::nextShipmentTime() const {
 }
 
 void Customer::shipmentSizeIs(PackageNum pn) {
+    if (shipmentSize_ == pn)
+        return;
+
     shipmentSize_ = pn; 
 
     // Call Notifiees
@@ -155,12 +160,18 @@ void Customer::shipmentSizeIs(PackageNum pn) {
     }
 
 }
-void Customer::destinationIs(LocationPtr lp){
+void Customer::destinationIs(LocationPtr lp) {
+    // ignore request if nothing has changed
+    if (destination_)
+        if (lp->name() == destination_->name())
+            return;
+
+    // ignore the request if the destination is not a customer
     if (lp->entityType() != EntityType::customer()) {
         throw ArgumentException();
     }
-    destination_ = lp;
 
+    destination_ = lp;
 
     // Call Notifiees
     Customer::NotifieeList::iterator it;
@@ -255,14 +266,12 @@ void CustomerReactor::onShipment(ShipmentPtr shipment) {
 void CustomerReactor::checkAndCreateInjectActivity() {
     // TODO: if transferRate is changed, we should update this
     if (!(transferRateSet_ && shipmentSizeSet_ && destinationSet_)) return;
-  
-    CustomerPtr cust = dynamic_cast<Customer*>(const_cast<Location*> (notifier_.ptr()));
-    DEBUG_LOG << "Criteria fully specified. Setting up shipment injection activity...\n";
 
-    Activity::ActivityPtr activity;
-    
+    DEBUG_LOG << "Criteria fully specified. Setting up shipment injection activity...\n";
+    CustomerPtr cust = dynamic_cast<Customer*>(const_cast<Location*> (notifier_.ptr()));
+  
     // Clear the old activity
-    activity = manager_->activity(notifier_->name());
+    Activity::ActivityPtr activity = manager_->activity(notifier_->name());
     if(activity){
         activity->statusIs(Activity::Activity::cancelled());
         manager_->activityDel(activity->name());
@@ -501,7 +510,7 @@ SubshipmentPtr Segment::subshipmentDequeue(PackageNum capacity) {
 
 Hour Segment::carrierLatency() const {
     // TODO: can make this more general (include difficulty, expedite)
-    return Hour(length_.value() * network_->fleet()->speed(transportMode_).value());
+    return Hour(length_.value() / network_->fleet()->speed(transportMode_).value());
 }
 
 PackageNum Segment::carrierCapacity() const {
@@ -988,6 +997,7 @@ void ForwardActivityReactor::onStatus() {
                 DEBUG_LOG << "  Picking up new subshipment...\n";
                 notifier_->statusIs(Activity::Activity::nextTimeScheduled());
                 notifier_->nextTimeIs(Time(manager_->now().value() + segment_->carrierLatency().value()));
+                DEBUG_LOG << "  Shipment to be delivered " << notifier_->nextTime().value() << ".\n";
                 manager_->lastActivityIs(notifier_);
                 if (segment_->deliveryMap_.find(subshipment_->shipment()->name()) == segment_->deliveryMap_.end()) {
                     DEBUG_LOG << "  Shipment is complete.\n";
