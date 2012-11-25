@@ -65,7 +65,7 @@ TEST(Activity, BasicShipments) {
     EXPECT_EQ("0.00", loc2->attribute("Total Cost"));
 
     // specify shipping criteria
-    loc1->attributeIs("Transfer Rate", "8");
+    loc1->attributeIs("Transfer Rate", "50");
     loc1->attributeIs("Shipment Size", "10");
     loc1->attributeIs("Destination", "loc2");
 
@@ -75,7 +75,7 @@ TEST(Activity, BasicShipments) {
     EXPECT_EQ("0.00", loc2->attribute("Total Cost"));
 
     // with speed of 1 and length 1, only one shipment should have arrived
-    m->nowIs(4);
+    m->nowIs(25);
 
     // check that one shipment has arrived
     ASSERT_EQ("1", loc2->attribute("Shipments Received"));

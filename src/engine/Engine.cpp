@@ -289,6 +289,7 @@ void InjectActivityReactor::onStatus() {
         shipment->startTimeIs(manager_->now());
         // add shipment to location
         source_->shipmentIs(shipment);
+        DEBUG_LOG << "INJECTING SHIPMENT @ " << manager_->now().value() << std::endl;
     }
     else if(notifier_->status() == Activity::Activity::free()){
         DEBUG_LOG << "Next shipment time is " << source_->nextShipmentTime().value() << ".\n";
