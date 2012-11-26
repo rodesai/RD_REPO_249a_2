@@ -21,11 +21,70 @@ TEST(Instance, CreateInstanceManager) {
             x- shipment across long segments
         x- shipping via Location
         x- shipment refusals
+        - scheduling fleet change
+            x- if you schedule on half-hour increments, does it still work?
+            - what if you specify a time larger than 24?
+                - should we create a class for that?
         ...- more than 24 shipments per day
         - shipping to one customer and change rate
             - increase, decrease, zero
         - two simultaneous shippments to two separate customers
 */
+
+TEST(Activity, ScheduledFleets) {
+    Ptr<Instance::Manager> m = shippingInstanceManager();
+    ASSERT_TRUE(m);
+    Ptr<Instance> conn = m->instanceNew("conn", "Conn");
+    Ptr<Instance> fleet1 = m->instanceNew("fleet1", "Fleet");
+    Ptr<Instance> fleet2 = m->instanceNew("fleet2", "Fleet");
+    
+    // create locations and join them
+    Ptr<Instance> loc1 = m->instanceNew("loc1", "Customer");
+    Ptr<Instance> loc2 = m->instanceNew("loc2", "Customer");
+    Ptr<Instance> seg1 = m->instanceNew("seg1", "Truck segment");
+    Ptr<Instance> seg2 = m->instanceNew("seg2", "Truck segment");
+    seg1->attributeIs("source", "loc1");
+    seg1->attributeIs("length", "2.0");
+    seg1->attributeIs("return segment", "seg2");
+    seg2->attributeIs("source", "loc2");
+    seg2->attributeIs("length", "1.0");
+
+    // assert that the fleets are, indeed, different
+    fleet1->attributeIs("Truck, speed", "0.5");
+    fleet2->attributeIs("Truck, speed", "2");
+    ASSERT_EQ("0.50", fleet1->attribute("Truck, speed"));
+    ASSERT_EQ("2.00", fleet2->attribute("Truck, speed"));
+
+    // schedule changes
+    fleet1->attributeIs("Start Time", "0");
+    fleet2->attributeIs("Start Time", "12");
+
+    // check current travel time (should be 1)
+    EXPECT_EQ("2.00 4.00 no; loc1(seg1:2.00:seg2) loc2\n",
+        conn->attribute("connect loc1 : loc2"));
+
+    // move to next time; travel time should be 0.5
+    m->nowIs(13);
+    EXPECT_EQ("2.00 1.00 no; loc1(seg1:2.00:seg2) loc2\n",
+        conn->attribute("connect loc1 : loc2"));
+
+    // check that it moved back
+    m->nowIs(25);
+    EXPECT_EQ("2.00 4.00 no; loc1(seg1:2.00:seg2) loc2\n",
+        conn->attribute("connect loc1 : loc2"));
+    m->nowIs(37);
+    EXPECT_EQ("2.00 1.00 no; loc1(seg1:2.00:seg2) loc2\n",
+        conn->attribute("connect loc1 : loc2"));
+
+    // delay the switch back
+    fleet1->attributeIs("Start Time", "5");
+    m->nowIs(49);
+    EXPECT_EQ("2.00 1.00 no; loc1(seg1:2.00:seg2) loc2\n",
+        conn->attribute("connect loc1 : loc2"));
+    m->nowIs(54);
+    EXPECT_EQ("2.00 4.00 no; loc1(seg1:2.00:seg2) loc2\n",
+        conn->attribute("connect loc1 : loc2"));
+}
 
 // TEST(Activity, BasicShipments) {
 //     Ptr<Instance::Manager> m = shippingInstanceManager();
@@ -261,51 +320,51 @@ TEST(Instance, CreateInstanceManager) {
 //     EXPECT_EQ("0", seg1->attribute("Shipments Refused"));
 // }
 
-TEST(Activity, HighRate) {
-    Ptr<Instance::Manager> m = shippingInstanceManager();
-    ASSERT_TRUE(m);
-    Ptr<Instance> conn = m->instanceNew("conn", "Conn");
-    ASSERT_TRUE(conn);
+// TEST(Activity, HighRate) {
+//     Ptr<Instance::Manager> m = shippingInstanceManager();
+//     ASSERT_TRUE(m);
+//     Ptr<Instance> conn = m->instanceNew("conn", "Conn");
+//     ASSERT_TRUE(conn);
 
-    // set truck capacity, cost, and speed
-    Ptr<Instance> fleet = m->instanceNew("fleet", "Fleet");
-    ASSERT_TRUE(fleet);
-    fleet->attributeIs("Truck, speed", "1");
-    fleet->attributeIs("Truck, capacity", "10");
-    fleet->attributeIs("Truck, cost", "100");
+//     // set truck capacity, cost, and speed
+//     Ptr<Instance> fleet = m->instanceNew("fleet", "Fleet");
+//     ASSERT_TRUE(fleet);
+//     fleet->attributeIs("Truck, speed", "1");
+//     fleet->attributeIs("Truck, capacity", "10");
+//     fleet->attributeIs("Truck, cost", "100");
 
-    // create two customers and join them
-    Ptr<Instance> loc1 = m->instanceNew("loc1", "Customer");
-    Ptr<Instance> loc2 = m->instanceNew("loc2", "Customer");
-    Ptr<Instance> seg1 = m->instanceNew("seg1", "Truck segment");
-    Ptr<Instance> seg2 = m->instanceNew("seg2", "Truck segment");
-    seg1->attributeIs("source", "loc1");
-    seg1->attributeIs("length", "1.0");
-    seg1->attributeIs("return segment", "seg2");
-    seg1->attributeIs("Capacity", "50");
-    seg2->attributeIs("source", "loc2");
-    seg2->attributeIs("length", "1.5");
+//     // create two customers and join them
+//     Ptr<Instance> loc1 = m->instanceNew("loc1", "Customer");
+//     Ptr<Instance> loc2 = m->instanceNew("loc2", "Customer");
+//     Ptr<Instance> seg1 = m->instanceNew("seg1", "Truck segment");
+//     Ptr<Instance> seg2 = m->instanceNew("seg2", "Truck segment");
+//     seg1->attributeIs("source", "loc1");
+//     seg1->attributeIs("length", "1.0");
+//     seg1->attributeIs("return segment", "seg2");
+//     seg1->attributeIs("Capacity", "50");
+//     seg2->attributeIs("source", "loc2");
+//     seg2->attributeIs("length", "1.5");
     
-    // connectivity
-    conn->attributeIs("routing", "minHops");
+//     // connectivity
+//     conn->attributeIs("routing", "minHops");
 
-    // specify shipping criteria
-    loc1->attributeIs("Transfer Rate", "50");
-    loc1->attributeIs("Shipment Size", "10");
-    loc1->attributeIs("Destination", "loc2");
+//     // specify shipping criteria
+//     loc1->attributeIs("Transfer Rate", "50");
+//     loc1->attributeIs("Shipment Size", "10");
+//     loc1->attributeIs("Destination", "loc2");
 
-    // all the previous day's shipments should have arrived.
-    m->nowIs(25);
+//     // all the previous day's shipments should have arrived.
+//     m->nowIs(25);
 
-    // check that one shipment has arrived
-    EXPECT_EQ("50", loc2->attribute("Shipments Received"));
-    EXPECT_EQ("1.00", loc2->attribute("Average Latency"));
-    EXPECT_EQ("5000.00", loc2->attribute("Total Cost"));
+//     // check that one shipment has arrived
+//     EXPECT_EQ("50", loc2->attribute("Shipments Received"));
+//     EXPECT_EQ("1.00", loc2->attribute("Average Latency"));
+//     EXPECT_EQ("5000.00", loc2->attribute("Total Cost"));
 
-    // Not sure how many shipments should be received. Probably 2.
-    EXPECT_EQ("52", seg1->attribute("Shipments Received"));
-    EXPECT_EQ("0", seg1->attribute("Shipments Refused"));
-}
+//     // Not sure how many shipments should be received. Probably 2.
+//     EXPECT_EQ("52", seg1->attribute("Shipments Received"));
+//     EXPECT_EQ("0", seg1->attribute("Shipments Refused"));
+// }
 
 // TEST(Activity, LongSegment) {
 //     Ptr<Instance::Manager> m = shippingInstanceManager();
@@ -398,23 +457,18 @@ TEST(Activity, HighRate) {
 // TEST(Instance, DuplicateObjectsTest) {
 //     Ptr<Instance::Manager> m = shippingInstanceManager();
 //     ASSERT_TRUE(m);
-//     Ptr<Instance> fleet = m->instanceNew("fleet", "Fleet");
-//     ASSERT_TRUE(fleet);
 //     Ptr<Instance> conn = m->instanceNew("conn", "Conn");
 //     ASSERT_TRUE(conn);
 //     Ptr<Instance> stats = m->instanceNew("stats", "Stats");
 //     ASSERT_TRUE(stats);
 
 //     // create dups
-//     Ptr<Instance> fleet1 = m->instanceNew("fleet1", "Fleet");
-//     ASSERT_TRUE(fleet1);
 //     Ptr<Instance> conn1 = m->instanceNew("conn1", "Conn");
 //     ASSERT_TRUE(conn1);
 //     Ptr<Instance> stats1 = m->instanceNew("stats1", "Stats");
 //     ASSERT_TRUE(stats1);
 
 //     // assert that they are the same rep objects
-//     EXPECT_EQ(fleet->name(), fleet1->name());
 //     EXPECT_EQ(conn->name(), conn1->name());
 //     EXPECT_EQ(stats->name(), stats1->name());
 // }
@@ -785,12 +839,6 @@ TEST(Activity, HighRate) {
 //     EXPECT_EQ(fleet->attribute("Plane, capacity"), "25");
 //     fleet->attributeIs("Plane, cost", "35.1");
 //     EXPECT_EQ(fleet->attribute("Plane, cost"), "35.10");
-
-//     // create duplicate fleet that should have the same values
-//     Ptr<Instance> fleet2 = m->instanceNew("fleet2", "Fleet");
-//     EXPECT_EQ(fleet->attribute("Plane, speed"), "15.10");
-//     EXPECT_EQ(fleet->attribute("Plane, capacity"), "25");
-//     EXPECT_EQ(fleet2->attribute("Plane, cost"), "35.10");
 // }
 
 // TEST(Instance, StatsTest) {

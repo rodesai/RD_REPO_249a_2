@@ -35,6 +35,7 @@ static const string totalCostStr = "Total Cost";
 static const string shipmentsRefusedStr = "Shipments Refused";
 // TODO: do we need two capacities?
 static const string capacityStr2 = "Capacity";
+static const string startTimeStr = "Start Time";
 static const int segmentStrlen = segmentStr.length();
 
 class StatsRep;
@@ -107,7 +108,6 @@ private:
     };
     typedef Fwk::Ptr<RealToVirtualTimeActivity> R2VTimeActivityPtr;
 
-    Ptr<FleetRep> fleetInstance_;
     Ptr<ConnRep> connInstance_;
     Ptr<StatsRep> statsInstance_;
     typedef struct InstanceMapElem_t {
@@ -451,10 +451,17 @@ public:
         BaseRep(name), manager_(manager) {
         manager_ = manager;
         fleet_ = manager->shippingNetwork()->FleetNew(name);
+        fleet_->costMultiplierIs(PathMode::unexpedited(),1.0);
+        fleet_->speedMultiplierIs(PathMode::unexpedited(),1.0);
+        fleet_->costMultiplierIs(PathMode::expedited(),1.5);
+        fleet_->speedMultiplierIs(PathMode::expedited(),1.3);
     }
 
     // Instance method
     string attributeImpl(const string& name) {
+        if (name == startTimeStr)
+            return fleet_->startTime().str();
+
         FleetAttribute fa = fleetAttribute(name);
         if (fa.attribute == speedStr) {
             return fleet_->speed(fa.mode).str();
@@ -468,6 +475,13 @@ public:
         return "";
     }
     void attributeIsImpl(const string& name, const string& v) {
+        if (name == startTimeStr) {
+            // TODO: have a different type within the day?
+            DEBUG_LOG << "Setting start time.\n";
+            fleet_->startTimeIs(Time(atof(v.data())));
+            return;
+        }
+
         FleetAttribute fa = fleetAttribute(name);
         if (fa.attribute == speedStr) {
             fleet_->speedIs(fa.mode, MilePerHour(atof(v.data())));
@@ -751,7 +765,6 @@ private:
 };
 
 ManagerImpl::ManagerImpl() {
-    fleetInstance_ = NULL;
     connInstance_ = NULL;
     statsInstance_ = NULL;
     shippingNetwork_ = ShippingNetwork::ShippingNetworkIs("ShippingNetwork");
@@ -763,12 +776,6 @@ ManagerImpl::ManagerImpl() {
     activityPtr->statusIs(Activity::Activity::nextTimeScheduled());
     activityPtr->lastNotifieeIs(r2vTimeActivity_.ptr());
     realTimeManager_->lastActivityIs(activityPtr);
-    // Update the expedited costs by their multipliers
-    FleetPtr fleet = shippingNetwork_->FleetNew("_repfleet");
-    fleet->costMultiplierIs(PathMode::unexpedited(),1.0);
-    fleet->speedMultiplierIs(PathMode::unexpedited(),1.0);
-    fleet->costMultiplierIs(PathMode::expedited(),1.5);
-    fleet->speedMultiplierIs(PathMode::expedited(),1.3);
 }
 
 void ManagerImpl::nowIs(Time t){
@@ -836,9 +843,8 @@ Ptr<Instance> ManagerImpl::instanceNew(const string& name,
 
     // Fleet Type
     else if (type == "Fleet") {
-        if (fleetInstance_) return fleetInstance_;
-        fleetInstance_ = new FleetRep(name, this);
-        inst = fleetInstance_;
+        // not unique
+        inst = new FleetRep(name, this);
         instType = fleet_;
     }
 
