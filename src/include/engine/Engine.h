@@ -861,11 +861,13 @@ public:
     PathList paths(PathSelectorPtr selector) const;
     EntityID nextHop(EntityID startLocation,EntityID targetLocation) const;
     RoutingAlgorithm routing() const { return routingAlgorithm_; }
+    //PathMode supportedRouteMode(uint32_t index, PathMode mode);
 
     // Mutators
     void routingIs(RoutingAlgorithm routingAlgorithm);
     void notifieeIs(Conn::NotifieePtr notifiee);
     void endLocationTypeIs(Location::EntityType type);
+    void supportedRouteModeIs(uint32_t index, PathMode mode);
 
     // Instantiating Mutators for Constraints
     static ConstraintPtr DistanceConstraintIs(Mile distance);
@@ -918,6 +920,8 @@ private:
 
     typedef std::pair<EntityID,EntityID> RoutingTableKey;
     typedef std::map<RoutingTableKey,EntityID> RoutingTable;
+    typedef std::set<PathMode> ModeSet;
+    typedef std::map<uint32_t,ModeSet> ModeCollection;
 
     TraversalOrder* traversalOrder() const { return traversalOrder_; }
     void traversalOrderIs(TraversalOrder* traversalOrder){ traversalOrder_=traversalOrder; }
@@ -940,6 +944,7 @@ private:
     TraversalOrder* traversalOrder_;
     typedef std::vector<Conn::NotifieePtr> NotifieeList;
     NotifieeList notifieeList_;
+    ModeCollection supportedRouteModes_;
 };
 
 class Stats : public Fwk::NamedInterface {
@@ -1060,8 +1065,7 @@ public:
 private:
     friend class ShippingNetwork;
     RoutingReactor(ShippingNetworkPtr network) : network_(network){}
-    void initMinHopsRoutingTable();
-    void initMinDistanceRoutingTable();
+    void initRoutingTable(Conn::TraversalOrder*);
     ShippingNetworkPtr network_;
 };
 

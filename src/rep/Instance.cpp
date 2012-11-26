@@ -595,6 +595,7 @@ public:
         BaseRep(name), manager_(manager) {
         manager_ = manager;
         conn_ = manager->shippingNetwork()->ConnNew(name);
+        conn_->supportedRouteModeIs(0,PathMode::unexpedited());
         conn_->endLocationTypeIs(Location::EntityType::customer());
         routingAlgorithm_ = Conn::none();
     }
@@ -769,7 +770,7 @@ ManagerImpl::ManagerImpl() {
     statsInstance_ = NULL;
     shippingNetwork_ = ShippingNetwork::ShippingNetworkIs("ShippingNetwork");
     realTimeManager_ = Activity::Manager::ManagerIs();
-    r2vTimeActivity_ = new RealToVirtualTimeActivity(realTimeManager_,shippingNetwork_->manager(),1000000);
+    r2vTimeActivity_ = new RealToVirtualTimeActivity(realTimeManager_,shippingNetwork_->manager(),1000);
     // Setup activity
     Activity::ActivityPtr activityPtr = realTimeManager_->activityNew("r2vtime_activity");
     activityPtr->nextTimeIs(0.0);

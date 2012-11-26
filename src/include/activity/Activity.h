@@ -57,12 +57,13 @@ public:
 
     /* Current Execution State of Activity */
     enum Status {
-        free_, executing_, nextTimeScheduled_, cancelled_
+        uninit_,free_, executing_, nextTimeScheduled_, cancelled_
     };
     static Status free(){ return free_; }
     static Status executing(){ return executing_; }
     static Status nextTimeScheduled(){ return nextTimeScheduled_; }
     static Status cancelled(){ return cancelled_; }
+    static Status uninit(){ return uninit_; }
 
     /* Accessors */
     inline Status status() const { return status_; }

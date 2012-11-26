@@ -6,7 +6,7 @@
 namespace Activity{
 
 Activity::Activity(string name, ManagerPtr manager) : 
-    NamedInterface(name), status_(Activity::free()), nextTime_(0.0), notifiee_(NULL),
+    NamedInterface(name), status_(Activity::uninit()), nextTime_(0.0), notifiee_(NULL),
     manager_(manager)
 {}
 
