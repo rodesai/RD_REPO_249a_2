@@ -642,14 +642,39 @@ public:
     DollarPerMile cost(TransportMode segmentType) const; 
     Multiplier speedMultiplier(PathMode pathMode) const;
     Multiplier costMultiplier(PathMode pathMode) const;
+    Time startTime() const { return startTime_; }
     void speedIs(TransportMode m, MilePerHour s);
     void capacityIs(TransportMode m, PackageNum p);
     void costIs(TransportMode m, DollarPerMile d);
     void speedMultiplierIs(PathMode pathMode, Multiplier m);
     void costMultiplierIs(PathMode pathMode, Multiplier m);
+    void startTimeIs(Time t);
+
+    class NotifieeConst : public virtual Fwk::NamedInterface::NotifieeConst {
+    public:
+        virtual void onStartTime(){}
+        FleetPtrConst notifier() const { return notifier_; }
+        void notifierIs(FleetPtrConst notifier){ notifier_=notifier; }
+    protected:
+        NotifieeConst(){}
+        virtual ~NotifieeConst(){}
+        FleetPtrConst notifier_;
+    };
+    typedef Fwk::Ptr<Fleet::NotifieeConst> NotifieeConstPtr;
+    typedef Fwk::Ptr<Fleet::NotifieeConst const> NotifieeConstPtrConst;
+    class Notifiee : public virtual NotifieeConst, public virtual Fwk::NamedInterface::Notifiee {
+    public:
+        FleetPtr notifier() const { return const_cast<Fleet*>(NotifieeConst::notifier().ptr()); }
+    protected:
+        Notifiee(){}
+        virtual ~Notifiee(){}
+    };
+    typedef Fwk::Ptr<Fleet::Notifiee> NotifieePtr;
+    typedef Fwk::Ptr<Fleet::Notifiee const> NotifieePtrConst;
+    void notifieeIs(Fleet::Notifiee* notifiee);
 private:
     friend class ShippingNetwork;
-    Fleet(std::string name) : NamedInterface(name){};
+    Fleet(std::string name) : NamedInterface(name), startTime_(0), startTimeSet_(false){};
     typedef std::map<TransportMode,MilePerHour> SpeedMap;
     SpeedMap speed_;
     typedef std::map<TransportMode,PackageNum> CapacityMap;
@@ -660,6 +685,38 @@ private:
     SpeedMultiplierMap speedMultiplier_;
     typedef std::map<PathMode,Multiplier> CostMultiplierMap;
     CostMultiplierMap costMultiplier_;
+    Time startTime_;
+    bool startTimeSet_;
+    typedef std::vector<Fleet::NotifieePtr> NotifieeList;
+    NotifieeList notifieeList_;
+};
+
+class FleetReactor : public Fleet::Notifiee {
+public:
+    void onStartTime();
+    void managerIs(ManagerPtr m) { manager_ = m; }
+    void networkIs(ShippingNetworkPtrConst s) { network_ = s; }
+    inline ManagerPtr manager() { return manager_; }
+    inline ShippingNetworkPtrConst network() { return network_; }
+private:
+    ShippingNetworkPtrConst network_;
+    ManagerPtr manager_;
+};
+
+class FleetChangeActivityReactor : public Activity::Activity::Notifiee {
+public:
+    void onStatus();
+    void onNextTime(){};
+    void fleetIs(FleetPtr f) { fleet_ = f; }
+    void managerIs(ManagerPtr m) { manager_ = m; }
+    void networkIs(ShippingNetworkPtr s) { network_ = s; }
+    inline FleetPtr fleet() { return fleet_; }
+    inline ManagerPtr manager() { return manager_; }
+    inline ShippingNetworkPtr network() { return network_; }
+private:
+    FleetPtr fleet_;
+    ManagerPtr manager_;
+    ShippingNetworkPtr network_;
 };
 
 class PathElementCount : public Ordinal<PathElementCount,uint32_t>{
@@ -851,7 +908,7 @@ private:
         }
     };
 
-    Conn(std::string name,ShippingNetworkPtrConst shippingNetwork, FleetPtr fleet) : NamedInterface(name), shippingNetwork_(shippingNetwork), fleet_(fleet), routingAlgorithm_(none_){}
+    Conn(std::string name,ShippingNetworkPtrConst shippingNetwork) : NamedInterface(name), shippingNetwork_(shippingNetwork), routingAlgorithm_(none_){}
 
     PathList paths(Conn::PathSelector::Type type, std::set<Location::EntityType> endLocationTypes, std::set<PathMode> pathModes,
                     priority_queue<PathPtr,vector<PathPtr>,TraversalCompare> pathContainer, ConstraintPtr constraints,LocationPtr start,LocationPtr endpoint) const ;
@@ -880,7 +937,7 @@ private:
     }
 
     ShippingNetworkPtrConst shippingNetwork_;
-    FleetPtr fleet_;
+    //FleetPtr fleet_;
     RoutingAlgorithm routingAlgorithm_;
     RoutingTable nextHop_;
     std::set<Location::EntityType> endLocationType_;
@@ -957,7 +1014,7 @@ public:
     ConnPtr conn() const { return connPtr_; }
     StatsPtrConst stats(EntityID name) const; 
     FleetPtr fleet(EntityID name) const;
-    FleetPtr fleet() const { return fleetPtr_; }
+    FleetPtr activeFleet() const { return fleetPtr_; }
     SegmentPtr SegmentNew(EntityID name, TransportMode mode, PathMode pathMode); 
     SegmentPtr segmentDel(EntityID name);
     LocationPtr LocationNew(EntityID name, Location::EntityType entityType);
@@ -968,10 +1025,12 @@ public:
     StatsPtr statsDel(EntityID name);
     FleetPtr FleetNew(EntityID name);
     FleetPtr fleetDel(EntityID name);
+    void activeFleetIs(FleetPtr fleet);
     void notifieeIs(ShippingNetwork::NotifieePtr notifiee);
     static ShippingNetworkPtr ShippingNetworkIs(EntityID name);
 
 private:
+    FleetPtr createFleetAndReactor(EntityID name);
     ShippingNetwork(EntityID name) : Fwk::NamedInterface(name){
         manager_=Manager::ManagerIs();
         locationIteratorPos_=-1;

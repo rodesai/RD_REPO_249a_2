@@ -290,8 +290,8 @@ void CustomerReactor::checkAndCreateInjectActivity() {
 
 void InjectActivityReactor::onStatus() {
     if (notifier_->status() == Activity::Activity::executing()) {
-        // TODO: better name?
         ShipmentPtr shipment = new Shipment(uniqueName());
+        DEBUG_LOG << "Creating shipment " << shipment->name() << " at " << manager_->now().value() << "\n";
         shipment->loadIs(source_->shipmentSize());
         shipment->sourceIs(source_);
         shipment->destinationIs(source_->destination());
@@ -510,16 +510,16 @@ SubshipmentPtr Segment::subshipmentDequeue(PackageNum capacity) {
 
 Hour Segment::carrierLatency() const {
     // TODO: can make this more general (include difficulty, expedite)
-    return Hour(length_.value() / network_->fleet()->speed(transportMode_).value());
+    return Hour(length_.value() / network_->activeFleet()->speed(transportMode_).value());
 }
 
 PackageNum Segment::carrierCapacity() const {
-    return network_->fleet()->capacity(transportMode_);
+    return network_->activeFleet()->capacity(transportMode_);
 }
 
 Dollar Segment::carrierCost() const {
     // TODO: can make this more general
-    return Dollar(length_.value() * network_->fleet()->cost(transportMode_).value());
+    return Dollar(length_.value() * network_->activeFleet()->cost(transportMode_).value());
 }
 
 /*
@@ -677,9 +677,9 @@ ShippingNetworkPtr ShippingNetwork::ShippingNetworkIs(EntityID name){
     ShippingNetworkPtr retval = new ShippingNetwork(name);
 
     // Initialize Singletons (fleet info, stats, conn objects)
-    retval->fleetPtr_ = new Fleet("The Fleet");
+    retval->fleetPtr_ = retval->createFleetAndReactor("The Fleet");
     retval->statPtr_ = new Stats("The Stat");
-    retval->connPtr_ = new Conn("The Conn",retval,retval->fleetPtr_);
+    retval->connPtr_ = new Conn("The Conn",retval);
     retval->connPtr_->notifieeIs(new RoutingReactor(retval));
 
     // Setup my reactors
@@ -687,6 +687,12 @@ ShippingNetworkPtr ShippingNetwork::ShippingNetworkIs(EntityID name){
     retval->notifieeIs(new ShippingNetworkReactor());
 
     return retval;
+}
+
+void ShippingNetwork::activeFleetIs(FleetPtr fleet) {
+    // TODO: should we take the entityID as a parameter instead?
+    DEBUG_LOG << "Active fleet is now " << fleet->name() << "\n";
+    fleetPtr_ = fleet;
 }
 
 void ShippingNetwork::notifieeIs(ShippingNetwork::NotifieePtr notifiee){
@@ -758,6 +764,7 @@ SegmentPtr ShippingNetwork::segmentDel(EntityID name){
     
     return retval;
 }
+
 
 LocationPtr ShippingNetwork::LocationNew(EntityID name, Location::EntityType entityType){
 
@@ -860,12 +867,32 @@ ConnPtr ShippingNetwork::connDel(EntityID name){
     return it->second;
 }
 
+// TODO: this function could be absorbed into the constructor for Fleet
+FleetPtr ShippingNetwork::createFleetAndReactor(EntityID name) {
+    FleetPtr fleet = new Fleet(name);
+    FleetReactor* fr = new FleetReactor();
+    fr->managerIs(manager_);
+    fr->networkIs(this);
+    fleet->notifieeIs(fr);
+    return fleet;
+}
+
 FleetPtr ShippingNetwork::FleetNew(EntityID name){
+    // if entity name already exists, throw error
     if(fleet_.count(name) != 0){
         throw EntityExistsException();
     }
-    fleet_[name]=fleetPtr_;
-    return fleetPtr_;
+
+    // if no fleet is defined for user, return the default
+    if(fleet_.size() == 0) {
+        DEBUG_LOG << "Returning default for " << name << "\n";
+        fleet_[name] = fleetPtr_;
+    }
+
+    // otherwise, create a new fleet
+    else fleet_[name] = createFleetAndReactor(name);
+
+    return fleet_[name];
 }
 
 FleetPtr ShippingNetwork::fleetDel(EntityID name){
@@ -968,20 +995,20 @@ void SegmentReactor::startupFAR() {
     }
 
     // DEBUGGING
-    if (segment->carriersUsed() < segment->capacity().value())
-        DEBUG_LOG << "Ran out of carriers.\n";
+    if (segment->carriersUsed() >= segment->capacity().value())
+        DEBUG_LOG << "Using all " << segment->carriersUsed()<< " carriers.\n";
     if (segment->subshipmentQueue_.empty())
         DEBUG_LOG << "No more subshipments.\n";
 }
 
 void ForwardActivityReactor::onStatus() {
     if (notifier_->status() == Activity::Activity::executing()) {
-        DEBUG_LOG << "Delivering subshipment at " << manager_->now().value() << "\n";
+        DEBUG_LOG << "Delivering subshipment at time " << manager_->now().value() << "\n";
         subshipment_->shipment()->costInc(segment_->carrierCost());
         segment_->deliveryMap_[subshipment_->shipment()->name()] += subshipment_->remainingLoad().value();
 
         if (segment_->deliveryMap_[subshipment_->shipment()->name()] == subshipment_->shipment()->load().value()) {
-            DEBUG_LOG << "  Shipment is complete.\n";
+            DEBUG_LOG << "  Shipment " << subshipment_->shipment()->name() << " is complete.\n";
             segment_->returnSegment()->source()->shipmentIs(subshipment_->shipment());
             segment_->deliveryMap_.erase(segment_->deliveryMap_.find(subshipment_->shipment()->name()));
         }
@@ -993,13 +1020,13 @@ void ForwardActivityReactor::onStatus() {
             subshipment_ = segment_->subshipmentDequeue(segment_->carrierCapacity());
 
             if (subshipment_) {
-                DEBUG_LOG << "  Picking up new subshipment...\n";
+                DEBUG_LOG << "  Picking up new subshipment for shipment "<< subshipment_->shipment()->name()<<"\n";
                 notifier_->statusIs(Activity::Activity::nextTimeScheduled());
                 notifier_->nextTimeIs(Time(manager_->now().value() + segment_->carrierLatency().value()));
-                DEBUG_LOG << "  Shipment to be delivered " << notifier_->nextTime().value() << ".\n";
+                DEBUG_LOG << "  Shipment to be delivered at time " << (double)notifier_->nextTime().value() << ".\n";
                 manager_->lastActivityIs(notifier_);
                 if (segment_->deliveryMap_.find(subshipment_->shipment()->name()) == segment_->deliveryMap_.end()) {
-                    DEBUG_LOG << "  Shipment is complete.\n";
+                    DEBUG_LOG << "  Shipment is starting.\n";
                     segment_->shipmentsReceivedInc();
                     segment_->deliveryMap_[subshipment_->shipment()->name()] = 0;
                 }
@@ -1240,6 +1267,8 @@ PathPtr Conn::pathElementEnque(Path::PathElementPtr pathElement, PathPtr path, F
            * (pathElement->segment()->difficulty()).value();
     time = (pathElement->segment()->length()).value() 
            / ( (fleet->speed(pathElement->segment()->transportMode()).value()) * ((fleet->speedMultiplier(pathElement->elementMode())).value()));
+    DEBUG_LOG << "Time for segment is " << time.value() << "\n";
+    DEBUG_LOG << "Transport mode speed is " << fleet->speed(pathElement->segment()->transportMode()).value() << "\n";
     path->pathElementEnq(pathElement,cost,time,pathElement->segment()->length());
     return path;
 }
@@ -1345,8 +1374,8 @@ Conn::PathList Conn::paths(Conn::PathSelector::Type type, std::set<Location::Ent
                   std::set<PathMode> overlap = modeIntersection(segment,modes);  
                   DEBUG_LOG << "Segment Modes: " << segment->modeCount().value() << ", Transport Modes: " << modes.size() << ", Overlap Size: " << overlap.size() << std::endl;               
                   for(std::set<PathMode>::const_iterator it = overlap.begin(); it != overlap.end(); it++){
-                      PathPtr pathCopy = copyPath(currentPath,fleet_);
-                      pathElementEnque(Path::PathElement::PathElementIs(segment,*it),pathCopy,fleet_);
+                      PathPtr pathCopy = copyPath(currentPath,shippingNetwork_->activeFleet());
+                      pathElementEnque(Path::PathElement::PathElementIs(segment,*it),pathCopy,shippingNetwork_->activeFleet());
                       pathContainer.push(pathCopy);
                   }
             }
@@ -1374,6 +1403,38 @@ void Fleet::speedIs(TransportMode m, MilePerHour s){
 
 void Fleet::speedMultiplierIs(PathMode mode, Multiplier m){
     speedMultiplier_[mode]=m;
+}
+
+void Fleet::notifieeIs(Fleet::Notifiee* notifiee){
+
+    // Ensure idempotency
+    std::vector<Fleet::NotifieePtr>::iterator it;
+    for ( it=notifieeList_.begin(); it < notifieeList_.end(); it++ ){
+        if( (*it) == notifiee ) return;
+    }
+
+    // Register this notifiee
+    notifiee->notifierIs(this);
+    notifieeList_.push_back(notifiee);
+}
+
+void Fleet::startTimeIs(Time startTime){
+    if (startTime_ == startTime && startTimeSet_)
+        return;
+
+    startTimeSet_ = true;
+    startTime_ = startTime;
+
+    // Call Notifiees
+    Fleet::NotifieeList::iterator it;
+    for ( it=notifieeList_.begin(); it < notifieeList_.end(); it++ ){
+        try{
+            (*it)->onStartTime();
+        }
+        catch(...){
+            // ERROR: maybe we should log something here
+        }
+    }    
 }
 
 Multiplier Fleet::speedMultiplier(PathMode m) const{
@@ -1418,6 +1479,51 @@ Multiplier Fleet::costMultiplier(PathMode m) const{
 
 void Fleet::costIs(TransportMode m, DollarPerMile d){
     cost_[m]=d;
+}
+
+void FleetReactor::onStartTime() {
+    DEBUG_LOG << "Fleet reactor notified of start time set for "<< notifier_->name()<< ".\n";
+
+    // if activity exists already, clear the old activity
+    Activity::ActivityPtr activity = manager_->activity(notifier_->name());
+    if (activity) {
+        activity->statusIs(Activity::Activity::cancelled());
+        manager_->activityDel(activity->name());
+    }
+
+    // create new activity
+    activity = manager_->activityNew(notifier_->name());
+    FleetChangeActivityReactor* fcar = new FleetChangeActivityReactor();
+    fcar->managerIs(manager_);
+    fcar->networkIs(const_cast<ShippingNetwork*> (network_.ptr()));
+    fcar->fleetIs(const_cast<Fleet*> (notifier_.ptr()));
+    activity->lastNotifieeIs(fcar);
+
+    // find the next time the schedule would change
+    float currTime = manager_->now().value();
+    uint32_t days = currTime / 24;
+    if (currTime - days * 24 > notifier_->startTime().value())
+        days += 1;
+    DEBUG_LOG << "Change scheduled for hour: " << days * 24 + notifier_->startTime().value() << "\n";
+
+    // set the activity
+    activity->nextTimeIs(Time(days * 24 + notifier_->startTime().value()));
+    activity->statusIs(Activity::Activity::nextTimeScheduled());
+    manager_->lastActivityIs(activity);
+}
+
+void FleetChangeActivityReactor::onStatus() {
+    if (notifier_->status() == Activity::Activity::executing()) {
+        DEBUG_LOG << "Changing fleet to " << fleet_->name() << "\n";
+        network_->activeFleetIs(fleet_);
+    }
+
+    else if(notifier_->status() == Activity::Activity::free()){
+        // schedule the activity one day later
+        notifier_->nextTimeIs(Time(manager_->now().value() + 24));
+        notifier_->statusIs(Activity::Activity::nextTimeScheduled());
+        manager_->lastActivityIs(notifier_);
+    }
 }
 
 /*

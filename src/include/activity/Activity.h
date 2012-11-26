@@ -28,6 +28,12 @@ class Time : public Ordinal<Time,double> {
 public:
     Time(double time) : Ordinal<Time,double>(time)
     {}
+    std::string str() {
+        std::stringstream s;
+        s.precision(2);
+        s << std::fixed << value_;
+        return s.str();
+    }
 };
 
 class Activity : public Fwk::NamedInterface {
