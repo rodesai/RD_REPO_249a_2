@@ -49,9 +49,10 @@ TEST(Engine, minHop_basic){
     connectLocations(l5,l7,nwk,1.0);
     connectLocations(l6,l7,nwk,1.0);
     ConnPtr conn = nwk->ConnNew("conn");
+    conn->supportedRouteModeIs(0,PathMode::unexpedited());
     conn->routingIs(Conn::minHops());
+    std::cout << "Actual: " << conn->nextHop("l1","l7") << std::endl;
     ASSERT_TRUE(conn->nextHop("l1","l7")=="l1-l3");
-
 }
 
 TEST(Engine, minDistance_basic){
@@ -70,6 +71,7 @@ TEST(Engine, minDistance_basic){
     connectLocations(l5,l6,nwk,1.0);
     connectLocations(l4,l6,nwk,10.0);
     ConnPtr conn = nwk->ConnNew("conn");
+    conn->supportedRouteModeIs(0,PathMode::unexpedited());
     conn->routingIs(Conn::minDistance());
     ASSERT_TRUE(conn->nextHop("l1","l5")=="l1-l3");
 }

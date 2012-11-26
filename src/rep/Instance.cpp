@@ -581,6 +581,7 @@ public:
         BaseRep(name), manager_(manager) {
         manager_ = manager;
         conn_ = manager->shippingNetwork()->ConnNew(name);
+        conn_->supportedRouteModeIs(0,PathMode::unexpedited());
         conn_->endLocationTypeIs(Location::EntityType::customer());
         routingAlgorithm_ = Conn::none();
     }
