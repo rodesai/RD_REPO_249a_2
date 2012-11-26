@@ -286,7 +286,6 @@ void CustomerReactor::checkAndCreateInjectActivity() {
     activity->nextTimeIs(cust->nextShipmentTime());
     activity->statusIs(Activity::Activity::nextTimeScheduled());
     manager_->lastActivityIs(activity);
-    std::cout << "Next time: " << activity->nextTime().value() << std::endl;
 }
 
 void InjectActivityReactor::onStatus() {

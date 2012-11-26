@@ -851,7 +851,7 @@ private:
         }
     };
 
-    Conn(std::string name,ShippingNetworkPtrConst shippingNetwork, FleetPtr fleet) : NamedInterface(name), shippingNetwork_(shippingNetwork), fleet_(fleet){}
+    Conn(std::string name,ShippingNetworkPtrConst shippingNetwork, FleetPtr fleet) : NamedInterface(name), shippingNetwork_(shippingNetwork), fleet_(fleet), routingAlgorithm_(none_){}
 
     PathList paths(Conn::PathSelector::Type type, std::set<Location::EntityType> endLocationTypes, std::set<PathMode> pathModes,
                     priority_queue<PathPtr,vector<PathPtr>,TraversalCompare> pathContainer, ConstraintPtr constraints,LocationPtr start,LocationPtr endpoint) const ;
