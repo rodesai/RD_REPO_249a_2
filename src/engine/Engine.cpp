@@ -1620,6 +1620,7 @@ void RoutingReactor::initRoutingTable(Conn::TraversalOrder* traversal){
         // Convert Paths Used to a routing table
         std::map<EntityID,PathPtr>::iterator pathsUsedIt;
         for(pathsUsedIt = pathsUsed.begin(); pathsUsedIt != pathsUsed.end(); pathsUsedIt++){
+            DEBUG_LOG << "Found path from " << location->name() << "to " << pathsUsedIt->first << std::endl;
             notifier()->nextHopIs(location->name(),pathsUsedIt->first,pathsUsedIt->second->pathElement(0)->segment()->name());
         }
     }

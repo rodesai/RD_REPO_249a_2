@@ -109,6 +109,7 @@ SimulationManagerImpl::SimulationManagerImpl(){
     activityPtr->statusIs(Activity::Activity::nextTimeScheduled());
     activityPtr->lastNotifieeIs(r2vTimeActivity_.ptr());
     realTimeManager_->lastActivityIs(activityPtr);
+    connRep_=NULL;
 }
 
 class ManagerImpl : public Instance::Manager {
@@ -925,13 +926,15 @@ void ManagerImpl::instanceDel(const string& name) {
 }
 
 void SimulationManagerImpl::timeIs(Activity::Time t){
-    connRep_->resetRouting();
+    if(connRep_)
+        connRep_->resetRouting();
     if(t > realTimeManager_->now())
         realTimeManager_->nowIs(t);
 }
 
 void SimulationManagerImpl::virtualTimeIs(Activity::Time t){
-    connRep_->resetRouting();
+    if(connRep_)
+        connRep_->resetRouting();
     if(t > virtualTimeManager_->now())
         virtualTimeManager_->nowIs(t);
 }

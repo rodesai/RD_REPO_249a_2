@@ -4,7 +4,7 @@ LIBS= ../activity/Activity.o ../rep/Instance.o ../engine/Engine.o ../fwk/*.o
 
 CXXFLAGS = -Wall -g $(INCLUDE)
 
-default: test-cases test1 example ourclient
+default: test-cases test1 example ourclient 100customers
 
 test_client: test_client.o $(LIBS)
 	$(CXX) $(CXXFLAGS) -o $@ $^
@@ -18,6 +18,9 @@ ourclient:	ourclient.o $(LIBS)
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
 test-cases: test-cases.o $(LIBS)
+	$(CXX) $(CXXFLAGS) -o $@ $^
+
+100customers: 100customers.o $(LIBS)
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
 clean:
