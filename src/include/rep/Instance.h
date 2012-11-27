@@ -44,6 +44,7 @@ public:
 
     // See full definition below.
     class Manager;
+    class SimulationManager;
 
 protected:
     Instance(const string& name) : name_(name) {
@@ -53,6 +54,12 @@ protected:
 private:
     string name_;
 
+};
+
+class Instance::SimulationManager : public Fwk::PtrInterface<Instance::SimulationManager>{
+public:
+    virtual void timeIs(Activity::Time t)=0;
+    virtual void virtualTimeIs(Activity::Time t)=0;
 };
 
 ///
@@ -87,7 +94,7 @@ public:
     ///
     virtual void instanceDel(const string& name) = 0;
 
-    virtual void nowIs(Activity::Time time) = 0;
+    virtual Ptr<SimulationManager> simulationManager() const = 0;
 };
 
 ///

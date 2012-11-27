@@ -671,10 +671,10 @@ StatsPtrConst ShippingNetwork::stats(EntityID name) const {
     return pos->second;
 }
 
-ShippingNetworkPtr ShippingNetwork::ShippingNetworkIs(EntityID name){
+ShippingNetworkPtr ShippingNetwork::ShippingNetworkIs(EntityID name, ManagerPtr manager){
 
     // Construct the network
-    ShippingNetworkPtr retval = new ShippingNetwork(name);
+    ShippingNetworkPtr retval = new ShippingNetwork(name,manager);
 
     // Initialize Singletons (fleet info, stats, conn objects)
     retval->fleetPtr_ = retval->createFleetAndReactor("The Fleet");

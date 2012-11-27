@@ -9,8 +9,6 @@
 
 namespace Shipping {
 
-bool allowSleep = false;
-
 using namespace std;
 
 // strings
@@ -41,6 +39,77 @@ static const int segmentStrlen = segmentStr.length();
 class StatsRep;
 class ConnRep;
 class FleetRep;
+
+class ManagerImpl;
+
+class SimulationManagerImpl : public Instance::SimulationManager{
+public:
+    SimulationManagerImpl();
+    void timeIs(Activity::Time t);
+    void virtualTimeIs(Activity::Time t);
+    void connIs(Ptr<ConnRep> connRep){
+        connRep_=connRep;
+    }
+private:
+
+    friend class ManagerImpl;
+
+    class RealToVirtualTimeActivity : public Activity::Activity::Notifiee{
+    public:
+        // public constructor ok in private class
+        RealToVirtualTimeActivity(Activity::ManagerPtr realManager, Activity::ManagerPtr virtualManager, uint64_t usPerHour):
+            Activity::Activity::Notifiee(), realManager_(realManager), virtualManager_(virtualManager), usPerHour_(usPerHour)
+        {}
+        // use to execute when 
+        virtual void onStatus(){
+            Activity::Activity::Status status = notifier_->status();
+            if(status == Activity::Activity::executing()){
+                if(realManager_->now() > virtualManager_->now()){
+                    
+                    // sleep for the required time
+                    usleep(usPerHour_);
+                    // execute the virtual manager at correct time
+                    virtualManager_->nowIs(notifier_->nextTime());
+                }
+            }
+            if(status == Activity::Activity::free()){
+                // reschedule notifying activity for next hour
+                notifier_->statusIs(Activity::Activity::nextTimeScheduled());
+                notifier_->nextTimeIs(notifier_->nextTime().value()+1.0);
+                realManager_->lastActivityIs(notifier_);
+            }
+        }
+    private:
+        Activity::ManagerPtr realManager_;
+        Activity::ManagerPtr virtualManager_;
+        uint64_t usPerHour_;
+    };
+    typedef Fwk::Ptr<RealToVirtualTimeActivity> R2VTimeActivityPtr;
+
+    Activity::ManagerPtr realTimeManager(){
+        return realTimeManager_;
+    }
+    Activity::ManagerPtr virtualTimeManager(){
+        return virtualTimeManager_;
+    }
+
+    Activity::ManagerPtr realTimeManager_;
+    Activity::ManagerPtr virtualTimeManager_;
+    R2VTimeActivityPtr r2vTimeActivity_;
+    Ptr<ConnRep> connRep_;
+};
+
+SimulationManagerImpl::SimulationManagerImpl(){
+    virtualTimeManager_ = Activity::Manager::ManagerIs();
+    realTimeManager_ = Activity::Manager::ManagerIs();
+    r2vTimeActivity_ = new RealToVirtualTimeActivity(realTimeManager_,virtualTimeManager_,1000000);
+    // Setup activity
+    Activity::ActivityPtr activityPtr = realTimeManager_->activityNew("r2vtime_activity");
+    activityPtr->nextTimeIs(0.0);
+    activityPtr->statusIs(Activity::Activity::nextTimeScheduled());
+    activityPtr->lastNotifieeIs(r2vTimeActivity_.ptr());
+    realTimeManager_->lastActivityIs(activityPtr);
+}
 
 class ManagerImpl : public Instance::Manager {
 public:
@@ -73,41 +142,13 @@ public:
     ManagerImpl();
     Ptr<Instance> instanceNew(const string& name, const string& type);
     Ptr<Instance> instance(const string& name);
-    void nowIs(Time t);
+    Ptr<Instance::SimulationManager> simulationManager() const { return simulationManager_; }
     void instanceDel(const string& name);
     ShippingNetworkPtr shippingNetwork()
         { return shippingNetwork_; }
 private:
 
-    class RealToVirtualTimeActivity : public Activity::Activity::Notifiee{
-    public:
-        // public constructor ok in private class
-        RealToVirtualTimeActivity(Activity::ManagerPtr realManager, Activity::ManagerPtr virtualManager, uint64_t usPerHour): 
-            Activity::Activity::Notifiee(), realManager_(realManager), virtualManager_(virtualManager), usPerHour_(usPerHour)
-        {}
-        // use to execute when 
-        virtual void onStatus(){
-            Activity::Activity::Status status = notifier_->status();
-            if(status == Activity::Activity::executing()){
-                // sleep for the required time
-                if (allowSleep) usleep(usPerHour_);
-                // execute the virtual manager at correct time
-                virtualManager_->nowIs(notifier_->nextTime());
-            }
-            if(status == Activity::Activity::free()){
-                // reschedule notifying activity for next hour
-                notifier_->statusIs(Activity::Activity::nextTimeScheduled());
-                notifier_->nextTimeIs(notifier_->nextTime().value()+1.0);
-                realManager_->lastActivityIs(notifier_);
-            }
-        } 
-    private:
-        Activity::ManagerPtr realManager_;
-        Activity::ManagerPtr virtualManager_;
-        uint64_t usPerHour_;
-    };
-    typedef Fwk::Ptr<RealToVirtualTimeActivity> R2VTimeActivityPtr;
-
+    Ptr<SimulationManagerImpl> simulationManager_;
     Ptr<ConnRep> connInstance_;
     Ptr<StatsRep> statsInstance_;
     typedef struct InstanceMapElem_t {
@@ -116,9 +157,6 @@ private:
     } InstanceMapElem;
     map<string, InstanceMapElem> instance_;
     ShippingNetworkPtr shippingNetwork_;
-
-    Activity::ManagerPtr realTimeManager_;
-    R2VTimeActivityPtr r2vTimeActivity_;
 };
 
 Ptr<Instance> ManagerImpl::instance(const string& name) {
@@ -768,23 +806,9 @@ private:
 ManagerImpl::ManagerImpl() {
     connInstance_ = NULL;
     statsInstance_ = NULL;
-    shippingNetwork_ = ShippingNetwork::ShippingNetworkIs("ShippingNetwork");
-    realTimeManager_ = Activity::Manager::ManagerIs();
-    r2vTimeActivity_ = new RealToVirtualTimeActivity(realTimeManager_,shippingNetwork_->manager(),1000);
-    // Setup activity
-    Activity::ActivityPtr activityPtr = realTimeManager_->activityNew("r2vtime_activity");
-    activityPtr->nextTimeIs(0.0);
-    activityPtr->statusIs(Activity::Activity::nextTimeScheduled());
-    activityPtr->lastNotifieeIs(r2vTimeActivity_.ptr());
-    realTimeManager_->lastActivityIs(activityPtr);
+    simulationManager_ = new SimulationManagerImpl();
+    shippingNetwork_ = ShippingNetwork::ShippingNetworkIs("ShippingNetwork",simulationManager_->virtualTimeManager());
 }
-
-void ManagerImpl::nowIs(Time t){
-    connInstance_->resetRouting();
-    if(t > realTimeManager_->now())
-        realTimeManager_->nowIs(t);
-}
-
 
 Ptr<Instance> ManagerImpl::instanceNew(const string& name,
     const string& type) {
@@ -840,6 +864,8 @@ Ptr<Instance> ManagerImpl::instanceNew(const string& name,
         connInstance_ = new ConnRep(name, this);
         inst = connInstance_;
         instType = conn_;
+        // Register the conn rep with the simulation manager
+        simulationManager_->connIs(connInstance_);
     }
 
     // Fleet Type
@@ -897,6 +923,19 @@ void ManagerImpl::instanceDel(const string& name) {
         std::cerr << "Error caught from rep layer" << std::endl;
     }
 }
+
+void SimulationManagerImpl::timeIs(Activity::Time t){
+    connRep_->resetRouting();
+    if(t > realTimeManager_->now())
+        realTimeManager_->nowIs(t);
+}
+
+void SimulationManagerImpl::virtualTimeIs(Activity::Time t){
+    connRep_->resetRouting();
+    if(t > virtualTimeManager_->now())
+        virtualTimeManager_->nowIs(t);
+}
+
 
 }
 

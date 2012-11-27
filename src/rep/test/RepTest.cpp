@@ -64,24 +64,24 @@ TEST(Activity, ScheduledFleets) {
         conn->attribute("connect loc1 : loc2"));
 
     // move to next time; travel time should be 0.5
-    m->nowIs(13);
+    m->simulationManager()->timeIs(13);
     EXPECT_EQ("2.00 1.00 no; loc1(seg1:2.00:seg2) loc2\n",
         conn->attribute("connect loc1 : loc2"));
 
     // check that it moved back
-    m->nowIs(25);
+    m->simulationManager()->timeIs(25);
     EXPECT_EQ("2.00 4.00 no; loc1(seg1:2.00:seg2) loc2\n",
         conn->attribute("connect loc1 : loc2"));
-    m->nowIs(37);
+    m->simulationManager()->timeIs(37);
     EXPECT_EQ("2.00 1.00 no; loc1(seg1:2.00:seg2) loc2\n",
         conn->attribute("connect loc1 : loc2"));
 
     // delay the switch back
     fleet1->attributeIs("Start Time", "5");
-    m->nowIs(49);
+    m->simulationManager()->timeIs(49);
     EXPECT_EQ("2.00 1.00 no; loc1(seg1:2.00:seg2) loc2\n",
         conn->attribute("connect loc1 : loc2"));
-    m->nowIs(54);
+    m->simulationManager()->timeIs(54);
     EXPECT_EQ("2.00 4.00 no; loc1(seg1:2.00:seg2) loc2\n",
         conn->attribute("connect loc1 : loc2"));
 }
@@ -136,7 +136,7 @@ TEST(Activity, ScheduledFleets) {
 //     EXPECT_EQ("0.00", loc2->attribute("Total Cost"));
 
 //     // with speed of 1 and length 1, only one shipment should have arrived
-//     m->nowIs(4);
+//     m->simulationManager()->timeIs(4);
 
 //     // check that one shipment has arrived
 //     ASSERT_EQ("1", loc2->attribute("Shipments Received"));
@@ -148,7 +148,7 @@ TEST(Activity, ScheduledFleets) {
 //     EXPECT_EQ("0", seg1->attribute("Shipments Refused"));
 
 //     // update "now" and test again
-//     m->nowIs(7);
+//     m->simulationManager()->timeIs(7);
 //     ASSERT_EQ("2", loc2->attribute("Shipments Received"));
 //     ASSERT_EQ("1.00", loc2->attribute("Average Latency"));
 //     ASSERT_EQ("200.00", loc2->attribute("Total Cost"));
@@ -203,7 +203,7 @@ TEST(Activity, ScheduledFleets) {
 //     loc1->attributeIs("Destination", "loc3");
 
 //     // with speed of 1 and length 1, only one shipment should have arrived
-//     m->nowIs(5);
+//     m->simulationManager()->timeIs(5);
 
 //     // check that one shipment has arrived
 //     ASSERT_EQ("1", loc3->attribute("Shipments Received"));
@@ -215,7 +215,7 @@ TEST(Activity, ScheduledFleets) {
 //     EXPECT_EQ("0", seg1->attribute("Shipments Refused"));
 
 //     // update "now" and test again
-//     m->nowIs(8);
+//     m->simulationManager()->timeIs(8);
 //     ASSERT_EQ("2", loc3->attribute("Shipments Received"));
 //     ASSERT_EQ("2.00", loc3->attribute("Average Latency"));
 //     ASSERT_EQ("400.00", loc3->attribute("Total Cost"));
@@ -259,7 +259,7 @@ TEST(Activity, ScheduledFleets) {
 //     loc1->attributeIs("Destination", "loc2");
 
 //     // with speed of 1 and length 1, only one shipment should have arrived
-//     m->nowIs(11);
+//     m->simulationManager()->timeIs(11);
 
 //     // check that one shipment has arrived
 //     EXPECT_EQ("1", loc2->attribute("Shipments Received"));
@@ -309,7 +309,7 @@ TEST(Activity, ScheduledFleets) {
 //     loc1->attributeIs("Destination", "loc2");
 
 //     // with speed of 1 and length 1, only one shipment should have arrived
-//     m->nowIs(2);
+//     m->simulationManager()->timeIs(2);
 
 //     // check that one shipment has arrived
 //     EXPECT_EQ("1", loc2->attribute("Shipments Received"));
@@ -354,7 +354,7 @@ TEST(Activity, ScheduledFleets) {
 //     loc1->attributeIs("Destination", "loc2");
 
 //     // all the previous day's shipments should have arrived.
-//     m->nowIs(25);
+//     m->simulationManager()->timeIs(25);
 
 //     // check that one shipment has arrived
 //     EXPECT_EQ("50", loc2->attribute("Shipments Received"));
@@ -400,7 +400,7 @@ TEST(Activity, ScheduledFleets) {
 //     loc1->attributeIs("Destination", "loc2");
 
 //     // with speed of 1 and length 1, only one shipment should have arrived
-//     m->nowIs(104);
+//     m->simulationManager()->timeIs(104);
 
 //     // check that one shipment has arrived
 //     EXPECT_EQ("1", loc2->attribute("Shipments Received"));

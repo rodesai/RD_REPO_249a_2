@@ -1027,12 +1027,12 @@ public:
     FleetPtr fleetDel(EntityID name);
     void activeFleetIs(FleetPtr fleet);
     void notifieeIs(ShippingNetwork::NotifieePtr notifiee);
-    static ShippingNetworkPtr ShippingNetworkIs(EntityID name);
+    static ShippingNetworkPtr ShippingNetworkIs(EntityID name, ManagerPtr manager);
 
 private:
     FleetPtr createFleetAndReactor(EntityID name);
-    ShippingNetwork(EntityID name) : Fwk::NamedInterface(name){
-        manager_=Manager::ManagerIs();
+    ShippingNetwork(EntityID name, ManagerPtr manager) : Fwk::NamedInterface(name){
+        manager_=manager;
         locationIteratorPos_=-1;
     }
     ManagerPtr manager_;
