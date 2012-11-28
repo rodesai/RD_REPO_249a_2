@@ -29,6 +29,10 @@ void buildnwaytree(Ptr<Instance::Manager> manager, uint32_t fanout_start,uint32_
         seg->attributeIs("source",leafname);
         segr->attributeIs("source",rootname);
         seg->attributeIs("return segment",segrname);
+        seg->attributeIs("Capacity","10");
+        seg->attributeIs("length","10.0");
+        segr->attributeIs("Capacity","10");
+        segr->attributeIs("length","10.0");
     }
 }
 
@@ -71,18 +75,32 @@ int main(int argc, char *argv[]) {
     seg->attributeIs("source","t");
     segr->attributeIs("source","root");
     seg->attributeIs("return segment","root->t");
+    seg->attributeIs("Capacity","100");
+    seg->attributeIs("length","10.0");
+    segr->attributeIs("Capacity","100");
+    segr->attributeIs("length","10.0");
 
     // Setup fleet/conn
     Ptr<Instance> fleet = manager->instanceNew("myFleet","Fleet");
-    fleet->attributeIs("Truck, speed","10");
-    fleet->attributeIs("Truck, capacity","10000");
+    fleet->attributeIs("Truck, speed","20");
+    fleet->attributeIs("Truck, capacity","10");
     Ptr<Instance> conn = manager->instanceNew("myConn","Conn");
     conn->attributeIs("routing", "minHops");
 
-    assigninjectionparams(manager,1,100,"c","60","2","root");
+    assigninjectionparams(manager,1,100,"c","45","10","root");
 
-    manager->simulationManager()->virtualTimeIs(48.0);
+    manager->simulationManager()->timeIs(30.0);
     std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
-    manager->simulationManager()->virtualTimeIs(96.0);
+    manager->simulationManager()->timeIs(60.0);
+    std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
+    manager->simulationManager()->timeIs(90.0);
+    std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
+    manager->simulationManager()->timeIs(120.0);
+    std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
+    manager->simulationManager()->timeIs(150.0);
+    std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
+    manager->simulationManager()->timeIs(180.0);
+    std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
+    manager->simulationManager()->timeIs(210.0);
     std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
 }
