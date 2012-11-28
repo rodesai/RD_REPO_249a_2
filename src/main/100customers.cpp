@@ -29,9 +29,9 @@ void buildnwaytree(Ptr<Instance::Manager> manager, uint32_t fanout_start,uint32_
         seg->attributeIs("source",leafname);
         segr->attributeIs("source",rootname);
         seg->attributeIs("return segment",segrname);
-        seg->attributeIs("Capacity","10");
+        seg->attributeIs("Capacity","20");
         seg->attributeIs("length","10.0");
-        segr->attributeIs("Capacity","10");
+        segr->attributeIs("Capacity","20");
         segr->attributeIs("length","10.0");
     }
 }
@@ -75,9 +75,9 @@ int main(int argc, char *argv[]) {
     seg->attributeIs("source","t");
     segr->attributeIs("source","root");
     seg->attributeIs("return segment","root->t");
-    seg->attributeIs("Capacity","100");
+    seg->attributeIs("Capacity","200");
     seg->attributeIs("length","10.0");
-    segr->attributeIs("Capacity","100");
+    segr->attributeIs("Capacity","200");
     segr->attributeIs("length","10.0");
 
     // Setup fleet/conn
@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
     Ptr<Instance> conn = manager->instanceNew("myConn","Conn");
     conn->attributeIs("routing", "minHops");
 
-    assigninjectionparams(manager,1,100,"c","45","10","root");
+    assigninjectionparams(manager,1,100,"c","90","10","root");
 
     manager->simulationManager()->timeIs(30.0);
     std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
