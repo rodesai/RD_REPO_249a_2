@@ -101,7 +101,7 @@ private:
 SimulationManagerImpl::SimulationManagerImpl(){
     virtualTimeManager_ = Activity::Manager::ManagerIs();
     realTimeManager_ = Activity::Manager::ManagerIs();
-    r2vTimeActivity_ = new RealToVirtualTimeActivity(realTimeManager_,virtualTimeManager_,1000000);
+    r2vTimeActivity_ = new RealToVirtualTimeActivity(realTimeManager_,virtualTimeManager_,10000);
     // Setup activity
     Activity::ActivityPtr activityPtr = realTimeManager_->activityNew("r2vtime_activity");
     activityPtr->nextTimeIs(0.0);

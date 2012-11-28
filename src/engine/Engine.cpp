@@ -221,12 +221,15 @@ void Customer::shipmentIs(ShipmentPtr shipment) {
 }
 
 void CustomerReactor::onShipment(ShipmentPtr shipment) {
-    DEBUG_LOG << "Shipment has arrived at customer.\n";
+
+    DEBUG_LOG << "Shipment " << shipment->name() << " arrived at customer " << notifier()->name() 
+              << " from customer " << shipment->source()->name() << " @ " << manager_->now().value() << std::endl;
 
     // if shipment is arriving at destination, udpate stats
     if (shipment->destination()->name() == notifier_->name()) {
-        DEBUG_LOG << "  Customer is destination; updating stats...\n";
         CustomerPtr cust = dynamic_cast<Customer*> (shipment->destination().ptr());
+        DEBUG_LOG << "  Customer is destination; updating stats: \n";
+        DEBUG_LOG << "     latency: " << Hour(manager_->now().value() - shipment->startTime().value()).value() << std::endl;
         cust->totalLatency_ = Hour(cust->totalLatency_.value() + manager_->now().value() - shipment->startTime().value());
         cust->totalCost_ = cust->totalCost_ + shipment->cost();
         cust->shipmentsReceived_ ++;
@@ -276,17 +279,16 @@ void CustomerReactor::checkAndCreateInjectActivity() {
 void InjectActivityReactor::onStatus() {
     if (notifier_->status() == Activity::Activity::executing()) {
         ShipmentPtr shipment = new Shipment(uniqueName());
-        DEBUG_LOG << "Creating shipment " << shipment->name() << " at " << manager_->now().value() << "\n";
+        DEBUG_LOG << "Creating shipment " << shipment->name() << " for source " << source_->name() << " @ " << manager_->now().value() << "\n";
         shipment->loadIs(source_->shipmentSize());
         shipment->sourceIs(source_);
         shipment->destinationIs(source_->destination());
         shipment->startTimeIs(manager_->now());
         // add shipment to location
         source_->shipmentIs(shipment);
-        DEBUG_LOG << "INJECTING SHIPMENT @ " << manager_->now().value() << std::endl;
     }
     else if(notifier_->status() == Activity::Activity::free()){
-        DEBUG_LOG << "Next shipment time is " << source_->nextShipmentTime().value() << ".\n";
+        DEBUG_LOG << source_->name() << " next shipment @ " << source_->nextShipmentTime().value() << ".\n";
         notifier_->nextTimeIs(source_->nextShipmentTime());
         notifier_->statusIs(Activity::Activity::nextTimeScheduled());
         source_->manager()->lastActivityIs(notifier_);
@@ -450,7 +452,8 @@ void Segment::difficultyIs(Difficulty difficulty){
 }
 
 void Segment::shipmentIs(ShipmentPtr shipment) {
-    DEBUG_LOG << "Shipment has arrived at segment "<< this->name() << "\n";
+
+    DEBUG_LOG << "Shipment " << shipment->name() << " arrived at segment " << this->name() << std::endl; 
 
     // add subshipments to queue
     // TODO: better name?
@@ -947,11 +950,13 @@ void SegmentReactor::onCapacity() {
 }
 
 void SegmentReactor::onShipment(ShipmentPtr shipment) {
+
     DEBUG_LOG << "Segment reactor notified of new shipment.\n";
 
     // increase reject count if there are no available carriers
     SegmentPtr segment = const_cast<Segment*> (notifier_.ptr());
     if (segment->carriersUsed() >= segment->capacity().value()) {
+        DEBUG_LOG << "Segment " << notifier()->name() << " refusing shipment " << shipment->name() << std::endl;
         segment->shipmentsRefusedInc();
     }
 

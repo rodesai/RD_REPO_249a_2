@@ -1,6 +1,7 @@
 #include <iostream>
 #include <time.h>
 
+#include "logging.h"
 #include "activity/Activity.h"
 
 namespace Activity{
@@ -65,6 +66,13 @@ void Manager::lastActivityIs(ActivityPtr activity) {
 }
 
 void Manager::nowIs(Time t) {
+
+    DEBUG_LOG << std::endl;
+    DEBUG_LOG << "==================================" << std::endl;
+    DEBUG_LOG << "NOW: " << t.value() << std::endl;
+    DEBUG_LOG << "==================================" <<std::endl;
+    DEBUG_LOG << std::endl;
+
     //find the most recent activites to run and run them in order
     while (!scheduledActivities_.empty()) {
         //figure out the next activity to run
