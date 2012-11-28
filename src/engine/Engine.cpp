@@ -1024,6 +1024,7 @@ void ForwardActivityReactor::onStatus() {
             while(capacity > 0){
                 SubshipmentPtr subshipment;
                 subshipment = segment_->subshipmentDequeue(capacity);
+                if(!subshipment) break; // Exit loop if all shipments dequeued
                 subshipments_.push_back(subshipment);
                 capacity = subshipment->remainingLoad().value() - capacity.value();
                 DEBUG_LOG << "  Picking up new subshipment for shipment "<< subshipment->shipment()->name()<<"\n";
