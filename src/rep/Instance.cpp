@@ -31,7 +31,6 @@ static const string shipmentsReceivedStr = "Shipments Received";
 static const string averageLatencyStr = "Average Latency";
 static const string totalCostStr = "Total Cost";
 static const string shipmentsRefusedStr = "Shipments Refused";
-// TODO: do we need two capacities?
 static const string capacityStr2 = "Capacity";
 static const string startTimeStr = "Start Time";
 static const int segmentStrlen = segmentStr.length();
@@ -173,11 +172,11 @@ public:
         try{
             return attributeImpl(name);
         }
-        catch(ArgumentException e){
-            std::cerr << e.message() << std::endl;
+        catch(Fwk::Exception e){
+            std::cerr << e.what() << std::endl;
         }
         catch(...){
-            std::cerr << "Error reading attribute" << std::endl;
+            std::cerr << "Error reading attribute." << std::endl;
         }
         return "";
     }
@@ -185,11 +184,11 @@ public:
         try{
             attributeIsImpl(name,v);
         }
-        catch(ArgumentException e){
-            std::cerr << e.message() << std::endl;
+        catch(Fwk::Exception e){
+            std::cerr << e.what() << std::endl;
         }
         catch(...){
-            std::cerr << "Error writing attribute" << std::endl; 
+            std::cerr << "Error writing attribute." << std::endl; 
         }
     }
     virtual string attributeImpl(const string& name)=0;
@@ -214,20 +213,17 @@ public:
 protected:
     Ptr<ManagerImpl> manager_;
     LocationPtr representee_;
-    int segmentNumber(const string& name) {
+    string lookupSegment(const string& name) {
         if (name.substr(0, segmentStrlen) == segmentStr) {
             const char* t = name.c_str() + segmentStrlen;
-            return atoi(t);
+            SegmentPtr sp;
+            if ((sp = representee_->segment(atoi(t)))) {
+                return sp->name();
+            }
+            fprintf(stderr, "Location does not have segment at index %d.\n", atoi(t));
+            return "";
         }
-        return 0;
-    }
-    string lookupSegment(const string& name) {
-        int i = segmentNumber(name);
-        SegmentPtr sp;
-        if ((sp = representee_->segment(i))) {
-            return sp->name();
-        }
-        fprintf(stderr, "Location does not have segment at index %d.\n", i);
+        fprintf(stderr, "Invalid input.\n");
         return "";
     }
 };
@@ -271,10 +267,8 @@ public:
             Location::EntityType::customer());
     }
     string attributeImpl(const string& name) {
-        // TODO: is this the cleanest way to have a general pointer?
         Customer* cust = dynamic_cast<Customer*> (representee_.ptr());
 
-        // TODO: do we need to prevent access to these methods if the customer is not a destination/source?
         if (name == transferRateStr) {
             return cust->transferRate().str();
         } else if (name == shipmentSizeStr) {
@@ -813,86 +807,90 @@ ManagerImpl::ManagerImpl() {
 
 Ptr<Instance> ManagerImpl::instanceNew(const string& name,
     const string& type) {
-    try{
-    // do not name anything the empty string
-    if (name == "") {
-        fprintf(stderr, "Invalid name.\n");
+    try {
+        // do not name anything the empty string
+        if (name == "") {
+            fprintf(stderr, "Invalid name.\n");
+            return NULL;
+        }
+
+        // do not create an instance if the name already exists
+        if (instance(name)) {
+            fprintf(stderr, "Instance already exists with name %s.\n", name.data());
+            return NULL;
+        }
+
+        Ptr<Instance> inst;
+        InstanceType instType;
+
+        // Location Types
+        if (type == truckTerminalStr) {
+            inst = new TruckTerminalRep(name, this);
+            instType = truckTerminal_;
+        } else if (type == customerStr) {
+            inst = new CustomerRep(name, this);
+            instType = customer_;
+        } else if (type == portStr) {
+            inst = new PortRep(name, this);
+            instType = port_;
+        } else if (type == boatTerminalStr) {
+            inst = new BoatTerminalRep(name, this);
+            instType = boatTerminal_;
+        } else if (type == planeTerminalStr) {
+            inst = new PlaneTerminalRep(name, this);
+            instType = planeTerminal_;
+        }
+
+        // Segment Types
+        else if (type == planeSegmentStr) {
+            inst = new PlaneSegmentRep(name, this);
+            instType = planeSegment_;
+        } else if (type == truckSegmentStr) {
+            inst = new TruckSegmentRep(name, this);
+            instType = truckSegment_;
+        } else if (type == boatSegmentStr) {
+            inst = new BoatSegmentRep(name, this);
+            instType = boatSegment_;
+        }
+
+        // Conn Type
+        else if (type == "Conn") {
+            if (connInstance_) return connInstance_;
+            connInstance_ = new ConnRep(name, this);
+            inst = connInstance_;
+            instType = conn_;
+            // Register the conn rep with the simulation manager
+            simulationManager_->connIs(connInstance_);
+        }
+
+        // Fleet Type
+        else if (type == "Fleet") {
+            // not unique
+            inst = new FleetRep(name, this);
+            instType = fleet_;
+        }
+
+        // Stats Type
+        else if (type == "Stats") {
+            if (statsInstance_) return statsInstance_;
+            statsInstance_ = new StatsRep(name, this);
+            inst = statsInstance_;
+            instType = stats_;
+        }
+
+        else {
+            fprintf(stderr, "Invalid instance new.\n");
+            return NULL;
+        }
+
+        InstanceMapElem ime = {instType, inst};
+        instance_[name] = ime;
+        return inst;
+
+    }
+    catch(Fwk::Exception e){
+        std::cerr << e.what() << std::endl;
         return NULL;
-    }
-
-    // do not create an instance if the name already exists
-    if (instance(name)) {
-        fprintf(stderr, "Instance already exists with name %s.\n", name.data());
-        return NULL;
-    }
-
-    Ptr<Instance> inst;
-    InstanceType instType;
-
-    // Location Types
-    if (type == truckTerminalStr) {
-        inst = new TruckTerminalRep(name, this);
-        instType = truckTerminal_;
-    } else if (type == customerStr) {
-        inst = new CustomerRep(name, this);
-        instType = customer_;
-    } else if (type == portStr) {
-        inst = new PortRep(name, this);
-        instType = port_;
-    } else if (type == boatTerminalStr) {
-        inst = new BoatTerminalRep(name, this);
-        instType = boatTerminal_;
-    } else if (type == planeTerminalStr) {
-        inst = new PlaneTerminalRep(name, this);
-        instType = planeTerminal_;
-    }
-
-    // Segment Types
-    else if (type == planeSegmentStr) {
-        inst = new PlaneSegmentRep(name, this);
-        instType = planeSegment_;
-    } else if (type == truckSegmentStr) {
-        inst = new TruckSegmentRep(name, this);
-        instType = truckSegment_;
-    } else if (type == boatSegmentStr) {
-        inst = new BoatSegmentRep(name, this);
-        instType = boatSegment_;
-    }
-
-    // Conn Type
-    else if (type == "Conn") {
-        if (connInstance_) return connInstance_;
-        connInstance_ = new ConnRep(name, this);
-        inst = connInstance_;
-        instType = conn_;
-        // Register the conn rep with the simulation manager
-        simulationManager_->connIs(connInstance_);
-    }
-
-    // Fleet Type
-    else if (type == "Fleet") {
-        // not unique
-        inst = new FleetRep(name, this);
-        instType = fleet_;
-    }
-
-    // Stats Type
-    else if (type == "Stats") {
-        if (statsInstance_) return statsInstance_;
-        statsInstance_ = new StatsRep(name, this);
-        inst = statsInstance_;
-        instType = stats_;
-    }
-
-    else {
-        fprintf(stderr, "Invalid instance new.\n");
-        return NULL;
-    }
-
-    InstanceMapElem ime = {instType, inst};
-    instance_[name] = ime;
-    return inst;
-
     }
     catch(...){
         std::cerr << "Error caught from rep layer" << std::endl;
@@ -901,24 +899,27 @@ Ptr<Instance> ManagerImpl::instanceNew(const string& name,
 }
 
 void ManagerImpl::instanceDel(const string& name) {
-    try{
-    map<string,InstanceMapElem>::const_iterator t = instance_.find(name);
-    if (t == instance_.end()) {
-        fprintf(stderr, "Instance does not exist with name: %s.\n", name.data());
-        return;
-    }
-    Ptr<Instance> inst = (*t).second.ptr;
-    InstanceType instType = (*t).second.type;
-    if (instType == customer_ || instType == port_ || instType == truckTerminal_ ||
-        instType == boatTerminal_ || instType == planeTerminal_) {
-        shippingNetwork_->locationDel(name);
-    } else if (instType == boatSegment_ || instType == truckSegment_ ||
-        instType == planeSegment_) {
-        shippingNetwork_->segmentDel(name);
-    }
+    try {
+        map<string,InstanceMapElem>::const_iterator t = instance_.find(name);
+        if (t == instance_.end()) {
+            fprintf(stderr, "Instance does not exist with name: %s.\n", name.data());
+            return;
+        }
+        Ptr<Instance> inst = (*t).second.ptr;
+        InstanceType instType = (*t).second.type;
+        if (instType == customer_ || instType == port_ || instType == truckTerminal_ ||
+            instType == boatTerminal_ || instType == planeTerminal_) {
+            shippingNetwork_->locationDel(name);
+        } else if (instType == boatSegment_ || instType == truckSegment_ ||
+            instType == planeSegment_) {
+            shippingNetwork_->segmentDel(name);
+        }
 
-    fprintf(stderr, "Type cannot be deleted.\n");
-    instance_.erase(name);
+        fprintf(stderr, "Type cannot be deleted.\n");
+        instance_.erase(name);
+    }
+    catch(Fwk::Exception e){
+        std::cerr << e.what() << std::endl;
     }
     catch(...){
         std::cerr << "Error caught from rep layer" << std::endl;

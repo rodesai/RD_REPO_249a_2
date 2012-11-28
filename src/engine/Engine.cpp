@@ -96,7 +96,7 @@ void LocationReactor::onShipment(ShipmentPtr shipment) {
     SegmentPtr segment = network_->segment(nextSegmentName);
     if (!segment) {
         DEBUG_LOG << "Cannot find next hop: <" << nextSegmentName << "> to connect " << notifier_->name() << " and " << shipment->destination()->name() << ".\n";
-        throw EntityExistsException();
+        throw Fwk::InternalException("Hop does not exist. Unable to transfer shipment to segment.");
     }
     segment->shipmentIs(shipment);
 }
@@ -125,22 +125,9 @@ void Customer::transferRateIs(ShipmentPerDay spd){
 }
 
 Time Customer::nextShipmentTime() const {
-
+    // division by zero is defined and results in +inf, which is desired
     Time shipmentFrequency = 24.0/(static_cast<double>(transferRate().value()));
     return manager_->now().value()+shipmentFrequency.value();
-
-/*    // If we have already sent the full load for today then dont send any more 
-    if(shipmentsSentToday_ >= transferRate().value()){
-        return (static_cast<uint32_t>(manager_->now().value())/24)*24.0 + 24.0;
-    }
-
-    // Shipments remaining to send
-    uint64_t shipmentsLeft = transferRate().value()-shipmentsSentToday_;
-    // Hours left in the day
-    Time hoursLeft = (static_cast<uint32_t>(manager_->now().value())/24)*24.0 + 24.0 - manager_->now().value();
-    Time nextShipmentOffset = hoursLeft.value()/shipmentsLeft;
-    return manager_->now().value() + nextShipmentOffset.value();
-*/
 }
 
 void Customer::shipmentSizeIs(PackageNum pn) {
@@ -256,19 +243,17 @@ void CustomerReactor::onShipment(ShipmentPtr shipment) {
         SegmentPtr segment = network_->segment(nextSegmentName);
         if (!segment) {
             DEBUG_LOG << "Cannot find next hop: <" << nextSegmentName << "> to connect " << notifier_->name() << " and " << shipment->destination()->name() << ".\n";
-            throw EntityExistsException();
+            throw Fwk::InternalException("Hop does not exist. Unable to transfer shipment to segment.");
         }
         segment->shipmentIs(shipment);
         return;
     }
 
     // shipment ended up at wrong customer
-    // TODO: this is certainly the wrong error type
-    throw EntityExistsException();
+    throw Fwk::InternalException("Shipment ended up at wrong customer.");
 }
 
 void CustomerReactor::checkAndCreateInjectActivity() {
-    // TODO: if transferRate is changed, we should update this
     if (!(transferRateSet_ && shipmentSizeSet_ && destinationSet_)) return;
 
     DEBUG_LOG << "Criteria fully specified. Setting up shipment injection activity...\n";
@@ -1183,16 +1168,16 @@ Conn::ConstraintPtr Conn::CostConstraintIs(Dollar cost){
 
 Conn::PathSelectorPtr Conn::PathSelector::PathSelectorIs(Type type, ConstraintPtr constraints, LocationPtr start, LocationPtr end){
     if(start == NULL){
-        throw new ArgumentException();
+        throw ArgumentException();
     }
     if(type == Conn::PathSelector::connect() && end == NULL){
-        throw new ArgumentException();
+        throw ArgumentException();
     }
     if(type == Conn::PathSelector::explore() && end != NULL){
-        throw new ArgumentException();
+        throw ArgumentException();
     }
     if(type == Conn::PathSelector::spantree() && end != NULL){
-        throw new ArgumentException();
+        throw ArgumentException();
     }
 
     return new PathSelector(type, constraints,start,end);
@@ -1236,6 +1221,9 @@ void Conn::endLocationTypeIs(Location::EntityType type){
 
 void Conn::routingIs(RoutingAlgorithm routingAlgorithm){
     if(routingAlgorithm_==routingAlgorithm) return;
+
+    DEBUG_LOG << "Routing has changed.\n";
+
     routingAlgorithm_=routingAlgorithm;
     // Call Notifiees
     Conn::NotifieeList::iterator it;
@@ -1608,6 +1596,7 @@ void RoutingReactor::onRouting(){
 
 void RoutingReactor::initRoutingTable(Conn::TraversalOrder* traversal){
     // Iterate over each location and entries for it to the route table
+    DEBUG_LOG << "Init routing table.\n";
     uint32_t index;
     for(index = 0; index < network_->locationCount(); index++){
         LocationPtr location = network_->location(index);
