@@ -26,18 +26,14 @@ namespace Shipping {
 
 typedef std::string EntityID;
 
-class ArgumentException : public std::exception {
+class ArgumentException : public Fwk::Exception {
 public:
-    virtual const char* message() const throw() {
-        return "Argument exception";
-    }
+    ArgumentException() : Exception("Argument exception."){}
 };
 
-class EntityExistsException : public std::exception {
+class EntityExistsException : public Fwk::Exception {
 public:
-    virtual const char* message() const throw() {
-        return "Entity exists";
-    }
+    EntityExistsException() : Exception("Entity exists.") {}
 };
 
 class Multiplier : public Ordinal<Multiplier, double> {
