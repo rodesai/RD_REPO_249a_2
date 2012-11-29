@@ -281,7 +281,6 @@ void CustomerReactor::checkAndCreateInjectActivity() {
 void InjectActivityReactor::onStatus() {
     if (notifier_->status() == Activity::Activity::executing()) {
         ShipmentPtr shipment = new Shipment(uniqueName());
-        //std::cout << "Creating shipment " << shipment->name() << " for source " << source_->name() << " of size " << source_->shipmentSize().value() << " @ " << manager_->now().value() << "\n";
         shipment->loadIs(source_->shipmentSize());
         shipment->sourceIs(source_);
         shipment->destinationIs(source_->destination());

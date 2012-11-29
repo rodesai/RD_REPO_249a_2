@@ -104,17 +104,17 @@ int main(int argc, char *argv[]) {
     else
         assigninjectionparams(manager,1,100,"c", "root", 160, 1,1000);
 
-    manager->simulationManager()->virtualTimeIs(30);
+    manager->simulationManager()->timeIs(30);
     std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
-    manager->simulationManager()->virtualTimeIs(60);
+    manager->simulationManager()->timeIs(60);
     std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
-    manager->simulationManager()->virtualTimeIs(90);
+    manager->simulationManager()->timeIs(90);
     std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
-    manager->simulationManager()->virtualTimeIs(120);
+    manager->simulationManager()->timeIs(120);
     std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
-    manager->simulationManager()->virtualTimeIs(150);
+    manager->simulationManager()->timeIs(150);
     std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
-    manager->simulationManager()->virtualTimeIs(180);
+    manager->simulationManager()->timeIs(180);
     std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
 
     std::cout << std::endl;
