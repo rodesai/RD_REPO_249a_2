@@ -23,7 +23,7 @@ string uniqueName() {
     return s.str();
 }
 
-SegmentCount Location::segmentCount() const { 
+SegmentNum Location::segmentCount() const { 
     return segments_.size(); 
 }
 
@@ -518,7 +518,7 @@ Dollar Segment::carrierCost() const {
  *
  */
 
-uint32_t Stats::locationCount(Location::EntityType et) const {
+LocationNum Stats::locationCount(Location::EntityType et) const {
     Stats::LocationCountMap::const_iterator pos = locationCount_.find(et);
     if(pos == locationCount_.end()){
         return 0;
@@ -526,7 +526,7 @@ uint32_t Stats::locationCount(Location::EntityType et) const {
     return pos->second;
 }
 
-uint32_t Stats::segmentCount(TransportMode et) const {
+SegmentNum Stats::segmentCount(TransportMode et) const {
     Stats::SegmentCountMap::const_iterator pos = segmentCount_.find(et);
     if(pos == segmentCount_.end()){
         return 0;
@@ -534,7 +534,7 @@ uint32_t Stats::segmentCount(TransportMode et) const {
     return pos->second;
 }
 
-uint32_t Stats::segmentCount(PathMode et) const {
+SegmentNum Stats::segmentCount(PathMode et) const {
     Stats::PathModeCountMap::const_iterator pos = modeCount_.find(et);
     if(pos == modeCount_.end()){
         return 0;
@@ -611,7 +611,7 @@ SegmentPtr ShippingNetwork::segment(EntityID name) const {
     return pos->second;
 }
 
-uint32_t ShippingNetwork::locationCount() const {
+LocationNum ShippingNetwork::locationCount() const {
     return locationMap_.size();
 }
 
@@ -991,7 +991,7 @@ void SegmentReactor::startupFAR() {
 
     // DEBUGGING
     if (segment->carriersUsed() >= segment->capacity().value())
-        DEBUG_LOG << "Using all " << segment->carriersUsed()<< " carriers.\n";
+        DEBUG_LOG << "Using all " << segment->carriersUsed().value() << " carriers.\n";
     if (segment->subshipmentQueue_.empty())
         DEBUG_LOG << "No more subshipments.\n";
 }
@@ -1564,7 +1564,7 @@ Path::PathElementPtr Path::pathElement(uint32_t index) const{
     return path_[index];
 }
 
-PathElementCount Path::pathElementCount() const {
+PathElementNum Path::pathElementCount() const {
     return path_.size();
 }
 
@@ -1611,7 +1611,7 @@ void RoutingReactor::initRoutingTable(Conn::TraversalOrder* traversal){
     // Iterate over each location and entries for it to the route table
     DEBUG_LOG << "ROUTING: Init routing table.\n";
     uint32_t index;
-    for(index = 0; index < network_->locationCount(); index++){
+    for(index = 0; index < network_->locationCount().value(); index++){
         LocationPtr location = network_->location(index);
         // Use to merge paths across path modes
         std::map<EntityID,PathPtr> pathsUsed;

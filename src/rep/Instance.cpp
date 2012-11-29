@@ -279,12 +279,10 @@ public:
             if (dest) return dest->name();
             return "";
         } else if (name == shipmentsReceivedStr) {
-            stringstream s;
-            s << fixed << cust->shipmentsReceived();
-            return s.str();
+            return cust->shipmentsReceived().str();
         } else if (name == averageLatencyStr) {
             double result = 0.0;
-            double numShipments = (double) cust->shipmentsReceived();
+            double numShipments = (double) cust->shipmentsReceived().value();
             if (numShipments > 0) {
                 result = cust->totalLatency().value() / numShipments;
             }
@@ -355,19 +353,13 @@ public:
                             PathMode::expedited()) ?
                 "yes" : "no";
         } else if (name == shipmentsReceivedStr) {
-            stringstream s;
-            s << fixed << representee_->shipmentsReceived();
-            return s.str();
+            return representee_->shipmentsReceived().str();
         } else if (name == shipmentsRefusedStr) {
-            stringstream s;
-            s << fixed << representee_->shipmentsRefused();
-            return s.str();
+            return representee_->shipmentsRefused().str();
         } else if (name == capacityStr2) {
             return representee_->capacity().str();
         } else if (name == shipmentsRoutedStr){
-            stringstream s;
-            s << representee_->shipmentsRouted();
-            return s.str();
+            return representee_->shipmentsRouted().str();
         }
         fprintf(stderr, "Invalid attribute input: %s.\n", name.data());
         return "";
@@ -574,41 +566,41 @@ public:
         // return location count
         if (name == truckTerminalStr) {
             ss << stats_->locationCount(
-                Location::EntityType::truckTerminal());
+                Location::EntityType::truckTerminal()).str();
         } else if (name == customerStr) {
             ss << stats_->locationCount(
-                Location::EntityType::customer());            
+                Location::EntityType::customer()).str();            
         } else if (name == portStr) {
             ss << stats_->locationCount(
-                Location::EntityType::port());            
+                Location::EntityType::port()).str();            
         } else if (name == planeTerminalStr) {
             ss << stats_->locationCount(
-                Location::EntityType::planeTerminal());            
+                Location::EntityType::planeTerminal()).str();            
         } else if (name == boatTerminalStr) {
             ss << stats_->locationCount(
-                Location::EntityType::boatTerminal());            
+                Location::EntityType::boatTerminal()).str();            
         }
 
         // return segment stats
         else if (name == boatSegmentStr) {
             ss << stats_->segmentCount(
-                TransportMode::boat());
+                TransportMode::boat()).str();
         } else if (name == truckSegmentStr) {
             ss << stats_->segmentCount(
-                TransportMode::truck());
+                TransportMode::truck()).str();
         } else if (name == planeSegmentStr) {
             ss << stats_->segmentCount(
-                TransportMode::plane());
+                TransportMode::plane()).str();
         }
 
         // expedite percentage
         else if (name == "expedite percentage") {
             ss.precision(2);
-            uint32_t totalCount = stats_->totalSegmentCount();
-            uint32_t expeditedCount = stats_->segmentCount(PathMode::expedited());
+            uint32_t totalCount = stats_->totalSegmentCount().value();
+            uint32_t expeditedCount = stats_->segmentCount(PathMode::expedited()).value();
             double percentage = 0.0;
             if(totalCount>0){ 
-                percentage =  100.0 * ((double)expeditedCount)/((double)stats_->totalSegmentCount());
+                percentage =  100.0 * ((double)expeditedCount)/((double)stats_->totalSegmentCount().value());
             }
             ss << fixed << percentage;
         }

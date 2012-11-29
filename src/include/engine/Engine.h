@@ -201,10 +201,103 @@ public:
         s << value_;
         return s.str();
     }
+    ShipmentNum operator++(int) {
+        return ++value_;
+    }
+    ShipmentNum operator--(int) {
+        return --value_;
+    }
     static ShipmentNum defaultValue(){ return defaultValue_; }
 private:
     static const int64_t defaultValue_ = 10;
 };
+
+class PathElementNum : public Ordinal<PathElementNum, int64_t> {
+public:
+    PathElementNum(int64_t num) : Ordinal<PathElementNum, int64_t>(num) {
+        if (num < 0) throw ArgumentException();
+    }
+    PathElementNum() : Ordinal<PathElementNum, int64_t>(defaultValue_) {}
+    std::string str() {
+        std::stringstream s;
+        s << value_;
+        return s.str();
+    }
+    static PathElementNum defaultValue(){ return defaultValue_; }
+private:
+    static const int64_t defaultValue_ = 10;
+};
+
+class SubshipmentNum : public Ordinal<SubshipmentNum, int64_t> {
+public:
+    SubshipmentNum(int64_t num) : Ordinal<SubshipmentNum, int64_t>(num) {
+        if (num < 0) throw ArgumentException();
+    }
+    SubshipmentNum() : Ordinal<SubshipmentNum, int64_t>(defaultValue_) {}
+    std::string str() {
+        std::stringstream s;
+        s << value_;
+        return s.str();
+    }
+    static SubshipmentNum defaultValue(){ return defaultValue_; }
+private:
+    static const int64_t defaultValue_ = 10;
+};
+
+class CarrierNum : public Ordinal<CarrierNum, int64_t> {
+public:
+    CarrierNum(int64_t num) : Ordinal<CarrierNum, int64_t>(num) {
+        if (num < 0) throw ArgumentException();
+    }
+    CarrierNum() : Ordinal<CarrierNum, int64_t>(defaultValue_) {}
+    std::string str() {
+        std::stringstream s;
+        s << value_;
+        return s.str();
+    }
+    CarrierNum operator++(int) {
+        return ++value_;
+    }
+    CarrierNum operator--(int) {
+        return --value_;
+    }
+    static CarrierNum defaultValue(){ return defaultValue_; }
+private:
+    static const int64_t defaultValue_ = 10;
+};
+
+class LocationNum : public Ordinal<LocationNum, int64_t> {
+public:
+    LocationNum(int64_t num) : Ordinal<LocationNum, int64_t>(num) {
+        if (num < 0) throw ArgumentException();
+    }
+    LocationNum() : Ordinal<LocationNum, int64_t>(defaultValue_) {}
+    std::string str() {
+        std::stringstream s;
+        s << value_;
+        return s.str();
+    }
+    static LocationNum defaultValue(){ return defaultValue_; }
+private:
+    static const int64_t defaultValue_ = 10;
+};
+
+class SegmentNum : public Ordinal<SegmentNum, int64_t> {
+public:
+    SegmentNum(int64_t num) : Ordinal<SegmentNum, int64_t>(num) {
+        if (num < 0) throw ArgumentException();
+    }
+    SegmentNum() : Ordinal<SegmentNum, int64_t>(defaultValue_) {}
+    std::string str() {
+        std::stringstream s;
+        s << value_;
+        return s.str();
+    }
+    static SegmentNum defaultValue(){ return defaultValue_; }
+private:
+    static const int64_t defaultValue_ = 10;
+};
+
 
 class ShipmentPerDay : public Ordinal<ShipmentPerDay, int64_t> {
 public:
@@ -303,11 +396,6 @@ typedef Fwk::Ptr<SegmentReactor const> SegmentReactorPtrConst;
 typedef Fwk::Ptr<ShippingNetworkReactor const> ShippingNetworkReactorPtrConst;
 typedef Fwk::Ptr<StatsReactor const> StatsReactorPtrConst;
 
-class SegmentCount : public Ordinal<SegmentCount,uint32_t>{
-public:
-    SegmentCount(uint32_t m) : Ordinal<SegmentCount,uint32_t>(m){}
-};
-
 class Location : public Fwk::NamedInterface {
 public:
     class EntityType : public Ordinal<EntityType,uint8_t> {
@@ -327,7 +415,7 @@ public:
         EntityType(uint8_t m) : Ordinal<EntityType,uint8_t>(m){}
     };
     virtual void shipmentIs(ShipmentPtr shipment);
-    SegmentCount segmentCount() const; 
+    SegmentNum segmentCount() const; 
     SegmentPtr segment(uint32_t index) const; 
     inline EntityType entityType() const { return entityType_; }
 
@@ -392,7 +480,7 @@ public:
     LocationPtr destination() const { return destination_; }
 
     // TODO: these should be updated using ForwardActivityReactor
-    uint32_t shipmentsReceived() const { return shipmentsReceived_; }
+    ShipmentNum shipmentsReceived() const { return shipmentsReceived_; }
     Hour totalLatency() const { return totalLatency_; }
     Dollar totalCost() const { return totalCost_; }
 
@@ -429,10 +517,9 @@ private:
     ManagerPtr manager() const { return manager_; }
     ShipmentPerDay transferRate_;
     PackageNum shipmentSize_;
-    // TODO: make Ptr::Customer?
     LocationPtr destination_;
-    uint32_t shipmentsSentToday_;
-    uint32_t shipmentsReceived_;
+    ShipmentNum shipmentsSentToday_;
+    ShipmentNum shipmentsReceived_;
     Hour totalLatency_;
     Dollar totalCost_;
     ManagerPtr manager_;
@@ -603,20 +690,20 @@ public:
     inline LocationPtr source() const { return source_; }
     inline Mile length() const { return length_; }
     inline ShipmentNum capacity() const { return capacity_; }
-    inline uint32_t shipmentsRouted() const { return shipmentsRouted_; }
-    inline uint32_t shipmentsReceived() const { return shipmentsReceived_; }
-    inline uint32_t shipmentsRefused() const { return shipmentsRefused_; }
+    inline ShipmentNum shipmentsRouted() const { return shipmentsRouted_; }
+    inline ShipmentNum shipmentsReceived() const { return shipmentsReceived_; }
+    inline ShipmentNum shipmentsRefused() const { return shipmentsRefused_; }
     inline SegmentPtr returnSegment() const { return returnSegment_; }
     inline Difficulty difficulty() const { return difficulty_; }
     inline TransportMode transportMode() const { return transportMode_; }
-    inline uint32_t carriersUsed() const { return carriersUsed_; }
+    inline CarrierNum carriersUsed() const { return carriersUsed_; }
     Hour carrierLatency() const;
     PackageNum carrierCapacity() const;
     Dollar carrierCost() const;
     PathMode mode(PathMode mode) const;
     ModeCount modeCount() const;
     PathMode mode(uint16_t) const;
-    uint32_t subshipmentQueueSize() const { return subshipmentQueue_.size(); }
+    SubshipmentNum subshipmentQueueSize() const { return subshipmentQueue_.size(); }
     Activity::Time totalQueueTime(){ return totalQueueTime_; }
     Activity::Time queueTime(){ return queueTime_; }
 
@@ -674,13 +761,13 @@ private:
     NotifieeList notifieeList_;
     ShippingNetworkPtrConst network_;
     Activity::Time totalQueueTime_;
-    uint32_t shipmentsRouted_;
+    ShipmentNum shipmentsRouted_;
     Activity::Time queueTime_;
 
     // for activity forwarding
-    uint32_t carriersUsed_;
-    uint32_t shipmentsReceived_;
-    uint32_t shipmentsRefused_;
+    CarrierNum carriersUsed_;
+    ShipmentNum shipmentsReceived_;
+    ShipmentNum shipmentsRefused_;
     typedef queue<SubshipmentPtr> SubshipmentQueue;
     SubshipmentQueue subshipmentQueue_;
 };
@@ -769,11 +856,6 @@ private:
     ShippingNetworkPtr network_;
 };
 
-class PathElementCount : public Ordinal<PathElementCount,uint32_t>{
-public:
-    PathElementCount(uint32_t m) : Ordinal<PathElementCount,uint32_t>(m){}
-};
-
 class Path : public Fwk::PtrInterface<Path>{
 public:
     class PathElement;
@@ -800,7 +882,7 @@ public:
     LocationPtr firstLocation() const { return firstLocation_; }
     LocationPtr lastLocation() const { return lastLocation_; }
     PathElementPtr pathElement(uint32_t index) const;
-    PathElementCount pathElementCount() const; 
+    PathElementNum pathElementCount() const; 
     LocationPtr location(LocationPtr location) const;
     // mutators
     void pathElementEnq(PathElementPtr element,Dollar cost_,Hour time_,Mile distance_);
@@ -1029,10 +1111,10 @@ private:
 
 class Stats : public Fwk::NamedInterface {
 public:
-    uint32_t locationCount(Location::EntityType et) const; 
-    uint32_t segmentCount(TransportMode et) const;
-    uint32_t segmentCount(PathMode pm) const;
-    uint32_t totalSegmentCount() const { return totalSegmentCount_; }
+    LocationNum locationCount(Location::EntityType et) const; 
+    SegmentNum segmentCount(TransportMode et) const;
+    SegmentNum segmentCount(PathMode pm) const;
+    SegmentNum totalSegmentCount() const { return totalSegmentCount_; }
 private:
     friend class ShippingNetwork;
     friend class SegmentReactor;
@@ -1088,7 +1170,7 @@ public:
     ManagerPtr manager() const { return manager_; }
     SegmentPtr segment(EntityID name) const; 
     LocationPtr location(EntityID name) const;
-    uint32_t locationCount() const;
+    LocationNum locationCount() const;
     LocationPtr location(int32_t index) ;
     ConnPtrConst conn(EntityID name) const;
     ConnPtr conn() const { return connPtr_; }

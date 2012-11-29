@@ -483,11 +483,13 @@ TEST(Activity, HighRate2) {
     // start time and test results
     m->simulationManager()->timeIs(24);
     EXPECT_EQ("10", loc3->attribute("Shipments Received"));
+    EXPECT_EQ("8.50", loc3->attribute("Average Latency"));
 
     // stop shipments, and wait for the remainder to arrive
     loc1->attributeIs("Transfer Rate", "0");
     m->simulationManager()->timeIs(60);
     EXPECT_EQ("24", loc3->attribute("Shipments Received"));
+    EXPECT_EQ("15.50", loc3->attribute("Average Latency"));
 }
 
 TEST(Activity, LongSegment) {
