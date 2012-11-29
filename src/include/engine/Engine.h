@@ -984,7 +984,6 @@ public:
     PathList paths(PathSelectorPtr selector) const;
     EntityID nextHop(EntityID startLocation,EntityID targetLocation) const;
     RoutingAlgorithm routing() const { return routingAlgorithm_; }
-    //PathMode supportedRouteMode(uint32_t index, PathMode mode);
 
     // Mutators
     void routingIs(RoutingAlgorithm routingAlgorithm);
@@ -1049,8 +1048,6 @@ private:
                 if(s->shipmentsReceived() > 0){
                     double randomFactor = ((double)(rand()%1000))/1000.0;
                     retval += randomFactor*s->queueTime().value();
-                    //retval += (randomFactor*s->totalQueueTime().value()) / ((double)s->shipmentsReceived());
-                    //std::cout << "random: " << randomFactor << ", queue time average: " << s->totalQueueTime().value()/((double)s->shipmentsReceived()) << ", traveltime: " << s->length().value() / fleet_->speed(s->transportMode()).value() << std::endl;
                 }
                 retval += s->length().value() / fleet_->speed(s->transportMode()).value();
             }
@@ -1088,7 +1085,6 @@ private:
     }
 
     ShippingNetworkPtrConst shippingNetwork_;
-    //FleetPtr fleet_;
     RoutingAlgorithm routingAlgorithm_;
     RoutingTable nextHop_;
     std::set<Location::EntityType> endLocationType_;

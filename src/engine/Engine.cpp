@@ -86,9 +86,7 @@ void Location::shipmentIs(ShipmentPtr shipment) {
         try{
             (*it)->onShipment(shipment);
         }
-        catch(...){
-            // ERROR: maybe we should log something here
-        }
+        catch(...){}
     }
 }
 
@@ -119,9 +117,7 @@ void Customer::transferRateIs(ShipmentPerDay spd){
         try{
             (*it)->onTransferRate();
         }
-        catch(...){
-            // ERROR: maybe we should log something here
-        }
+        catch(...){}
     }
 }
 
@@ -143,9 +139,7 @@ void Customer::shipmentSizeIs(PackageNum pn) {
         try{
             (*it)->onShipmentSize();
         }
-        catch(...){
-            // ERROR: maybe we should log something here
-        }
+        catch(...){}
     }
 
 }
@@ -168,9 +162,7 @@ void Customer::destinationIs(LocationPtr lp) {
         try{
             (*it)->onDestination();
         }
-        catch(...){
-            // ERROR: maybe we should log something here
-        }
+        catch(...){}
     }
 }
 
@@ -215,9 +207,7 @@ void Customer::shipmentIs(ShipmentPtr shipment) {
         try{
             (*it)->onShipment(shipment);
         }
-        catch(...){
-            // ERROR: maybe we should log something here
-        }
+        catch(...){}
     }
 }
 
@@ -347,9 +337,7 @@ void Segment::sourceIs(LocationPtr source){
         try{
             (*it)->onSource();
         }
-        catch(...){
-            // ERROR: maybe we should log something here
-        }
+        catch(...){}
     }
 }
 
@@ -369,9 +357,7 @@ void Segment::returnSegmentIs(SegmentPtr returnSegment){
         try{
             (*it)->onReturnSegment();
         }
-        catch(...){
-            // ERROR: maybe we should log something here
-        }
+        catch(...){}
     }
 }
 
@@ -390,9 +376,7 @@ void Segment::modeIs(PathMode mode){
         try{
             (*it)->onMode(mode);
         }
-        catch(...){
-            // ERROR: maybe we should log something here
-        }
+        catch(...){}
     }
 }
 
@@ -406,9 +390,7 @@ PathMode Segment::modeDel(PathMode mode){
         try{
             (*it)->onModeDel(mode);
         }
-        catch(...){
-            // ERROR: maybe we should log something here
-        }
+        catch(...){}
     }
     return mode;
 }
@@ -443,9 +425,7 @@ void Segment::capacityIs(ShipmentNum capacity){
         try{
             (*it)->onCapacity();
         }
-        catch(...){
-            // ERROR: maybe we should log something here
-        }
+        catch(...){}
     }
 }
 
@@ -472,9 +452,7 @@ void Segment::shipmentIs(ShipmentPtr shipment) {
         try{
             (*it)->onShipment(shipment);
         }
-        catch(...){
-            // ERROR: maybe we should log something here
-        }
+        catch(...){}
     }
 }
 
@@ -983,7 +961,6 @@ void SegmentReactor::startupFAR() {
         fa->statusIs(Activity::Activity::free());
     }
 
-    // DEBUGGING
     if (segment->carriersUsed() >= segment->capacity().value())
         DEBUG_LOG << "Using all " << segment->carriersUsed().value() << " carriers.\n";
     if (segment->subshipmentQueue_.empty())
@@ -1002,8 +979,6 @@ void ForwardActivityReactor::onStatus() {
                 DEBUG_LOG << "  Shipment " << subshipment->shipment()->name() << " is complete.\n";
                 segment_->deliveryMap_.erase(segment_->deliveryMap_.find(subshipment->shipment()->name()));
                 // Deliver package
-                // segment_->returnSegment()->source()->shipmentIs(subshipment_->shipment());
-                // Setup delivery at the end of current timestep
                 Activity::ActivityPtr da = manager_->activityNew();
                 DeliveryActivityReactor* dar = new DeliveryActivityReactor(subshipment->shipment(), segment_->returnSegment()->source());
                 da->lastNotifieeIs(dar);
@@ -1233,9 +1208,7 @@ void Conn::routingIs(RoutingAlgorithm routingAlgorithm){
         try{
             (*it)->onRouting();
         }
-        catch(...){
-            // ERROR: maybe we should log something here
-        }
+        catch(...){}
     } 
 }
  
@@ -1440,9 +1413,7 @@ void Fleet::startTimeIs(HourOfDay startTime){
         try{
             (*it)->onStartTime();
         }
-        catch(...){
-            // ERROR: maybe we should log something here
-        }
+        catch(...){}
     }    
 }
 
@@ -1634,8 +1605,6 @@ void RoutingReactor::initRoutingTable(Conn::TraversalOrder* traversal){
         // Convert Paths Used to a routing table
         std::map<EntityID,PathPtr>::iterator pathsUsedIt;
         for(pathsUsedIt = pathsUsed.begin(); pathsUsedIt != pathsUsed.end(); pathsUsedIt++){
-            ///if( pathsUsedIt->first == "root" )
-                //std::cout << "Found path from " << location->name() << "to " << pathsUsedIt->first << " via " << pathsUsedIt->second->pathElement(0)->segment()->name() << std::endl;
             DEBUG_LOG << "ROUTING: Found path from " << location->name() << "to " << pathsUsedIt->first << std::endl;
             notifier()->nextHopIs(location->name(),pathsUsedIt->first,pathsUsedIt->second->pathElement(0)->segment()->name());
         }
