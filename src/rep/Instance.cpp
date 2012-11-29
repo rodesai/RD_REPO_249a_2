@@ -511,7 +511,7 @@ public:
         if (name == startTimeStr) {
             // TODO: have a different type within the day?
             DEBUG_LOG << "Setting start time.\n";
-            fleet_->startTimeIs(Time(atof(v.data())));
+            fleet_->startTimeIs(HourOfDay(atof(v.data())));
             return;
         }
 

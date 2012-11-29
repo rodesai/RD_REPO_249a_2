@@ -1426,7 +1426,7 @@ void Fleet::notifieeIs(Fleet::Notifiee* notifiee){
     notifieeList_.push_back(notifiee);
 }
 
-void Fleet::startTimeIs(Time startTime){
+void Fleet::startTimeIs(HourOfDay startTime){
     if (startTime_ == startTime && startTimeSet_)
         return;
 
