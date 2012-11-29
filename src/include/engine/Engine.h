@@ -138,7 +138,7 @@ private:
 class HourOfDay : public Ordinal<HourOfDay, double> {
 public:
     HourOfDay(double num) : Ordinal<HourOfDay, double>(num) {
-        if (num < 0 || num > 24) throw ArgumentException();
+        if (num < 0 || num >= 24) throw ArgumentException();
     }
     HourOfDay() : Ordinal<HourOfDay,double>(defaultValue_){}
     std::string str() {
