@@ -78,7 +78,7 @@ void Location::notifieeIs(Location::Notifiee* notifiee){
 void Location::shipmentIs(ShipmentPtr shipment) {
     // Call Notifiees if not destination
     // TODO: this shouldn't occur at all
-    if (entityType_ == EntityType::customer())
+    if (entityType_ == customer())
         return;
     Location::NotifieeList::iterator it;
     for ( it=notifieeList_.begin(); it < notifieeList_.end(); it++ ){
@@ -155,7 +155,7 @@ void Customer::destinationIs(LocationPtr lp) {
             return;
 
     // ignore the request if the destination is not a customer
-    if (lp->entityType() != EntityType::customer()) {
+    if (lp->entityType() != customer()) {
         throw ArgumentException();
     }
 
@@ -767,7 +767,7 @@ LocationPtr ShippingNetwork::LocationNew(EntityID name, Location::EntityType ent
 
     // Create a New Segment
     LocationPtr retval;
-    if (entityType == Location::EntityType::customer()) {
+    if (entityType == Location::customer()) {
         retval = new Customer(name, entityType);
         CustomerPtr cust = (dynamic_cast<Customer*> (retval.ptr()));
         cust->manager_ = manager_;
@@ -1037,7 +1037,7 @@ void ForwardActivityReactor::onStatus() {
                     DEBUG_LOG << "  Shipment is starting.\n";
                     segment_->shipmentsReceivedInc();
                     segment_->deliveryMap_[subshipment->shipment()->name()] = 0;
-                    DEBUG_LOG << "  Shipment queue time is " << manager_->now().value()-subshipment->shipment()->queueTime().value() << std::endl;
+                    DEBUG_LOG << "  Segment " << segment_->name() << " shipment queue time is " << manager_->now().value()-subshipment->shipment()->queueTime().value() << std::endl;
                     segment_->queueTimeIs(manager_->now().value()-subshipment->shipment()->queueTime().value());
                 }
             }
