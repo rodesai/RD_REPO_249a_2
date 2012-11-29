@@ -77,9 +77,10 @@ void Location::notifieeIs(Location::Notifiee* notifiee){
 
 void Location::shipmentIs(ShipmentPtr shipment) {
     // Call Notifiees if not destination
-    // TODO: this shouldn't occur at all
-    if (entityType_ == customer())
+    if (entityType_ == customer()) {
+        throw Fwk::InternalException("Wrong function called.");
         return;
+    }
     Location::NotifieeList::iterator it;
     for ( it=notifieeList_.begin(); it < notifieeList_.end(); it++ ){
         try{
@@ -457,7 +458,6 @@ void Segment::shipmentIs(ShipmentPtr shipment) {
     DEBUG_LOG << "Shipment " << shipment->name() << " arrived at segment " << this->name() << std::endl; 
 
     // add subshipments to queue
-    // TODO: better name?
     SubshipmentPtr s = new Subshipment("name");
     s->shipmentIs(shipment);
     s->shipmentOrderIs(Subshipment::other());
@@ -500,7 +500,6 @@ SubshipmentPtr Segment::subshipmentDequeue(PackageNum capacity) {
 }
 
 Hour Segment::carrierLatency() const {
-    // TODO: can make this more general (include difficulty, expedite)
     return Hour(length_.value() / network_->activeFleet()->speed(transportMode_).value());
 }
 
@@ -509,7 +508,6 @@ PackageNum Segment::carrierCapacity() const {
 }
 
 Dollar Segment::carrierCost() const {
-    // TODO: can make this more general
     return Dollar(length_.value() * network_->activeFleet()->cost(transportMode_).value());
 }
 
@@ -681,7 +679,6 @@ ShippingNetworkPtr ShippingNetwork::ShippingNetworkIs(EntityID name, ManagerPtr 
 }
 
 void ShippingNetwork::activeFleetIs(FleetPtr fleet) {
-    // TODO: should we take the entityID as a parameter instead?
     DEBUG_LOG << "Active fleet is now " << fleet->name() << "\n";
     fleetPtr_ = fleet;
 }
@@ -711,7 +708,6 @@ SegmentPtr ShippingNetwork::SegmentNew(EntityID name, TransportMode entityType, 
     segmentMap_[name]=retval;
 
     // Setup Reactor
-    // TODO: is it an issue that I'm not using Ptr?
     SegmentReactor* sr = new SegmentReactor(this,statPtr_);
     sr->manager_ = manager_;
     retval->notifieeIs(sr);
@@ -773,7 +769,6 @@ LocationPtr ShippingNetwork::LocationNew(EntityID name, Location::EntityType ent
         cust->manager_ = manager_;
 
         // create CustomerReactor
-        // TODO: is this pointer a problem?
         CustomerReactor* notifiee = new CustomerReactor();
         notifiee->manager_ = manager_;
         notifiee->network_ = this;
@@ -858,7 +853,6 @@ ConnPtr ShippingNetwork::connDel(EntityID name){
     return it->second;
 }
 
-// TODO: this function could be absorbed into the constructor for Fleet
 FleetPtr ShippingNetwork::createFleetAndReactor(EntityID name) {
     FleetPtr fleet = new Fleet(name);
     FleetReactor* fr = new FleetReactor();
