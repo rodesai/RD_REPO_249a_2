@@ -168,10 +168,12 @@ private:
     static const double defaultValue_ = 1.0;
 };
 
-class PackageNum : public Ordinal<PackageNum, uint64_t> {
+class PackageNum : public Ordinal<PackageNum, int64_t> {
 public:
-    PackageNum(uint64_t num) : Ordinal<PackageNum, uint64_t>(num) {}
-    PackageNum() : Ordinal<PackageNum, uint64_t>(defaultValue_) {}
+    PackageNum(int64_t num) : Ordinal<PackageNum, int64_t>(num){
+        if (num < 0) throw ArgumentException();
+    }
+    PackageNum() : Ordinal<PackageNum, int64_t>(defaultValue_) {}
     std::string str() {
         std::stringstream s;
         s << value_;
@@ -185,13 +187,15 @@ public:
         return PackageNum(value_ - other.value());
     }
 private:
-    static const uint64_t defaultValue_ = 1;
+    static const int64_t defaultValue_ = 1;
 };
 
-class ShipmentNum : public Ordinal<ShipmentNum, uint64_t> {
+class ShipmentNum : public Ordinal<ShipmentNum, int64_t> {
 public:
-    ShipmentNum(uint64_t num) : Ordinal<ShipmentNum, uint64_t>(num) {}
-    ShipmentNum() : Ordinal<ShipmentNum, uint64_t>(defaultValue_) {}
+    ShipmentNum(int64_t num) : Ordinal<ShipmentNum, int64_t>(num) {
+        if (num < 0) throw ArgumentException();
+    }
+    ShipmentNum() : Ordinal<ShipmentNum, int64_t>(defaultValue_) {}
     std::string str() {
         std::stringstream s;
         s << value_;
@@ -199,13 +203,15 @@ public:
     }
     static ShipmentNum defaultValue(){ return defaultValue_; }
 private:
-    static const uint64_t defaultValue_ = 10;
+    static const int64_t defaultValue_ = 10;
 };
 
-class ShipmentPerDay : public Ordinal<ShipmentPerDay, uint64_t> {
+class ShipmentPerDay : public Ordinal<ShipmentPerDay, int64_t> {
 public:
-    ShipmentPerDay(uint64_t num) : Ordinal<ShipmentPerDay, uint64_t>(num) {}
-    ShipmentPerDay() : Ordinal<ShipmentPerDay, uint64_t>(defaultValue_) {}
+    ShipmentPerDay(int64_t num) : Ordinal<ShipmentPerDay, int64_t>(num) {
+        if (num < 0) throw ArgumentException();
+    }
+    ShipmentPerDay() : Ordinal<ShipmentPerDay, int64_t>(defaultValue_) {}
     std::string str() {
         std::stringstream s;
         s << value_;
@@ -213,7 +219,7 @@ public:
     }
     static ShipmentPerDay defaultValue(){ return defaultValue_; }
 private:
-    static const uint64_t defaultValue_ = 0;
+    static const int64_t defaultValue_ = 0;
 };
 
 class TransportMode : public Ordinal<TransportMode,uint8_t> {

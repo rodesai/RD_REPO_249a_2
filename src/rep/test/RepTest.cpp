@@ -1,17 +1,21 @@
 #include "gtest/gtest.h"
 #include "rep/Instance.h"
-
-TEST(Instance, CreateInstanceManager) {
-    Ptr<Instance::Manager> m = shippingInstanceManager();
-    ASSERT_TRUE(m);
-}
+#include <string>
+#include <set>
+#include <ostream>
+#include <iostream>
+#include <unistd.h>
+#include <cstdlib>
+#include <sys/wait.h>
+#include <sys/signal.h>
+#include <boost/lexical_cast.hpp>
 
 /* TODO:
     - make mutators idempotent
     - add tests for
-        - input
-            - cannot specify shipment details to Location
-            - cannot ship to a Location
+        x- input
+            x- cannot specify shipment details to Location
+            x- cannot ship to a Location
         - shipping to one customer
             - shipping rate is 0
             x- shipment doesn't start until three criteria are fulfilled
@@ -21,23 +25,57 @@ TEST(Instance, CreateInstanceManager) {
             x- shipment across long segments
         x- shipping via Location
         x- shipment refusals
-        - scheduling fleet change
+        x- scheduling fleet change
             x- if you schedule on half-hour increments, does it still work?
-            o- what if you specify a time larger than 24?
-                - should we create a class for that?
-        ...- more than 24 shipments per day
+            x- what if you specify a time larger than 24?
+                x- should we create a class for that?
+        x- more than 24 shipments per day
         - shipping to one customer and change rate
             - increase, decrease, zero
-        - two simultaneous shippments to two separate customers
+        - two simultaneous shipments to two separate customers
 */
 
-TEST(Instance, InvalidUseOfCustomerAttributes) {
+using namespace std;
+
+#define STRINGIFY(a) #a
+#define STRING(a) STRINGIFY(a)
+
+#define MAYBETHROW(a) {\
+    try {\
+        a;\
+    } catch (...) {\
+    }\
+}
+
+TEST(StuffWeFailedTheFirstTime, testErrorInvalidValues) {
     Ptr<Instance::Manager> m = shippingInstanceManager();
-    ASSERT_TRUE(m);
-    Ptr<Instance> loc1 = m->instanceNew("loc1", "Boat terminal");
-    ASSERT_TRUE(loc1);
-    loc1->attributeIs("Transfer Rate", "10");
-    EXPECT_EQ("", loc1->attribute("Transfer Rate"));
+    Ptr<Instance> fleet = m->instanceNew("fleet", "Fleet");
+    if(!fleet) fleet = m->instance("fleet");
+    Ptr<Instance> seg = m->instanceNew("seg", "Plane segment");
+    seg->attributeIs("length", "1.0");
+    seg->attributeIs("difficulty", "1.0");
+    seg->attributeIs("expedite support", "yes");
+    fleet->attributeIs("Boat, capacity", "10");
+    fleet->attributeIs("Boat, cost", "10");
+    fleet->attributeIs("Boat, speed", "10");
+    
+    /* Try some out-of-range/invalid values */
+    MAYBETHROW(seg->attributeIs("length", "-10"));
+    MAYBETHROW(seg->attributeIs("difficulty", "0.9"));
+    MAYBETHROW(seg->attributeIs("difficulty", "6.0"));
+    MAYBETHROW(seg->attributeIs("difficulty", "-1"));
+    MAYBETHROW(fleet->attributeIs("Boat, capacity", "-1")); 
+    MAYBETHROW(fleet->attributeIs("Boat, cost", "-1")); 
+    MAYBETHROW(fleet->attributeIs("Boat, speed", "-1")); 
+    MAYBETHROW(seg->attributeIs("expedite support", "whatever"));
+
+    EXPECT_EQ(seg->attribute("length"), "1.00");
+    EXPECT_EQ(seg->attribute("difficulty"), "1.00");     
+    EXPECT_EQ(seg->attribute("expedite support"), "yes");
+    //EQUAL(fleet->attribute("Boat, capacity"), "10");
+    EXPECT_EQ("10", fleet->attribute("Boat, capacity"));
+    EXPECT_EQ(fleet->attribute("Boat, cost"), "10.00");
+    EXPECT_EQ(fleet->attribute("Boat, speed"), "10.00");
 }
 
 TEST(Activity, ScheduledFleets) {
@@ -63,6 +101,14 @@ TEST(Activity, ScheduledFleets) {
     fleet2->attributeIs("Truck, speed", "2");
     ASSERT_EQ("0.50", fleet1->attribute("Truck, speed"));
     ASSERT_EQ("2.00", fleet2->attribute("Truck, speed"));
+
+    // try invalid time and check that it is unchanged
+    fleet1->attributeIs("Start Time", "24");
+    ASSERT_EQ("0.00", fleet1->attribute("Start Time"));
+    fleet1->attributeIs("Start Time", "25");
+    ASSERT_EQ("0.00", fleet1->attribute("Start Time"));
+    fleet1->attributeIs("Start Time", "-1");
+    ASSERT_EQ("0.00", fleet1->attribute("Start Time"));
 
     // schedule changes
     fleet1->attributeIs("Start Time", "0");
@@ -176,10 +222,10 @@ TEST(Activity, BasicShipments) {
     m->simulationManager()->timeIs(48);
     EXPECT_EQ("8", seg1->attribute("Shipments Received"));
 
-    // // add shipments back
-    // loc1->attributeIs("Transfer Rate", "8");
-    // m->simulationManager()->timeIs(73);
-    // EXPECT_EQ("16", seg1->attribute("Shipments Received"));
+    // add shipments back
+    loc1->attributeIs("Transfer Rate", "8");
+    m->simulationManager()->timeIs(73);
+    EXPECT_EQ("16", seg1->attribute("Shipments Received"));
 
 }
 
@@ -392,6 +438,58 @@ TEST(Activity, HighRate) {
     EXPECT_EQ("0", seg1->attribute("Shipments Refused"));
 }
 
+TEST(Activity, HighRate2) {
+    Ptr<Instance::Manager> m = shippingInstanceManager();
+    ASSERT_TRUE(m);
+    Ptr<Instance> conn = m->instanceNew("conn", "Conn");
+    ASSERT_TRUE(conn);
+
+    // set truck capacity, cost, and speed
+    Ptr<Instance> fleet = m->instanceNew("fleet", "Fleet");
+    ASSERT_TRUE(fleet);
+    fleet->attributeIs("Truck, speed", "1");
+    fleet->attributeIs("Truck, capacity", "1");
+    fleet->attributeIs("Truck, cost", "100");
+
+    // create two customers and join them
+    Ptr<Instance> loc1 = m->instanceNew("loc1", "Customer");
+    Ptr<Instance> loc2 = m->instanceNew("loc2", "Truck terminal");
+    Ptr<Instance> loc3 = m->instanceNew("loc3", "Customer");
+    Ptr<Instance> seg1 = m->instanceNew("seg1", "Truck segment");
+    Ptr<Instance> seg2 = m->instanceNew("seg2", "Truck segment");
+    Ptr<Instance> seg3 = m->instanceNew("seg3", "Truck segment");
+    Ptr<Instance> seg4 = m->instanceNew("seg4", "Truck segment");
+    seg1->attributeIs("source", "loc1");
+    seg2->attributeIs("source", "loc2");
+    seg3->attributeIs("source", "loc2");
+    seg4->attributeIs("source", "loc3");
+    seg1->attributeIs("length", "1.0");
+    seg2->attributeIs("length", "1.0");
+    seg3->attributeIs("length", "1.0");
+    seg4->attributeIs("length", "1.0");
+    seg1->attributeIs("Capacity", "1");
+    seg3->attributeIs("Capacity", "1");
+    seg1->attributeIs("return segment", "seg2");
+    seg3->attributeIs("return segment", "seg4");
+    
+    // connectivity
+    conn->attributeIs("routing", "minHops");
+
+    // specify shipping criteria
+    loc1->attributeIs("Transfer Rate", "24");
+    loc1->attributeIs("Shipment Size", "2");
+    loc1->attributeIs("Destination", "loc3");
+
+    // start time and test results
+    m->simulationManager()->timeIs(24);
+    EXPECT_EQ("10", loc3->attribute("Shipments Received"));
+
+    // stop shipments, and wait for the remainder to arrive
+    loc1->attributeIs("Transfer Rate", "0");
+    m->simulationManager()->timeIs(60);
+    EXPECT_EQ("24", loc3->attribute("Shipments Received"));
+}
+
 TEST(Activity, LongSegment) {
     Ptr<Instance::Manager> m = shippingInstanceManager();
     ASSERT_TRUE(m);
@@ -478,6 +576,30 @@ Ptr<Instance> addSegment(Ptr<Instance::Manager> m, string name, string mode,
     }
 
     return seg;
+}
+
+TEST(Instance, CreateInstanceManager) {
+    Ptr<Instance::Manager> m = shippingInstanceManager();
+    ASSERT_TRUE(m);
+}
+
+TEST(Instance, InvalidUseOfCustomerAttributes) {
+    Ptr<Instance::Manager> m = shippingInstanceManager();
+    ASSERT_TRUE(m);
+    Ptr<Instance> loc1 = m->instanceNew("loc1", "Boat terminal");
+    ASSERT_TRUE(loc1);
+    loc1->attributeIs("Transfer Rate", "10");
+    EXPECT_EQ("", loc1->attribute("Transfer Rate"));
+
+    // Create real customer, and try to have it ship to loc1
+    Ptr<Instance> loc2 = m->instanceNew("loc2", "Customer");
+    loc2->attributeIs("Destination", "loc1");
+    EXPECT_EQ("", loc2->attribute("Destination"));
+
+    // Now have the customer ship to another customer
+    Ptr<Instance> loc3 = m->instanceNew("loc3", "Customer");
+    loc2->attributeIs("Destination", "loc3");
+    EXPECT_EQ("loc3", loc2->attribute("Destination"));
 }
 
 TEST(Instance, DuplicateObjectsTest) {
