@@ -257,7 +257,7 @@ void CustomerReactor::checkAndCreateInjectActivity() {
     if (!(transferRateSet_ && shipmentSizeSet_ && destinationSet_)) return;
 
     DEBUG_LOG << "Criteria fully specified. Setting up shipment injection activity...\n";
-    CustomerPtr cust = dynamic_cast<Customer*>(const_cast<Location*> (notifier_.ptr()));
+    CustomerPtr cust = dynamic_cast<Customer*>(notifier().ptr());
   
     // Clear the old activity
     Activity::ActivityPtr activity = manager_->activity(notifier_->name());
@@ -959,7 +959,7 @@ void SegmentReactor::onShipment(ShipmentPtr shipment) {
     shipment->queueTimeIs(manager_->now());
 
     // increase reject count if there are no available carriers
-    SegmentPtr segment = const_cast<Segment*> (notifier_.ptr());
+    SegmentPtr segment = notifier();
     if (segment->carriersUsed() >= segment->capacity().value()) {
         DEBUG_LOG << "Segment " << notifier()->name() << " refusing shipment " << shipment->name() << std::endl;
         segment->shipmentsRefusedInc();
@@ -972,7 +972,7 @@ void SegmentReactor::onShipment(ShipmentPtr shipment) {
 }
 
 void SegmentReactor::startupFAR() {
-    SegmentPtr segment = const_cast<Segment*> (notifier_.ptr());
+    SegmentPtr segment = notifier();
     while (segment->carriersUsed() < segment->capacity().value() && !segment->subshipmentQueue_.empty()) {
         DEBUG_LOG << "Creating new ForwardActivityReactor...\n";
         // create new activity and activity reactor
@@ -1434,7 +1434,7 @@ void Fleet::notifieeIs(Fleet::Notifiee* notifiee){
     notifieeList_.push_back(notifiee);
 }
 
-void Fleet::startTimeIs(Time startTime){
+void Fleet::startTimeIs(HourOfDay startTime){
     if (startTime_ == startTime && startTimeSet_)
         return;
 
@@ -1511,8 +1511,8 @@ void FleetReactor::onStartTime() {
     activity = manager_->activityNew(notifier_->name());
     FleetChangeActivityReactor* fcar = new FleetChangeActivityReactor();
     fcar->managerIs(manager_);
-    fcar->networkIs(const_cast<ShippingNetwork*> (network_.ptr()));
-    fcar->fleetIs(const_cast<Fleet*> (notifier_.ptr()));
+    fcar->networkIs(network_);
+    fcar->fleetIs(notifier());
     activity->lastNotifieeIs(fcar);
 
     // find the next time the schedule would change

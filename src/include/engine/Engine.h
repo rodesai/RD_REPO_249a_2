@@ -135,6 +135,23 @@ private:
     static const double defaultValue_ = 1.0;
 };
 
+class HourOfDay : public Ordinal<HourOfDay, double> {
+public:
+    HourOfDay(double num) : Ordinal<HourOfDay, double>(num) {
+        if (num < 0 || num >= 24) throw ArgumentException();
+    }
+    HourOfDay() : Ordinal<HourOfDay,double>(defaultValue_){}
+    std::string str() {
+        std::stringstream s;
+        s.precision(2);
+        s << std::fixed << value_;
+        return s.str();
+    }
+    static HourOfDay defaultValue(){ return defaultValue_; }
+private:
+    static const double defaultValue_ = 1.0;
+};
+
 class Difficulty : public Nominal<Difficulty, double> {
 public:
     Difficulty(double num) : Nominal<Difficulty, double>(num) {
@@ -669,13 +686,13 @@ public:
     DollarPerMile cost(TransportMode segmentType) const; 
     Multiplier speedMultiplier(PathMode pathMode) const;
     Multiplier costMultiplier(PathMode pathMode) const;
-    Time startTime() const { return startTime_; }
+    HourOfDay startTime() const { return startTime_; }
     void speedIs(TransportMode m, MilePerHour s);
     void capacityIs(TransportMode m, PackageNum p);
     void costIs(TransportMode m, DollarPerMile d);
     void speedMultiplierIs(PathMode pathMode, Multiplier m);
     void costMultiplierIs(PathMode pathMode, Multiplier m);
-    void startTimeIs(Time t);
+    void startTimeIs(HourOfDay t);
 
     class NotifieeConst : public virtual Fwk::NamedInterface::NotifieeConst {
     public:
@@ -712,7 +729,7 @@ private:
     SpeedMultiplierMap speedMultiplier_;
     typedef std::map<PathMode,Multiplier> CostMultiplierMap;
     CostMultiplierMap costMultiplier_;
-    Time startTime_;
+    HourOfDay startTime_;
     bool startTimeSet_;
     typedef std::vector<Fleet::NotifieePtr> NotifieeList;
     NotifieeList notifieeList_;
@@ -722,11 +739,11 @@ class FleetReactor : public Fleet::Notifiee {
 public:
     void onStartTime();
     void managerIs(ManagerPtr m) { manager_ = m; }
-    void networkIs(ShippingNetworkPtrConst s) { network_ = s; }
+    void networkIs(ShippingNetworkPtr s) { network_ = s; }
     inline ManagerPtr manager() { return manager_; }
-    inline ShippingNetworkPtrConst network() { return network_; }
+    inline ShippingNetworkPtr network() { return network_; }
 private:
-    ShippingNetworkPtrConst network_;
+    ShippingNetworkPtr network_;
     ManagerPtr manager_;
 };
 

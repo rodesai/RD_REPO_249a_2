@@ -5,6 +5,7 @@
 #include <functional>
 #include <map>
 #include <queue>
+#include <cmath>
 
 #include "fwk/Ptr.h"
 #include "fwk/NamedInterface.h"
@@ -98,7 +99,7 @@ class ActivityComp : public binary_function<ActivityPtr, ActivityPtr, bool> {
 public:
     ActivityComp() {}
     bool operator()(ActivityPtr a, ActivityPtr b) const {
-        if( a->nextTime() != b->nextTime()) return (a->nextTime() > b->nextTime());
+        if(abs(a->nextTime().value() - b->nextTime().value()) > 0.0005) return (a->nextTime() > b->nextTime());
         return a->priority() < b->priority();
     }
 };

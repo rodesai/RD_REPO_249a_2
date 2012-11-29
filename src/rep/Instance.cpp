@@ -514,9 +514,8 @@ public:
     }
     void attributeIsImpl(const string& name, const string& v) {
         if (name == startTimeStr) {
-            // TODO: have a different type within the day?
             DEBUG_LOG << "Setting start time.\n";
-            fleet_->startTimeIs(Time(atof(v.data())));
+            fleet_->startTimeIs(HourOfDay(atof(v.data())));
             return;
         }
 
@@ -674,8 +673,8 @@ public:
             namePtr = strtok(NULL, ", :");
             Ptr<LocationRep> loc2 = dynamic_cast<LocationRep*> (manager_->instance(namePtr).ptr());
             delete tokenString;
-            if (!loc1 && !loc2) {
-                fprintf(stderr, "Could not find both locations.\n");
+            if (!loc1 || !loc2) {
+                fprintf(stderr, "Could not find one location.\n");
                 return "";
             }
 
