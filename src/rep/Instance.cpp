@@ -930,15 +930,11 @@ void ManagerImpl::instanceDel(const string& name) {
 }
 
 void SimulationManagerImpl::timeIs(Activity::Time t){
-    //if(connRep_)
-    //    connRep_->resetRouting();
     if(t > realTimeManager_->now())
         realTimeManager_->nowIs(t);
 }
 
 void SimulationManagerImpl::virtualTimeIs(Activity::Time t){
-    //if(connRep_)
-    //    connRep_->resetRouting();
     if(t > virtualTimeManager_->now())
         virtualTimeManager_->nowIs(t);
 }
