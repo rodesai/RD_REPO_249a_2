@@ -99,7 +99,7 @@ class ActivityComp : public binary_function<ActivityPtr, ActivityPtr, bool> {
 public:
     ActivityComp() {}
     bool operator()(ActivityPtr a, ActivityPtr b) const {
-        if(abs(a->nextTime().value() - b->nextTime().value()) < 0.0005) return (a->nextTime() > b->nextTime());
+        if(abs(a->nextTime().value() - b->nextTime().value()) > 0.0005) return (a->nextTime() > b->nextTime());
         return a->priority() < b->priority();
     }
 };
