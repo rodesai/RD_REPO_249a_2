@@ -280,7 +280,7 @@ void CustomerReactor::checkAndCreateInjectActivity() {
 void InjectActivityReactor::onStatus() {
     if (notifier_->status() == Activity::Activity::executing()) {
         ShipmentPtr shipment = new Shipment(uniqueName());
-        DEBUG_LOG << "Creating shipment " << shipment->name() << " for source " << source_->name() << " @ " << manager_->now().value() << "\n";
+        //std::cout << "Creating shipment " << shipment->name() << " for source " << source_->name() << " of size " << source_->shipmentSize().value() << " @ " << manager_->now().value() << "\n";
         shipment->loadIs(source_->shipmentSize());
         shipment->sourceIs(source_);
         shipment->destinationIs(source_->destination());
@@ -1031,16 +1031,15 @@ void ForwardActivityReactor::onStatus() {
                 subshipment = segment_->subshipmentDequeue(capacity);
                 if(!subshipment) break; // Exit loop if all shipments dequeued
                 subshipments_.push_back(subshipment);
-                capacity = subshipment->remainingLoad().value() - capacity.value();
+                capacity = capacity.value() - subshipment->remainingLoad().value();
                 DEBUG_LOG << "  Picking up new subshipment for shipment "<< subshipment->shipment()->name()<<"\n";
                 if (segment_->deliveryMap_.find(subshipment->shipment()->name()) == segment_->deliveryMap_.end()) {
                     DEBUG_LOG << "  Shipment is starting.\n";
                     segment_->shipmentsReceivedInc();
                     segment_->deliveryMap_[subshipment->shipment()->name()] = 0;
+                    DEBUG_LOG << "  Shipment queue time is " << manager_->now().value()-subshipment->shipment()->queueTime().value() << std::endl;
                     segment_->queueTimeIs(manager_->now().value()-subshipment->shipment()->queueTime().value());
-                    //segment_->totalQueueTimeIs( segment_->totalQueueTime().value() + (manager_->now().value()-subshipment->shipment()->queueTime().value()));
                 }
-                //break;
             }
             notifier_->statusIs(Activity::Activity::nextTimeScheduled());
             notifier_->nextTimeIs(Time(manager_->now().value() + segment_->carrierLatency().value()));
