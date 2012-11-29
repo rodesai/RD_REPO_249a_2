@@ -43,11 +43,11 @@ void connectLocations(LocationPtr l1,LocationPtr l2,ShippingNetworkPtr nwk){
 
 TEST(Engine, customer2customer){
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network",NULL);
-    LocationPtr c1 = nwk->LocationNew("c1",Location::EntityType::customer());
-    LocationPtr c2 = nwk->LocationNew("c2",Location::EntityType::customer());
-    LocationPtr c3 = nwk->LocationNew("c3",Location::EntityType::customer());
-    LocationPtr c4 = nwk->LocationNew("c4",Location::EntityType::customer());
-    LocationPtr p1 = nwk->LocationNew("p1",Location::EntityType::port());
+    LocationPtr c1 = nwk->LocationNew("c1",Location::customer());
+    LocationPtr c2 = nwk->LocationNew("c2",Location::customer());
+    LocationPtr c3 = nwk->LocationNew("c3",Location::customer());
+    LocationPtr c4 = nwk->LocationNew("c4",Location::customer());
+    LocationPtr p1 = nwk->LocationNew("p1",Location::port());
 
     connectLocations(c1,c2,nwk);
     connectLocations(c1,p1,nwk);
@@ -55,7 +55,7 @@ TEST(Engine, customer2customer){
     connectLocations(c3,c4,nwk);
 
     ConnPtr conn = nwk->ConnNew("conn");
-    conn->endLocationTypeIs(Location::EntityType::customer());
+    conn->endLocationTypeIs(Location::customer());
     conn->supportedRouteModeIs(0,PathMode::unexpedited());
     conn->routingIs(Conn::minHops());
     ASSERT_TRUE(conn->nextHop("c1","c2")=="c1-c2");
@@ -65,13 +65,13 @@ TEST(Engine, customer2customer){
 
 TEST(Engine, minHop_basic){
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network",NULL);
-    LocationPtr l1 = nwk->LocationNew("l1",Location::EntityType::port());
-    LocationPtr l2 = nwk->LocationNew("l2",Location::EntityType::port());
-    LocationPtr l3 = nwk->LocationNew("l3",Location::EntityType::port());
-    LocationPtr l4 = nwk->LocationNew("l4",Location::EntityType::port());
-    LocationPtr l5 = nwk->LocationNew("l5",Location::EntityType::port());
-    LocationPtr l6 = nwk->LocationNew("l6",Location::EntityType::port());
-    LocationPtr l7 = nwk->LocationNew("l7",Location::EntityType::port());
+    LocationPtr l1 = nwk->LocationNew("l1",Location::port());
+    LocationPtr l2 = nwk->LocationNew("l2",Location::port());
+    LocationPtr l3 = nwk->LocationNew("l3",Location::port());
+    LocationPtr l4 = nwk->LocationNew("l4",Location::port());
+    LocationPtr l5 = nwk->LocationNew("l5",Location::port());
+    LocationPtr l6 = nwk->LocationNew("l6",Location::port());
+    LocationPtr l7 = nwk->LocationNew("l7",Location::port());
     connectLocations(l1,l2,nwk,1.0);
     connectLocations(l1,l3,nwk,10.0);
     connectLocations(l1,l4,nwk,1.0);
@@ -93,12 +93,12 @@ TEST(Engine, minHop_basic){
 
 TEST(Engine, minDistance_basic){
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network",NULL);
-    LocationPtr l1 = nwk->LocationNew("l1",Location::EntityType::port());
-    LocationPtr l2 = nwk->LocationNew("l2",Location::EntityType::port());
-    LocationPtr l3 = nwk->LocationNew("l3",Location::EntityType::port());
-    LocationPtr l4 = nwk->LocationNew("l4",Location::EntityType::port());
-    LocationPtr l5 = nwk->LocationNew("l5",Location::EntityType::port());
-    LocationPtr l6 = nwk->LocationNew("l6",Location::EntityType::port());
+    LocationPtr l1 = nwk->LocationNew("l1",Location::port());
+    LocationPtr l2 = nwk->LocationNew("l2",Location::port());
+    LocationPtr l3 = nwk->LocationNew("l3",Location::port());
+    LocationPtr l4 = nwk->LocationNew("l4",Location::port());
+    LocationPtr l5 = nwk->LocationNew("l5",Location::port());
+    LocationPtr l6 = nwk->LocationNew("l6",Location::port());
     connectLocations(l1,l2,nwk,10.0);
     connectLocations(l1,l3,nwk,1.0);
     connectLocations(l1,l4,nwk,10.0);
@@ -116,15 +116,15 @@ TEST(Engine, minDistance_basic){
 
 TEST(Engine, minDistance_fancy){
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network",NULL);
-    LocationPtr l1 = nwk->LocationNew("l1",Location::EntityType::port());
-    LocationPtr l2 = nwk->LocationNew("l2",Location::EntityType::port());
-    LocationPtr l3 = nwk->LocationNew("l3",Location::EntityType::port());
-    LocationPtr l4 = nwk->LocationNew("l4",Location::EntityType::port());
-    LocationPtr l5 = nwk->LocationNew("l5",Location::EntityType::port());
-    LocationPtr l6 = nwk->LocationNew("l6",Location::EntityType::port());
-    LocationPtr l7 = nwk->LocationNew("l7",Location::EntityType::port());
-    LocationPtr l8 = nwk->LocationNew("l8",Location::EntityType::port());
-    LocationPtr l9 = nwk->LocationNew("l9",Location::EntityType::port());
+    LocationPtr l1 = nwk->LocationNew("l1",Location::port());
+    LocationPtr l2 = nwk->LocationNew("l2",Location::port());
+    LocationPtr l3 = nwk->LocationNew("l3",Location::port());
+    LocationPtr l4 = nwk->LocationNew("l4",Location::port());
+    LocationPtr l5 = nwk->LocationNew("l5",Location::port());
+    LocationPtr l6 = nwk->LocationNew("l6",Location::port());
+    LocationPtr l7 = nwk->LocationNew("l7",Location::port());
+    LocationPtr l8 = nwk->LocationNew("l8",Location::port());
+    LocationPtr l9 = nwk->LocationNew("l9",Location::port());
 
     connectLocations(l1,l2,nwk,1.0);
     connectLocations(l1,l3,nwk,10.0);
@@ -160,11 +160,11 @@ TEST(Engine, minDistance_fancy){
 
 TEST(Engine, locationDel){
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network",NULL);
-    LocationPtr l1 = nwk->LocationNew("l1",Location::EntityType::port());
+    LocationPtr l1 = nwk->LocationNew("l1",Location::port());
     LocationPtr l = nwk->locationDel("l1");
     ASSERT_TRUE(l1 == l);
     ASSERT_TRUE(nwk->location("l1") == NULL);
-    l1 = nwk->LocationNew("l1",Location::EntityType::port());
+    l1 = nwk->LocationNew("l1",Location::port());
     SegmentPtr s = nwk->SegmentNew("s1",TransportMode::truck(),PathMode::unexpedited());
     s->sourceIs("l1");
     l = nwk->locationDel("l1");
@@ -180,7 +180,7 @@ TEST(Engine, segmentDel){
     ASSERT_TRUE(s1 == s);
     ASSERT_TRUE(nwk->segment("s1") == NULL);
     s1 = nwk->SegmentNew("s1",TransportMode::truck(),PathMode::unexpedited());
-    LocationPtr l = nwk->LocationNew("l1",Location::EntityType::port());
+    LocationPtr l = nwk->LocationNew("l1",Location::port());
     s1->sourceIs("l1");
     s = nwk->segmentDel("s1");
     ASSERT_TRUE(s1 == s);
@@ -191,7 +191,7 @@ TEST(Engine, segmentDel){
 TEST(Engine, conn_loopy){
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network",NULL);
 
-    LocationPtr l1 = nwk->LocationNew("l1",Location::EntityType::port());
+    LocationPtr l1 = nwk->LocationNew("l1",Location::port());
     SegmentPtr segment,segmentR;
     segment = nwk->SegmentNew("1",TransportMode::truck(),PathMode::unexpedited());
     segment->lengthIs(2.0);
@@ -213,7 +213,7 @@ TEST(Engine, conn_loopy){
 
     ASSERT_TRUE(paths.size()==0);
 
-    LocationPtr l2 = nwk->LocationNew("l2",Location::EntityType::port());
+    LocationPtr l2 = nwk->LocationNew("l2",Location::port());
     connectLocations(l2,l1,nwk);
 
     Conn::PathSelectorPtr selector2;
@@ -230,8 +230,8 @@ TEST(Engine, conn_loopy){
 TEST(Engine, conn_invalid_segment){
 ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network",NULL);
 
-    LocationPtr l1 = nwk->LocationNew("l1",Location::EntityType::port());
-    LocationPtr l2 = nwk->LocationNew("l2",Location::EntityType::port());
+    LocationPtr l1 = nwk->LocationNew("l1",Location::port());
+    LocationPtr l2 = nwk->LocationNew("l2",Location::port());
     SegmentPtr segment,segmentR;
 
     segment = nwk->SegmentNew("1",TransportMode::truck(),PathMode::unexpedited());
@@ -266,8 +266,8 @@ TEST(Engine, conn_0_length_segment){
 
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network",NULL);
 
-    LocationPtr l1 = nwk->LocationNew("l1",Location::EntityType::port());
-    LocationPtr l2 = nwk->LocationNew("l2",Location::EntityType::port());
+    LocationPtr l1 = nwk->LocationNew("l1",Location::port());
+    LocationPtr l2 = nwk->LocationNew("l2",Location::port());
 
     connectLocations(l1,l2,nwk,0.0);
 
@@ -289,8 +289,8 @@ TEST(Engine, conn_no_modes){
 
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network",NULL);
 
-    LocationPtr l1 = nwk->LocationNew("l1",Location::EntityType::port());
-    LocationPtr l2 = nwk->LocationNew("l2",Location::EntityType::port());
+    LocationPtr l1 = nwk->LocationNew("l1",Location::port());
+    LocationPtr l2 = nwk->LocationNew("l2",Location::port());
 
     connectLocations(l1,l2,nwk,1.0);
 
@@ -308,8 +308,8 @@ TEST(Engine, conn_invalid_start){
 
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network",NULL);
 
-    LocationPtr l1 = nwk->LocationNew("l1",Location::EntityType::port());
-    LocationPtr l2 = nwk->LocationNew("l2",Location::EntityType::port());
+    LocationPtr l1 = nwk->LocationNew("l1",Location::port());
+    LocationPtr l2 = nwk->LocationNew("l2",Location::port());
 
     connectLocations(l1,l2,nwk);
 
@@ -317,8 +317,8 @@ TEST(Engine, conn_invalid_start){
 
     // Add Locations to another network with same name and make sure not paths returned with conn of nwk1
     ShippingNetworkPtr nwk2 = ShippingNetwork::ShippingNetworkIs("network2",NULL);
-    nwk2->LocationNew("l1",Location::EntityType::port());
-    nwk2->LocationNew("l2",Location::EntityType::port());
+    nwk2->LocationNew("l1",Location::port());
+    nwk2->LocationNew("l2",Location::port());
     connectLocations(nwk2->location("l1"),nwk2->location("l2"),nwk2);
 
     Conn::PathSelectorPtr selector=Conn::PathSelector::PathSelectorIs(Conn::PathSelector::explore(),NULL,nwk2->location("l1"),NULL);
@@ -332,8 +332,8 @@ TEST(Engine, conn_invalid_end){
 
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network",NULL);
 
-    LocationPtr l1 = nwk->LocationNew("l1",Location::EntityType::port());
-    LocationPtr l2 = nwk->LocationNew("l2",Location::EntityType::port());
+    LocationPtr l1 = nwk->LocationNew("l1",Location::port());
+    LocationPtr l2 = nwk->LocationNew("l2",Location::port());
     
     connectLocations(l1,l2,nwk);
     
@@ -342,7 +342,7 @@ TEST(Engine, conn_invalid_end){
     // Create a location with same name in nwk2 and do query with that location. ensure no paths returned
 
     ShippingNetworkPtr nwk2 = ShippingNetwork::ShippingNetworkIs("network2",NULL);
-    nwk2->LocationNew("l2",Location::EntityType::port());
+    nwk2->LocationNew("l2",Location::port());
 
     Conn::PathSelectorPtr selector=Conn::PathSelector::PathSelectorIs(Conn::PathSelector::connect(),NULL,l1,nwk2->location("l2"));
     selector->modeIs(PathMode::expedited());
@@ -357,9 +357,9 @@ TEST(Engine, conn_line){
     // Make:
     // (l1)-ue-(l2)-ue-(l3)
 
-    LocationPtr l1 = nwk->LocationNew("l1",Location::EntityType::port());
-    LocationPtr l2 = nwk->LocationNew("l2",Location::EntityType::port());
-    LocationPtr l3 = nwk->LocationNew("l3",Location::EntityType::port());
+    LocationPtr l1 = nwk->LocationNew("l1",Location::port());
+    LocationPtr l2 = nwk->LocationNew("l2",Location::port());
+    LocationPtr l3 = nwk->LocationNew("l3",Location::port());
 
     connectLocations(l1,l2,nwk,100,1.0,true);
     connectLocations(l2,l3,nwk,100,1.0,true);
@@ -412,10 +412,10 @@ TEST(Engine, conn_endpoint_basic){
     //     \ue  /ue
     //      (l3)
 
-    LocationPtr l1 = nwk->LocationNew("l1",Location::EntityType::port());
-    LocationPtr l2 = nwk->LocationNew("l2",Location::EntityType::port());
-    LocationPtr l3 = nwk->LocationNew("l3",Location::EntityType::port());
-    LocationPtr l4 = nwk->LocationNew("l4",Location::EntityType::port());
+    LocationPtr l1 = nwk->LocationNew("l1",Location::port());
+    LocationPtr l2 = nwk->LocationNew("l2",Location::port());
+    LocationPtr l3 = nwk->LocationNew("l3",Location::port());
+    LocationPtr l4 = nwk->LocationNew("l4",Location::port());
 
     connectLocations(l1,l2,nwk,10.0,2.5,true);
     connectLocations(l1,l3,nwk,10.0,1.0,true);
@@ -528,12 +528,12 @@ TEST(Engine, conn_endpoint_no_loop_pre_endpoint){
 
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network",NULL);
 
-    LocationPtr l1 = nwk->LocationNew("l1",Location::EntityType::port());
-    LocationPtr l2 = nwk->LocationNew("l2",Location::EntityType::port());
-    LocationPtr l3 = nwk->LocationNew("l3",Location::EntityType::port());
-    LocationPtr l4 = nwk->LocationNew("l4",Location::EntityType::port());
-    LocationPtr l2_1 = nwk->LocationNew("l2_1",Location::EntityType::port());
-    LocationPtr l2_2 = nwk->LocationNew("l2_2",Location::EntityType::port());
+    LocationPtr l1 = nwk->LocationNew("l1",Location::port());
+    LocationPtr l2 = nwk->LocationNew("l2",Location::port());
+    LocationPtr l3 = nwk->LocationNew("l3",Location::port());
+    LocationPtr l4 = nwk->LocationNew("l4",Location::port());
+    LocationPtr l2_1 = nwk->LocationNew("l2_1",Location::port());
+    LocationPtr l2_2 = nwk->LocationNew("l2_2",Location::port());
 
     connectLocations(l1,l2,nwk);
     connectLocations(l1,l3,nwk);
@@ -575,12 +575,12 @@ TEST(Engine, conn_endpoint_no_loop_endpoint){
 
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network",NULL);
 
-    LocationPtr l1 = nwk->LocationNew("l1",Location::EntityType::port());
-    LocationPtr l2 = nwk->LocationNew("l2",Location::EntityType::port());
-    LocationPtr l3 = nwk->LocationNew("l3",Location::EntityType::port());
-    LocationPtr l4 = nwk->LocationNew("l4",Location::EntityType::port());
-    LocationPtr l4_1 = nwk->LocationNew("l4_1",Location::EntityType::port());
-    LocationPtr l4_2 = nwk->LocationNew("l4_2",Location::EntityType::port());
+    LocationPtr l1 = nwk->LocationNew("l1",Location::port());
+    LocationPtr l2 = nwk->LocationNew("l2",Location::port());
+    LocationPtr l3 = nwk->LocationNew("l3",Location::port());
+    LocationPtr l4 = nwk->LocationNew("l4",Location::port());
+    LocationPtr l4_1 = nwk->LocationNew("l4_1",Location::port());
+    LocationPtr l4_2 = nwk->LocationNew("l4_2",Location::port());
 
     connectLocations(l1,l2,nwk);
     connectLocations(l1,l3,nwk);
@@ -621,14 +621,14 @@ TEST(Engine, conn_no_endpoint_distance_constraint){
 
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network",NULL);
 
-    LocationPtr l1 = nwk->LocationNew("l1",Location::EntityType::port());
-    LocationPtr l2 = nwk->LocationNew("l2",Location::EntityType::port());
-    LocationPtr l3 = nwk->LocationNew("l3",Location::EntityType::port());
-    LocationPtr l4 = nwk->LocationNew("l4",Location::EntityType::port());
-    LocationPtr l5 = nwk->LocationNew("l5",Location::EntityType::port());
-    LocationPtr l6 = nwk->LocationNew("l6",Location::EntityType::port());
-    LocationPtr l7 = nwk->LocationNew("l7",Location::EntityType::port());
-    LocationPtr l8 = nwk->LocationNew("l8",Location::EntityType::port());
+    LocationPtr l1 = nwk->LocationNew("l1",Location::port());
+    LocationPtr l2 = nwk->LocationNew("l2",Location::port());
+    LocationPtr l3 = nwk->LocationNew("l3",Location::port());
+    LocationPtr l4 = nwk->LocationNew("l4",Location::port());
+    LocationPtr l5 = nwk->LocationNew("l5",Location::port());
+    LocationPtr l6 = nwk->LocationNew("l6",Location::port());
+    LocationPtr l7 = nwk->LocationNew("l7",Location::port());
+    LocationPtr l8 = nwk->LocationNew("l8",Location::port());
 
     connectLocations(l1,l2,nwk,10);
     connectLocations(l1,l3,nwk,10);
@@ -684,14 +684,14 @@ TEST(Engine, conn_no_endpoint_cost_constraint){
 
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network",NULL);
 
-    LocationPtr l1 = nwk->LocationNew("l1",Location::EntityType::port());
-    LocationPtr l2 = nwk->LocationNew("l2",Location::EntityType::port());
-    LocationPtr l3 = nwk->LocationNew("l3",Location::EntityType::port());
-    LocationPtr l4 = nwk->LocationNew("l4",Location::EntityType::port());
-    LocationPtr l5 = nwk->LocationNew("l5",Location::EntityType::port());
-    LocationPtr l6 = nwk->LocationNew("l6",Location::EntityType::port());
-    LocationPtr l7 = nwk->LocationNew("l7",Location::EntityType::port());
-    LocationPtr l8 = nwk->LocationNew("l8",Location::EntityType::port());
+    LocationPtr l1 = nwk->LocationNew("l1",Location::port());
+    LocationPtr l2 = nwk->LocationNew("l2",Location::port());
+    LocationPtr l3 = nwk->LocationNew("l3",Location::port());
+    LocationPtr l4 = nwk->LocationNew("l4",Location::port());
+    LocationPtr l5 = nwk->LocationNew("l5",Location::port());
+    LocationPtr l6 = nwk->LocationNew("l6",Location::port());
+    LocationPtr l7 = nwk->LocationNew("l7",Location::port());
+    LocationPtr l8 = nwk->LocationNew("l8",Location::port());
 
     connectLocations(l1,l2,nwk,40.0,2.0);
     connectLocations(l1,l3,nwk,40.0,2.0);
@@ -747,14 +747,14 @@ TEST(Engine, conn_no_endpoint_time_constraint){
 
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network",NULL);
 
-    LocationPtr l1 = nwk->LocationNew("l1",Location::EntityType::port());
-    LocationPtr l2 = nwk->LocationNew("l2",Location::EntityType::port());
-    LocationPtr l3 = nwk->LocationNew("l3",Location::EntityType::port());
-    LocationPtr l4 = nwk->LocationNew("l4",Location::EntityType::port());
-    LocationPtr l5 = nwk->LocationNew("l5",Location::EntityType::port());
-    LocationPtr l6 = nwk->LocationNew("l6",Location::EntityType::port());
-    LocationPtr l7 = nwk->LocationNew("l7",Location::EntityType::port());
-    LocationPtr l8 = nwk->LocationNew("l8",Location::EntityType::port());
+    LocationPtr l1 = nwk->LocationNew("l1",Location::port());
+    LocationPtr l2 = nwk->LocationNew("l2",Location::port());
+    LocationPtr l3 = nwk->LocationNew("l3",Location::port());
+    LocationPtr l4 = nwk->LocationNew("l4",Location::port());
+    LocationPtr l5 = nwk->LocationNew("l5",Location::port());
+    LocationPtr l6 = nwk->LocationNew("l6",Location::port());
+    LocationPtr l7 = nwk->LocationNew("l7",Location::port());
+    LocationPtr l8 = nwk->LocationNew("l8",Location::port());
 
     connectLocations(l1,l2,nwk,5.0);
     connectLocations(l1,l3,nwk,5.0);
@@ -808,14 +808,14 @@ TEST(Engine, conn_no_endpoint_expedited_constraint){
 
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network",NULL);
 
-    LocationPtr l1 = nwk->LocationNew("l1",Location::EntityType::port());
-    LocationPtr l2 = nwk->LocationNew("l2",Location::EntityType::port());
-    LocationPtr l3 = nwk->LocationNew("l3",Location::EntityType::port());
-    LocationPtr l4 = nwk->LocationNew("l4",Location::EntityType::port());
-    LocationPtr l5 = nwk->LocationNew("l5",Location::EntityType::port());
-    LocationPtr l6 = nwk->LocationNew("l6",Location::EntityType::port());
-    LocationPtr l7 = nwk->LocationNew("l7",Location::EntityType::port());
-    LocationPtr l8 = nwk->LocationNew("l8",Location::EntityType::port());
+    LocationPtr l1 = nwk->LocationNew("l1",Location::port());
+    LocationPtr l2 = nwk->LocationNew("l2",Location::port());
+    LocationPtr l3 = nwk->LocationNew("l3",Location::port());
+    LocationPtr l4 = nwk->LocationNew("l4",Location::port());
+    LocationPtr l5 = nwk->LocationNew("l5",Location::port());
+    LocationPtr l6 = nwk->LocationNew("l6",Location::port());
+    LocationPtr l7 = nwk->LocationNew("l7",Location::port());
+    LocationPtr l8 = nwk->LocationNew("l8",Location::port());
 
     connectLocations(l1,l2,nwk,10,1.0,true);
     connectLocations(l1,l3,nwk,10,1.0,true);
@@ -891,14 +891,14 @@ TEST(Engine, conn_no_endpoint_distance_time_constraint){
 
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network",NULL);
 
-    LocationPtr l1 = nwk->LocationNew("l1",Location::EntityType::port());
-    LocationPtr l2 = nwk->LocationNew("l2",Location::EntityType::port());
-    LocationPtr l3 = nwk->LocationNew("l3",Location::EntityType::port());
-    LocationPtr l4 = nwk->LocationNew("l4",Location::EntityType::port());
-    LocationPtr l5 = nwk->LocationNew("l5",Location::EntityType::port());
-    LocationPtr l6 = nwk->LocationNew("l6",Location::EntityType::port());
-    LocationPtr l7 = nwk->LocationNew("l7",Location::EntityType::port());
-    LocationPtr l8 = nwk->LocationNew("l8",Location::EntityType::port());
+    LocationPtr l1 = nwk->LocationNew("l1",Location::port());
+    LocationPtr l2 = nwk->LocationNew("l2",Location::port());
+    LocationPtr l3 = nwk->LocationNew("l3",Location::port());
+    LocationPtr l4 = nwk->LocationNew("l4",Location::port());
+    LocationPtr l5 = nwk->LocationNew("l5",Location::port());
+    LocationPtr l6 = nwk->LocationNew("l6",Location::port());
+    LocationPtr l7 = nwk->LocationNew("l7",Location::port());
+    LocationPtr l8 = nwk->LocationNew("l8",Location::port());
 
     connectLocations(l1,l2,nwk,10.0);
     connectLocations(l1,l3,nwk,10.0);
@@ -956,7 +956,7 @@ TEST(Engine, SegmentNew){
 TEST(Engine, LocationNew){
 
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network",NULL);
-    LocationPtr location = nwk->LocationNew("location1",Location::EntityType::port());
+    LocationPtr location = nwk->LocationNew("location1",Location::port());
 
     ASSERT_TRUE(location);
     ASSERT_TRUE(nwk->location("location1"));
@@ -970,7 +970,7 @@ TEST(Engine, SegmentSource){
     SegmentPtr segment2 = nwk->SegmentNew("segment2",TransportMode::truck(),PathMode::unexpedited());
     SegmentPtr segment3 = nwk->SegmentNew("segment3",TransportMode::truck(),PathMode::unexpedited());
 
-    LocationPtr location = nwk->LocationNew("location1",Location::EntityType::port());
+    LocationPtr location = nwk->LocationNew("location1",Location::port());
 
     segment1->sourceIs(location->name());
 
@@ -1034,7 +1034,7 @@ TEST(Engine, Location_segmentCount){
     SegmentPtr segment2 = nwk->SegmentNew("segment2",TransportMode::truck(),PathMode::unexpedited());
     SegmentPtr segment3 = nwk->SegmentNew("segment3",TransportMode::truck(),PathMode::unexpedited());
 
-    LocationPtr location = nwk->LocationNew("location1",Location::EntityType::port());
+    LocationPtr location = nwk->LocationNew("location1",Location::port());
 
     ASSERT_TRUE(location->segmentCount().value()==0);
 
@@ -1059,7 +1059,7 @@ TEST(Engine, Location_segment){
     SegmentPtr segment2 = nwk->SegmentNew("segment2",TransportMode::truck(),PathMode::unexpedited());
     SegmentPtr segment3 = nwk->SegmentNew("segment3",TransportMode::truck(),PathMode::unexpedited());
 
-    LocationPtr location = nwk->LocationNew("location1",Location::EntityType::port());
+    LocationPtr location = nwk->LocationNew("location1",Location::port());
 
     ASSERT_TRUE(location->segmentCount().value()==0);
 
@@ -1084,20 +1084,20 @@ TEST(Engine, Location_entityType){
 
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network",NULL);
 
-    LocationPtr location = nwk->LocationNew("location1",Location::EntityType::port());
-    ASSERT_TRUE(location->entityType() == Location::EntityType::port());
+    LocationPtr location = nwk->LocationNew("location1",Location::port());
+    ASSERT_TRUE(location->entityType() == Location::port());
 
-    location = nwk->LocationNew("location2",Location::EntityType::customer());
-    ASSERT_TRUE(location->entityType() == Location::EntityType::customer());
+    location = nwk->LocationNew("location2",Location::customer());
+    ASSERT_TRUE(location->entityType() == Location::customer());
 
-    location = nwk->LocationNew("location3",Location::EntityType::truckTerminal());
-    ASSERT_TRUE(location->entityType() == Location::EntityType::truckTerminal());
+    location = nwk->LocationNew("location3",Location::truckTerminal());
+    ASSERT_TRUE(location->entityType() == Location::truckTerminal());
 
-    location = nwk->LocationNew("location4",Location::EntityType::boatTerminal());
-    ASSERT_TRUE(location->entityType() == Location::EntityType::boatTerminal());
+    location = nwk->LocationNew("location4",Location::boatTerminal());
+    ASSERT_TRUE(location->entityType() == Location::boatTerminal());
 
-    location = nwk->LocationNew("location5",Location::EntityType::planeTerminal());
-    ASSERT_TRUE(location->entityType() == Location::EntityType::planeTerminal());
+    location = nwk->LocationNew("location5",Location::planeTerminal());
+    ASSERT_TRUE(location->entityType() == Location::planeTerminal());
 }
 
 TEST(Engine, Segment_length){
@@ -1166,7 +1166,7 @@ TEST(Engine, Fleet){
 
 TEST(Engine, Path_emptyPath){
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network",NULL);
-    PathPtr path = Path::PathIs(nwk->LocationNew("l1",Location::EntityType::port()));
+    PathPtr path = Path::PathIs(nwk->LocationNew("l1",Location::port()));
     ASSERT_TRUE(path->cost() == 0.0);
     ASSERT_TRUE(path->time() == 0.0);
     ASSERT_TRUE(path->distance() == 0.0);
@@ -1174,14 +1174,14 @@ TEST(Engine, Path_emptyPath){
 
 TEST(Engine, Path_pathEnq){
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network",NULL);
-    PathPtr path = Path::PathIs(nwk->LocationNew("l1",Location::EntityType::port()));
+    PathPtr path = Path::PathIs(nwk->LocationNew("l1",Location::port()));
     ASSERT_TRUE(path->cost() == 0.0);
     ASSERT_TRUE(path->time() == 0.0);
     ASSERT_TRUE(path->distance() == 0.0);
 
     nwk->SegmentNew("s1",TransportMode::truck(),PathMode::unexpedited());
     nwk->SegmentNew("s1r",TransportMode::truck(),PathMode::unexpedited());
-    nwk->LocationNew("l2",Location::EntityType::port());
+    nwk->LocationNew("l2",Location::port());
     nwk->segment("s1")->sourceIs("l1");
     nwk->segment("s1r")->sourceIs("l2");
     nwk->segment("s1")->returnSegmentIs("s1r");
@@ -1194,8 +1194,8 @@ TEST(Engine, Path_pathEnq){
 
     nwk->SegmentNew("s2",TransportMode::truck(),PathMode::unexpedited());
     nwk->SegmentNew("s2r",TransportMode::truck(),PathMode::unexpedited());
-    nwk->LocationNew("l3",Location::EntityType::port());
-    nwk->LocationNew("l4",Location::EntityType::port());
+    nwk->LocationNew("l3",Location::port());
+    nwk->LocationNew("l4",Location::port());
     nwk->segment("s2")->sourceIs("l3");
     nwk->segment("s2r")->sourceIs("l4");
     nwk->segment("s2")->returnSegmentIs("s2r");
@@ -1212,47 +1212,47 @@ TEST(Engine, Stats){
     ShippingNetworkPtr nwk = ShippingNetwork::ShippingNetworkIs("network",NULL);
 
     SegmentPtr segment = nwk->SegmentNew("segment1",TransportMode::truck(),PathMode::unexpedited());
-    LocationPtr location = nwk->LocationNew("location1",Location::EntityType::port());
+    LocationPtr location = nwk->LocationNew("location1",Location::port());
     StatsPtr stat = nwk->StatsNew("stat1");
 
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::boatTerminal()) == 0);
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::planeTerminal()) == 0);
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::truckTerminal()) == 0); 
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::customer()) == 0);
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::port()) == 1);
+    ASSERT_TRUE(stat->locationCount(Location::boatTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::planeTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::truckTerminal()) == 0); 
+    ASSERT_TRUE(stat->locationCount(Location::customer()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::port()) == 1);
     ASSERT_TRUE(stat->segmentCount(TransportMode::truck()) == 1);
     ASSERT_TRUE(stat->segmentCount(TransportMode::plane()) == 0);
     ASSERT_TRUE(stat->segmentCount(TransportMode::boat()) == 0);
 
     segment = nwk->SegmentNew("segment2",TransportMode::plane(),PathMode::unexpedited());
 
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::boatTerminal()) == 0);
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::planeTerminal()) == 0);
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::truckTerminal()) == 0);
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::customer()) == 0);
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::port()) == 1);
+    ASSERT_TRUE(stat->locationCount(Location::boatTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::planeTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::truckTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::customer()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::port()) == 1);
     ASSERT_TRUE(stat->segmentCount(TransportMode::truck()) == 1);
     ASSERT_TRUE(stat->segmentCount(TransportMode::plane()) == 1);
     ASSERT_TRUE(stat->segmentCount(TransportMode::boat()) == 0);
 
     segment = nwk->SegmentNew("segment3",TransportMode::boat(),PathMode::unexpedited());
 
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::boatTerminal()) == 0);
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::planeTerminal()) == 0);
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::truckTerminal()) == 0);
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::customer()) == 0);
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::port()) == 1);
+    ASSERT_TRUE(stat->locationCount(Location::boatTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::planeTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::truckTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::customer()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::port()) == 1);
     ASSERT_TRUE(stat->segmentCount(TransportMode::truck()) == 1);
     ASSERT_TRUE(stat->segmentCount(TransportMode::plane()) == 1);
     ASSERT_TRUE(stat->segmentCount(TransportMode::boat()) == 1);
 
     segment = nwk->SegmentNew("segment4",TransportMode::plane(),PathMode::unexpedited());
 
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::boatTerminal()) == 0);
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::planeTerminal()) == 0);
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::truckTerminal()) == 0);
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::customer()) == 0);
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::port()) == 1);
+    ASSERT_TRUE(stat->locationCount(Location::boatTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::planeTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::truckTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::customer()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::port()) == 1);
     ASSERT_TRUE(stat->segmentCount(TransportMode::truck()) == 1);
     ASSERT_TRUE(stat->segmentCount(TransportMode::plane()) == 2);
     ASSERT_TRUE(stat->segmentCount(TransportMode::boat()) == 1);
@@ -1271,11 +1271,11 @@ TEST(Engine, Stats){
 
     nwk->segmentDel("segment3");
 
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::boatTerminal()) == 0);
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::planeTerminal()) == 0);
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::truckTerminal()) == 0);
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::customer()) == 0);
-    ASSERT_TRUE(stat->locationCount(Location::EntityType::port()) == 1);
+    ASSERT_TRUE(stat->locationCount(Location::boatTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::planeTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::truckTerminal()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::customer()) == 0);
+    ASSERT_TRUE(stat->locationCount(Location::port()) == 1);
     ASSERT_TRUE(stat->segmentCount(TransportMode::truck()) == 1);
     ASSERT_TRUE(stat->segmentCount(TransportMode::plane()) == 2);
     ASSERT_TRUE(stat->segmentCount(TransportMode::boat()) == 0);

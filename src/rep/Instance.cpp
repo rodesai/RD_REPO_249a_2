@@ -235,7 +235,7 @@ public:
     TruckTerminalRep(const string& name, ManagerImpl *manager) :
         LocationRep(name, manager) {
         representee_ = manager->shippingNetwork()->LocationNew(name,
-            Location::EntityType::truckTerminal());
+            Location::truckTerminal());
     }
 };
 
@@ -245,7 +245,7 @@ public:
     BoatTerminalRep(const string& name, ManagerImpl *manager) :
         LocationRep(name, manager) {
         representee_ = manager->shippingNetwork()->LocationNew(name,
-            Location::EntityType::boatTerminal());
+            Location::boatTerminal());
     }
 };
 
@@ -255,7 +255,7 @@ public:
     PlaneTerminalRep(const string& name, ManagerImpl *manager) :
         LocationRep(name, manager) {
         representee_ = manager->shippingNetwork()->LocationNew(name,
-            Location::EntityType::planeTerminal());
+            Location::planeTerminal());
     }
 };
 
@@ -265,7 +265,7 @@ public:
     CustomerRep(const string& name, ManagerImpl *manager) :
         LocationRep(name, manager) {
         representee_ = manager->shippingNetwork()->LocationNew(name,
-            Location::EntityType::customer());
+            Location::customer());
     }
     string attributeImpl(const string& name) {
         Customer* cust = dynamic_cast<Customer*> (representee_.ptr());
@@ -322,7 +322,7 @@ public:
     PortRep(const string& name, ManagerImpl *manager) :
         LocationRep(name, manager) {
         representee_ = manager->shippingNetwork()->LocationNew(name,
-            Location::EntityType::port());
+            Location::port());
     }
 };
 
@@ -429,9 +429,9 @@ public:
     }
 protected:
     bool sourceOK(Location::EntityType et) {
-        if (et == Location::EntityType::truckTerminal() ||
-            et == Location::EntityType::customer() ||
-            et == Location::EntityType::port())
+        if (et == Location::truckTerminal() ||
+            et == Location::customer() ||
+            et == Location::port())
             return true;
         return false;
     }
@@ -448,9 +448,9 @@ public:
     }
 protected:
     bool sourceOK(Location::EntityType et) {
-        if (et == Location::EntityType::boatTerminal() ||
-            et == Location::EntityType::customer() ||
-            et == Location::EntityType::port())
+        if (et == Location::boatTerminal() ||
+            et == Location::customer() ||
+            et == Location::port())
             return true;
         return false;
     }
@@ -466,9 +466,9 @@ public:
     }
 protected:
     bool sourceOK(Location::EntityType et) {
-        if (et == Location::EntityType::planeTerminal() ||
-            et == Location::EntityType::customer() ||
-            et == Location::EntityType::port())
+        if (et == Location::planeTerminal() ||
+            et == Location::customer() ||
+            et == Location::port())
             return true;
         return false;
     }
@@ -566,19 +566,19 @@ public:
         // return location count
         if (name == truckTerminalStr) {
             ss << stats_->locationCount(
-                Location::EntityType::truckTerminal()).str();
+                Location::truckTerminal()).str();
         } else if (name == customerStr) {
             ss << stats_->locationCount(
-                Location::EntityType::customer()).str();            
+                Location::customer()).str();            
         } else if (name == portStr) {
             ss << stats_->locationCount(
-                Location::EntityType::port()).str();            
+                Location::port()).str();            
         } else if (name == planeTerminalStr) {
             ss << stats_->locationCount(
-                Location::EntityType::planeTerminal()).str();            
+                Location::planeTerminal()).str();            
         } else if (name == boatTerminalStr) {
             ss << stats_->locationCount(
-                Location::EntityType::boatTerminal()).str();            
+                Location::boatTerminal()).str();
         }
 
         // return segment stats
@@ -625,7 +625,7 @@ public:
         manager_ = manager;
         conn_ = manager->shippingNetwork()->ConnNew(name);
         conn_->supportedRouteModeIs(0,PathMode::unexpedited());
-        conn_->endLocationTypeIs(Location::EntityType::customer());
+        conn_->endLocationTypeIs(Location::customer());
         routingAlgorithm_ = Conn::none();
     }
 

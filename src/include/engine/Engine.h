@@ -398,22 +398,19 @@ typedef Fwk::Ptr<StatsReactor const> StatsReactorPtrConst;
 
 class Location : public Fwk::NamedInterface {
 public:
-    class EntityType : public Ordinal<EntityType,uint8_t> {
-        enum Type{
-            customer_ = 0,
-            port_ = 1,
-            truckTerminal_ = 2,
-            boatTerminal_ = 3,
-            planeTerminal_ = 4
-        };
-        public:
-        static EntityType customer(){ return customer_; }
-        static EntityType port(){ return port_; }
-        static EntityType truckTerminal(){ return truckTerminal_; }
-        static EntityType boatTerminal(){ return boatTerminal_; }
-        static EntityType planeTerminal(){ return planeTerminal_; }
-        EntityType(uint8_t m) : Ordinal<EntityType,uint8_t>(m){}
+    enum EntityType{
+        customer_ = 0,
+        port_ = 1,
+        truckTerminal_ = 2,
+        boatTerminal_ = 3,
+        planeTerminal_ = 4
     };
+    static EntityType customer(){ return customer_; }
+    static EntityType port(){ return port_; }
+    static EntityType truckTerminal(){ return truckTerminal_; }
+    static EntityType boatTerminal(){ return boatTerminal_; }
+    static EntityType planeTerminal(){ return planeTerminal_; }
+
     virtual void shipmentIs(ShipmentPtr shipment);
     SegmentNum segmentCount() const; 
     SegmentPtr segment(uint32_t index) const; 
