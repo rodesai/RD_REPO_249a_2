@@ -691,11 +691,11 @@ class FleetReactor : public Fleet::Notifiee {
 public:
     void onStartTime();
     void managerIs(ManagerPtr m) { manager_ = m; }
-    void networkIs(ShippingNetworkPtrConst s) { network_ = s; }
+    void networkIs(ShippingNetworkPtr s) { network_ = s; }
     inline ManagerPtr manager() { return manager_; }
-    inline ShippingNetworkPtrConst network() { return network_; }
+    inline ShippingNetworkPtr network() { return network_; }
 private:
-    ShippingNetworkPtrConst network_;
+    ShippingNetworkPtr network_;
     ManagerPtr manager_;
 };
 
