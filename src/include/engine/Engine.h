@@ -476,7 +476,6 @@ public:
     PackageNum shipmentSize() const { return shipmentSize_; }
     LocationPtr destination() const { return destination_; }
 
-    // TODO: these should be updated using ForwardActivityReactor
     ShipmentNum shipmentsReceived() const { return shipmentsReceived_; }
     Hour totalLatency() const { return totalLatency_; }
     Dollar totalCost() const { return totalCost_; }
@@ -526,7 +525,6 @@ private:
 };
 
 
-// TODO: why do we have a separate customer reactor? we could do this within customer
 class CustomerReactor : public Customer::Notifiee{
 public:
     void onTransferRate();
@@ -544,7 +542,6 @@ private:
     ManagerPtr manager_;
     void checkAndCreateInjectActivity();
 
-    // TODO: change from bool?
     bool transferRateSet_;
     bool shipmentSizeSet_;
     bool destinationSet_;
@@ -572,7 +569,6 @@ public:
     Shipment(std::string name) : NamedInterface(name), cost_(0), startTime_(0), queueTime_(0) {}
 private:
     PackageNum load_;
-    // TODO: make this customer pointer?
     LocationPtr destination_;
     LocationPtr source_;
     Dollar cost_;
@@ -721,8 +717,6 @@ public:
     void totalQueueTimeIs(Activity::Time t){ totalQueueTime_=t; }
     void queueTimeIs(Activity::Time t){
         queueTime_=t;
-        //if(queueTime_<0) queueTime_=t;
-        //else queueTime_=0.8*t.value() + .2*queueTime_.value();
     }
     PathMode modeDel(PathMode mode);
     void subshipmentEnqueue(SubshipmentPtr sp) { subshipmentQueue_.push(sp); }
@@ -731,8 +725,6 @@ private:
     friend class ShippingNetwork;
     friend class ShippingNetworkReactor;
     friend class SegmentReactor;
-    
-    // TODO: this isn't the cleanest. Should we move this into Location?
     friend class ForwardActivityReactor;
     typedef map<string,uint32_t> DeliveryMap;
     DeliveryMap deliveryMap_;

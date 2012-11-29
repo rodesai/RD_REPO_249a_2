@@ -296,7 +296,6 @@ public:
         return lookupSegment(name);
     }
     void attributeIsImpl(const string& name, const string& v) {
-        // TODO: is this the cleanest way to have a general pointer?
         Customer* cust = dynamic_cast<Customer*> (representee_.ptr());
 
         if (name == transferRateStr) {
@@ -306,7 +305,6 @@ public:
         } else if (name == destinationStr) {
             Ptr<LocationRep> sr = dynamic_cast<LocationRep *> (manager_->instance(v).ptr());
             if (!sr) {
-                // TODO: throw error
                 fprintf(stderr, "Destination does not exist: %s.\n", v.data());
                 return;
             }
