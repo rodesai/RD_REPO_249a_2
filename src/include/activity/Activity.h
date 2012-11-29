@@ -23,6 +23,11 @@ class Manager;
 typedef Fwk::Ptr<Manager> ManagerPtr;
 typedef Fwk::Ptr<Manager const> ManagerPtrConst;
 
+class Priority : public Ordinal<Priority,uint8_t>{
+public:
+    Priority(uint8_t priority) : Ordinal<Priority,uint8_t>(priority){}
+};
+
 /* Define the type 'Time' */
 class Time : public Ordinal<Time,double> {
 public:
@@ -69,11 +74,13 @@ public:
     inline Status status() const { return status_; }
     inline Time nextTime() const { return nextTime_; }
     inline NotifieePtr notifiee() { return notifiee_; }
+    inline Priority priority() { return priority_; }
 
     /* Mutators */
     void statusIs(Status s);    
     void nextTimeIs(Time t);
     void lastNotifieeIs(Notifiee* n);
+    void priorityIs(Priority priority);
 
 private:
     Activity(string name, ManagerPtr manager); 
@@ -81,8 +88,9 @@ private:
     friend class Manager;
     Status status_;
     Time nextTime_;
-    Notifiee* notifiee_;
+    NotifieePtr notifiee_;
     ManagerPtr manager_;
+    Priority priority_;    
 };
 
 //Comparison class for activities   
@@ -90,7 +98,8 @@ class ActivityComp : public binary_function<ActivityPtr, ActivityPtr, bool> {
 public:
     ActivityComp() {}
     bool operator()(ActivityPtr a, ActivityPtr b) const {
-        return (a->nextTime() > b->nextTime());
+        if( a->nextTime() != b->nextTime()) return (a->nextTime() > b->nextTime());
+        return a->priority() < b->priority();
     }
 };
 

@@ -8,8 +8,12 @@ namespace Activity{
 
 Activity::Activity(string name, ManagerPtr manager) : 
     NamedInterface(name), status_(Activity::uninit()), nextTime_(0.0), notifiee_(NULL),
-    manager_(manager)
+    manager_(manager), priority_(1)
 {}
+
+void Activity::priorityIs(Priority priority){
+    priority_=priority;
+}
 
 void Activity::statusIs(Activity::Status status){
     status_ = status;

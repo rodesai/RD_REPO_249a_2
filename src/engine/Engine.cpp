@@ -270,6 +270,7 @@ void CustomerReactor::checkAndCreateInjectActivity() {
     InjectActivityReactor* iar = new InjectActivityReactor();
     iar->managerIs(manager_);
     iar->sourceIs(cust);
+    activity->priorityIs(2);
     activity->lastNotifieeIs(iar);
     activity->nextTimeIs(cust->nextShipmentTime());
     activity->statusIs(Activity::Activity::nextTimeScheduled());
@@ -992,39 +993,53 @@ void SegmentReactor::startupFAR() {
 }
 
 void ForwardActivityReactor::onStatus() {
-    if (notifier_->status() == Activity::Activity::executing()) {
-        DEBUG_LOG << "Delivering subshipment at time " << manager_->now().value() << "\n";
-        subshipment_->shipment()->costInc(segment_->carrierCost());
-        segment_->deliveryMap_[subshipment_->shipment()->name()] += subshipment_->remainingLoad().value();
 
-        if (segment_->deliveryMap_[subshipment_->shipment()->name()] == subshipment_->shipment()->load().value()) {
-            DEBUG_LOG << "  Shipment " << subshipment_->shipment()->name() << " is complete.\n";
-            segment_->returnSegment()->source()->shipmentIs(subshipment_->shipment());
-            segment_->deliveryMap_.erase(segment_->deliveryMap_.find(subshipment_->shipment()->name()));
+    if (notifier_->status() == Activity::Activity::executing()) {
+        DEBUG_LOG << "Delivering subshipments at time " << manager_->now().value() << "\n";
+        for(uint32_t i = 0; i < subshipments_.size(); i++){
+            SubshipmentPtr subshipment = subshipments_[i];
+            subshipment->shipment()->costInc(segment_->carrierCost());
+            segment_->deliveryMap_[subshipment->shipment()->name()] += subshipment->remainingLoad().value();
+            if (segment_->deliveryMap_[subshipment->shipment()->name()] == subshipment->shipment()->load().value()) {
+                DEBUG_LOG << "  Shipment " << subshipment->shipment()->name() << " is complete.\n";
+                segment_->deliveryMap_.erase(segment_->deliveryMap_.find(subshipment->shipment()->name()));
+                // Deliver package
+                // segment_->returnSegment()->source()->shipmentIs(subshipment_->shipment());
+                // Setup delivery at the end of current timestep
+                Activity::ActivityPtr da = manager_->activityNew();
+                DeliveryActivityReactor* dar = new DeliveryActivityReactor(subshipment->shipment(), segment_->returnSegment()->source());
+                da->lastNotifieeIs(dar);
+                da->nextTimeIs(manager_->now());
+                da->priorityIs(2);
+                da->statusIs(Activity::Activity::nextTimeScheduled());
+                manager_->lastActivityIs(da);
+            }
         }
     }
 
     else if (notifier_->status() == Activity::Activity::free()) {
         // reschedule activity if there is another subshipment left and not exceeding carriers
-        if (segment_->carriersUsed() <= segment_->capacity().value()) {
-            subshipment_ = segment_->subshipmentDequeue(segment_->carrierCapacity());
-
-            if (subshipment_) {
-                DEBUG_LOG << "  Picking up new subshipment for shipment "<< subshipment_->shipment()->name()<<"\n";
-                notifier_->statusIs(Activity::Activity::nextTimeScheduled());
-                notifier_->nextTimeIs(Time(manager_->now().value() + segment_->carrierLatency().value()));
-                DEBUG_LOG << "  Shipment to be delivered at time " << (double)notifier_->nextTime().value() << ".\n";
-                manager_->lastActivityIs(notifier_);
-                if (segment_->deliveryMap_.find(subshipment_->shipment()->name()) == segment_->deliveryMap_.end()) {
+        if (segment_->carriersUsed() <= segment_->capacity().value() && segment_->subshipmentQueueSize() > 0) {
+            PackageNum capacity = segment_->carrierCapacity();
+            while(capacity > 0){
+                SubshipmentPtr subshipment;
+                subshipment = segment_->subshipmentDequeue(capacity);
+                if(!subshipment) break; // Exit loop if all shipments dequeued
+                subshipments_.push_back(subshipment);
+                capacity = subshipment->remainingLoad().value() - capacity.value();
+                DEBUG_LOG << "  Picking up new subshipment for shipment "<< subshipment->shipment()->name()<<"\n";
+                if (segment_->deliveryMap_.find(subshipment->shipment()->name()) == segment_->deliveryMap_.end()) {
                     DEBUG_LOG << "  Shipment is starting.\n";
                     segment_->shipmentsReceivedInc();
-                    segment_->deliveryMap_[subshipment_->shipment()->name()] = 0;
+                    segment_->deliveryMap_[subshipment->shipment()->name()] = 0;
                 }
-
-                return;
             }
+            notifier_->statusIs(Activity::Activity::nextTimeScheduled());
+            notifier_->nextTimeIs(Time(manager_->now().value() + segment_->carrierLatency().value()));
+            DEBUG_LOG << "  Shipment to be delivered at time " << (double)notifier_->nextTime().value() << ".\n";
+            manager_->lastActivityIs(notifier_);
+            return;
         }
-
         // otherwise, delete activity
         manager_->activityDel(notifier_->name());
         segment_->carriersUsedDec();

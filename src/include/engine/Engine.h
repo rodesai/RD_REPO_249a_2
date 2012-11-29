@@ -491,16 +491,29 @@ public:
 
     inline ManagerPtr manager() { return manager_; }
     inline SegmentPtr segment() { return segment_; }
-    inline SubshipmentPtr subshipment() { return subshipment_; }
+    inline SubshipmentPtr subshipment(uint32_t i) { return subshipments_[i]; }
 
     void managerIs(ManagerPtr m) { manager_ = m; }
     void segmentIs(SegmentPtr s) { segment_ = s; }
-    void subshipmentIs(SubshipmentPtr s) { subshipment_ = s; }
-    ForwardActivityReactor(): subshipment_(NULL){};
+    void subshipmentIs(SubshipmentPtr s) { subshipments_.push_back(s); }
+    ForwardActivityReactor(){};
 private:
     SegmentPtr segment_;
-    SubshipmentPtr subshipment_;
+    vector<SubshipmentPtr> subshipments_;
     ManagerPtr manager_;
+};
+
+class DeliveryActivityReactor : public Activity::Activity::Notifiee {
+public:
+    void onStatus(){
+        if(notifier()->status() == Activity::Activity::executing()){
+            location_->shipmentIs(shipment_);
+        }
+    }
+    DeliveryActivityReactor(ShipmentPtr shipment, LocationPtr location): location_(location), shipment_(shipment){};
+private:
+    LocationPtr location_; 
+    ShipmentPtr shipment_;
 };
 
 class Subshipment : public Fwk::NamedInterface {
@@ -576,6 +589,7 @@ public:
     PathMode mode(PathMode mode) const;
     ModeCount modeCount() const;
     PathMode mode(uint16_t) const;
+    uint32_t subshipmentQueueSize(){ return subshipmentQueue_.size(); }
     void shipmentIs(ShipmentPtr shipment);
     void shipmentsReceivedInc() { shipmentsReceived_++; }
     void shipmentsRefusedInc() { shipmentsRefused_++; }

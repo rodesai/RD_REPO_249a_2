@@ -36,12 +36,20 @@ void buildnwaytree(Ptr<Instance::Manager> manager, uint32_t fanout_start,uint32_
     }
 }
 
-void assigninjectionparams(Ptr<Instance::Manager> manager, uint32_t start,uint32_t end, string basename, string transferrate, string shipmentsize, string destination){
+void assigninjectionparams(Ptr<Instance::Manager> manager, uint32_t start,uint32_t end, string basename, string destination, uint32_t rate, uint32_t size, uint32_t size_max=0){
     for(uint32_t i = start ; i <= end ; i++){
         ostringstream tmp;
-        tmp.str("");
-        tmp << basename << "-" << i;
+        tmp.str(""); tmp << basename << "-" << i;
         string name = tmp.str();
+        tmp.str(""); tmp << rate;
+        string transferrate = tmp.str();
+        int32_t thesize = size;
+        if(size_max && size_max > size){
+            thesize += rand() % (size_max-size);
+        }
+        tmp.str(""); tmp << thesize;
+        string shipmentsize = tmp.str();
+        //std::cout << "shipment size: " << shipmentsize << std::endl;
         Ptr<Instance> cust = manager->instance(name);
         cust->attributeIs("Transfer Rate",transferrate);
         cust->attributeIs("Shipment Size",shipmentsize);
@@ -50,6 +58,10 @@ void assigninjectionparams(Ptr<Instance::Manager> manager, uint32_t start,uint32
 }
 
 int main(int argc, char *argv[]) {
+
+    bool random = false;
+    if(argc > 1 && string(argv[1]) == "random") 
+        random = true;
 
     Ptr<Instance::Manager> manager = shippingInstanceManager();
 
@@ -82,25 +94,30 @@ int main(int argc, char *argv[]) {
 
     // Setup fleet/conn
     Ptr<Instance> fleet = manager->instanceNew("myFleet","Fleet");
-    fleet->attributeIs("Truck, speed","20");
-    fleet->attributeIs("Truck, capacity","10");
+    fleet->attributeIs("Truck, speed","7");
+    fleet->attributeIs("Truck, capacity","100");
     Ptr<Instance> conn = manager->instanceNew("myConn","Conn");
     conn->attributeIs("routing", "minHops");
 
-    assigninjectionparams(manager,1,100,"c","45","10","root");
+    if(!random)
+        assigninjectionparams(manager,1,100,"c", "root", 16, 100);
+    else
+        assigninjectionparams(manager,1,100,"c", "root", 16, 1,1000);
 
-    manager->simulationManager()->timeIs(30.0);
+    manager->simulationManager()->virtualTimeIs(30.0);
     std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
-    manager->simulationManager()->timeIs(60.0);
+    manager->simulationManager()->virtualTimeIs(60.0);
     std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
-    manager->simulationManager()->timeIs(90.0);
+    manager->simulationManager()->virtualTimeIs(90.0);
     std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
-    manager->simulationManager()->timeIs(120.0);
+    manager->simulationManager()->virtualTimeIs(120.0);
     std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
-    manager->simulationManager()->timeIs(150.0);
+    manager->simulationManager()->virtualTimeIs(150.0);
     std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
-    manager->simulationManager()->timeIs(180.0);
+    manager->simulationManager()->virtualTimeIs(180.0);
     std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
-    manager->simulationManager()->timeIs(210.0);
+    manager->simulationManager()->virtualTimeIs(210.0);
+    std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
+    manager->simulationManager()->virtualTimeIs(240.0);
     std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
 }
