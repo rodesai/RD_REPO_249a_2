@@ -52,11 +52,11 @@ public:
         virtual void onNextTime() {}
         virtual void onStatus() {}
         inline ActivityPtr notifier(){ return notifier_; }
-        void notifierIs(ActivityPtr notifier){ notifier_=notifier; }
+        void notifierIs(Activity* notifier){ notifier_=notifier; }
     protected:
         Notifiee(){}
         virtual ~Notifiee(){}
-        ActivityPtr notifier_;
+        Activity* notifier_;
     };
     typedef Fwk::Ptr<Notifiee> NotifieePtr;
     typedef Fwk::Ptr<Notifiee const> NotifieePtrConst;
