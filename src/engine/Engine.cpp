@@ -178,7 +178,7 @@ Customer::Customer(EntityID name, EntityType type) : Location(name, type), desti
     totalLatency_ = Hour(0);
     totalCost_ = Dollar(0);
     transferRate_ = ShipmentPerDay(0);
-
+    shipmentSize_ = 0;
 }
 
 void Customer::notifieeIs(Customer::Notifiee* notifiee){
@@ -463,6 +463,8 @@ void Segment::shipmentIs(ShipmentPtr shipment) {
     s->shipmentOrderIs(Subshipment::other());
     s->remainingLoadIs(shipment->load());
     subshipmentEnqueue(s);
+
+    shipmentsRoutedInc();
 
     // notify segment reactor
     Segment::NotifieeList::iterator it;
@@ -954,6 +956,8 @@ void SegmentReactor::onShipment(ShipmentPtr shipment) {
 
     DEBUG_LOG << "Segment reactor notified of new shipment.\n";
 
+    shipment->queueTimeIs(manager_->now());
+
     // increase reject count if there are no available carriers
     SegmentPtr segment = const_cast<Segment*> (notifier_.ptr());
     if (segment->carriersUsed() >= segment->capacity().value()) {
@@ -1015,6 +1019,7 @@ void ForwardActivityReactor::onStatus() {
                 manager_->lastActivityIs(da);
             }
         }
+        subshipments_.clear();
     }
 
     else if (notifier_->status() == Activity::Activity::free()) {
@@ -1032,7 +1037,10 @@ void ForwardActivityReactor::onStatus() {
                     DEBUG_LOG << "  Shipment is starting.\n";
                     segment_->shipmentsReceivedInc();
                     segment_->deliveryMap_[subshipment->shipment()->name()] = 0;
+                    segment_->queueTimeIs(manager_->now().value()-subshipment->shipment()->queueTime().value());
+                    //segment_->totalQueueTimeIs( segment_->totalQueueTime().value() + (manager_->now().value()-subshipment->shipment()->queueTime().value()));
                 }
+                //break;
             }
             notifier_->statusIs(Activity::Activity::nextTimeScheduled());
             notifier_->nextTimeIs(Time(manager_->now().value() + segment_->carrierLatency().value()));
@@ -1275,8 +1283,8 @@ PathPtr Conn::pathElementEnque(Path::PathElementPtr pathElement, PathPtr path, F
            * (pathElement->segment()->difficulty()).value();
     time = (pathElement->segment()->length()).value() 
            / ( (fleet->speed(pathElement->segment()->transportMode()).value()) * ((fleet->speedMultiplier(pathElement->elementMode())).value()));
-    DEBUG_LOG << "Time for segment is " << time.value() << "\n";
-    DEBUG_LOG << "Transport mode speed is " << fleet->speed(pathElement->segment()->transportMode()).value() << "\n";
+    DEBUG_LOG << "ROUTING: Time for segment is " << time.value() << "\n";
+    DEBUG_LOG << "ROUTING: Transport mode speed is " << fleet->speed(pathElement->segment()->transportMode()).value() << "\n";
     path->pathElementEnq(pathElement,cost,time,pathElement->segment()->length());
     return path;
 }
@@ -1316,7 +1324,7 @@ Conn::PathList Conn::paths(Conn::PathSelector::Type type, std::set<Location::Ent
 
     Conn::PathList retval;
 
-    DEBUG_LOG << "Starting location: " << start->name() << std::endl;
+    DEBUG_LOG << "ROUTING: Starting location: " << start->name() << std::endl;
 
     // Setup 
     std::set<EntityID> visited;
@@ -1327,11 +1335,11 @@ Conn::PathList Conn::paths(Conn::PathSelector::Type type, std::set<Location::Ent
         PathPtr currentPath = pathContainer.top();
         pathContainer.pop();
 
-        DEBUG_LOG << "Visiting location: " << currentPath->lastLocation()->name() << std::endl;
+        DEBUG_LOG << "ROUTING: Visiting location: " << currentPath->lastLocation()->name() << std::endl;
 
         // Evaluate constraints
         if(checkConstraints(constraints,currentPath)==Conn::Constraint::fail()){
-            DEBUG_LOG << "Failed to pass constraints, discarding path" << std::endl;
+            DEBUG_LOG << "ROUTING: Failed to pass constraints, discarding path" << std::endl;
             continue;
         }
 
@@ -1380,7 +1388,7 @@ Conn::PathList Conn::paths(Conn::PathSelector::Type type, std::set<Location::Ent
               )
               {
                   std::set<PathMode> overlap = modeIntersection(segment,modes);  
-                  DEBUG_LOG << "Segment Modes: " << segment->modeCount().value() << ", Transport Modes: " << modes.size() << ", Overlap Size: " << overlap.size() << std::endl;               
+                  DEBUG_LOG << "ROUTING: Segment Modes: " << segment->modeCount().value() << ", Transport Modes: " << modes.size() << ", Overlap Size: " << overlap.size() << std::endl;               
                   for(std::set<PathMode>::const_iterator it = overlap.begin(); it != overlap.end(); it++){
                       PathPtr pathCopy = copyPath(currentPath,shippingNetwork_->activeFleet());
                       pathElementEnque(Path::PathElement::PathElementIs(segment,*it),pathCopy,shippingNetwork_->activeFleet());
@@ -1593,11 +1601,15 @@ void RoutingReactor::onRouting(){
         Conn::MinDistanceTraversal traversal;
         initRoutingTable(&traversal);
     }
+    else if(algo == Conn::minTime()){
+        Conn::MinTimeTraversal traversal(network_->activeFleet());
+        initRoutingTable(&traversal);
+    }
 }
 
 void RoutingReactor::initRoutingTable(Conn::TraversalOrder* traversal){
     // Iterate over each location and entries for it to the route table
-    DEBUG_LOG << "Init routing table.\n";
+    DEBUG_LOG << "ROUTING: Init routing table.\n";
     uint32_t index;
     for(index = 0; index < network_->locationCount(); index++){
         LocationPtr location = network_->location(index);
@@ -1629,7 +1641,9 @@ void RoutingReactor::initRoutingTable(Conn::TraversalOrder* traversal){
         // Convert Paths Used to a routing table
         std::map<EntityID,PathPtr>::iterator pathsUsedIt;
         for(pathsUsedIt = pathsUsed.begin(); pathsUsedIt != pathsUsed.end(); pathsUsedIt++){
-            DEBUG_LOG << "Found path from " << location->name() << "to " << pathsUsedIt->first << std::endl;
+            ///if( pathsUsedIt->first == "root" )
+                //std::cout << "Found path from " << location->name() << "to " << pathsUsedIt->first << " via " << pathsUsedIt->second->pathElement(0)->segment()->name() << std::endl;
+            DEBUG_LOG << "ROUTING: Found path from " << location->name() << "to " << pathsUsedIt->first << std::endl;
             notifier()->nextHopIs(location->name(),pathsUsedIt->first,pathsUsedIt->second->pathElement(0)->segment()->name());
         }
     }

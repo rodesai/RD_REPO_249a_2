@@ -451,6 +451,7 @@ public:
     inline LocationPtr source() const { return source_; }
     inline Dollar cost() const { return cost_; }
     inline Activity::Time startTime() const { return startTime_; }
+    inline Activity::Time queueTime() const { return queueTime_; }
 
     // mutators
     void loadIs(PackageNum load) { load_ = load; }
@@ -458,9 +459,10 @@ public:
     void sourceIs(LocationPtr src) { source_ = src;}
     void startTimeIs(Activity::Time t) { startTime_ = t; }
     void costInc(Dollar cost) {cost_ = cost_ + cost;}
+    void queueTimeIs(Activity::Time t) { queueTime_ = t; }
 
     // constructor
-    Shipment(std::string name) : NamedInterface(name), cost_(0), startTime_(0) {}
+    Shipment(std::string name) : NamedInterface(name), cost_(0), startTime_(0), queueTime_(0) {}
 private:
     PackageNum load_;
     // TODO: make this customer pointer?
@@ -468,6 +470,7 @@ private:
     LocationPtr source_;
     Dollar cost_;
     Activity::Time startTime_;
+    Activity::Time queueTime_;
 };
 
 class InjectActivityReactor : public Activity::Activity::Notifiee {
@@ -577,6 +580,7 @@ public:
     inline LocationPtr source() const { return source_; }
     inline Mile length() const { return length_; }
     inline ShipmentNum capacity() const { return capacity_; }
+    inline uint32_t shipmentsRouted() const { return shipmentsRouted_; }
     inline uint32_t shipmentsReceived() const { return shipmentsReceived_; }
     inline uint32_t shipmentsRefused() const { return shipmentsRefused_; }
     inline SegmentPtr returnSegment() const { return returnSegment_; }
@@ -589,10 +593,14 @@ public:
     PathMode mode(PathMode mode) const;
     ModeCount modeCount() const;
     PathMode mode(uint16_t) const;
-    uint32_t subshipmentQueueSize(){ return subshipmentQueue_.size(); }
+    uint32_t subshipmentQueueSize() const { return subshipmentQueue_.size(); }
+    Activity::Time totalQueueTime(){ return totalQueueTime_; }
+    Activity::Time queueTime(){ return queueTime_; }
+
     void shipmentIs(ShipmentPtr shipment);
     void shipmentsReceivedInc() { shipmentsReceived_++; }
     void shipmentsRefusedInc() { shipmentsRefused_++; }
+    void shipmentsRoutedInc(){ shipmentsRouted_++; }
     void carriersUsedInc() { carriersUsed_ ++; }
     void carriersUsedDec() { carriersUsed_ --; }
     void sourceIs(EntityID source);
@@ -603,6 +611,12 @@ public:
     void notifieeIs(Segment::Notifiee* notifiee);
     void transportModeIs(TransportMode transportMode);
     void modeIs(PathMode mode);
+    void totalQueueTimeIs(Activity::Time t){ totalQueueTime_=t; }
+    void queueTimeIs(Activity::Time t){
+        queueTime_=t;
+        //if(queueTime_<0) queueTime_=t;
+        //else queueTime_=0.8*t.value() + .2*queueTime_.value();
+    }
     PathMode modeDel(PathMode mode);
     void subshipmentEnqueue(SubshipmentPtr sp) { subshipmentQueue_.push(sp); }
     SubshipmentPtr subshipmentDequeue(PackageNum);
@@ -617,7 +631,7 @@ private:
     DeliveryMap deliveryMap_;
 
     Segment(ShippingNetworkPtrConst network, EntityID name, TransportMode transportMode, PathMode mode) : 
-        Fwk::NamedInterface(name), length_(1.0), difficulty_(1.0), transportMode_(transportMode), network_(network){
+        Fwk::NamedInterface(name), length_(1.0), difficulty_(1.0), transportMode_(transportMode), network_(network), totalQueueTime_(0), shipmentsRouted_(0), queueTime_(-1.0){
         mode_.insert(mode);
         shipmentsReceived_ = 0;
         shipmentsRefused_ = 0;
@@ -636,6 +650,9 @@ private:
     typedef std::vector<Segment::NotifieePtr> NotifieeList;
     NotifieeList notifieeList_;
     ShippingNetworkPtrConst network_;
+    Activity::Time totalQueueTime_;
+    uint32_t shipmentsRouted_;
+    Activity::Time queueTime_;
 
     // for activity forwarding
     uint32_t carriersUsed_;
@@ -861,10 +878,12 @@ public:
     enum RoutingAlgorithm{
         minDistance_,
         minHops_,
+        minTime_,
         none_
     };
     static RoutingAlgorithm minDistance(){ return minDistance_; }
     static RoutingAlgorithm minHops(){ return minHops_; }
+    static RoutingAlgorithm minTime(){ return minTime_; }
     static RoutingAlgorithm none(){ return none_; }
 
     // Accessors
@@ -916,6 +935,34 @@ private:
         virtual bool compare(PathPtr a, PathPtr b) const {
             return (a->distance() > b->distance());
         }
+    };
+    class MinTimeTraversal : public TraversalOrder{
+    public:
+        MinTimeTraversal(FleetPtr fleet) : fleet_(fleet) {}
+        virtual bool compare(PathPtr a, PathPtr b) const {
+            double wA = weight(a);
+            double wB = weight(b);
+            if(wA == wB){
+                return (rand()%10)>4;
+            }
+            return wA>wB;
+        }
+    private:
+        double weight(PathPtr p) const {
+            double retval = 0;
+            for(uint32_t i = 0; i < p->pathElementCount().value(); i++){
+                SegmentPtr s = p->pathElement(i)->segment();
+                if(s->shipmentsReceived() > 0){
+                    double randomFactor = ((double)(rand()%1000))/1000.0;
+                    retval += randomFactor*s->queueTime().value();
+                    //retval += (randomFactor*s->totalQueueTime().value()) / ((double)s->shipmentsReceived());
+                    //std::cout << "random: " << randomFactor << ", queue time average: " << s->totalQueueTime().value()/((double)s->shipmentsReceived()) << ", traveltime: " << s->length().value() / fleet_->speed(s->transportMode()).value() << std::endl;
+                }
+                retval += s->length().value() / fleet_->speed(s->transportMode()).value();
+            }
+            return retval;
+        }
+        FleetPtr fleet_;
     };
 
     Conn(std::string name,ShippingNetworkPtrConst shippingNetwork) : NamedInterface(name), shippingNetwork_(shippingNetwork), routingAlgorithm_(none_){}

@@ -26,6 +26,7 @@ static const string boatSegmentStr = "Boat segment";
 static const string segmentStr = "segment";
 static const string transferRateStr = "Transfer Rate";
 static const string shipmentSizeStr = "Shipment Size";
+static const string shipmentsRoutedStr = "Shipments Routed";
 static const string destinationStr = "Destination";
 static const string shipmentsReceivedStr = "Shipments Received";
 static const string averageLatencyStr = "Average Latency";
@@ -363,6 +364,10 @@ public:
             return s.str();
         } else if (name == capacityStr2) {
             return representee_->capacity().str();
+        } else if (name == shipmentsRoutedStr){
+            stringstream s;
+            s << representee_->shipmentsRouted();
+            return s.str();
         }
         fprintf(stderr, "Invalid attribute input: %s.\n", name.data());
         return "";
@@ -647,6 +652,9 @@ public:
             if(algo == Conn::minDistance()){
                 return "minDistance";
             }
+            if(algo == Conn::minTime()){
+                return "minTime";
+            }
         }
 
         // create types useful for parsing
@@ -753,11 +761,17 @@ public:
     void attributeIsImpl(const string& name, const string& v) {
         if(name == "routing"){
             Conn::RoutingAlgorithm algo = Conn::none();
+            if(v == "none"){
+                algo = Conn::none();
+            }
             if(v == "minHops"){
                 algo = Conn::minHops();
             }
             else if(v == "minDistance"){
                 algo = Conn::minDistance();
+            }
+            else if(v == "minTime"){
+                algo = Conn::minTime();
             }
             conn_->routingIs(algo);
             routingAlgorithm_ = algo;
@@ -927,15 +941,15 @@ void ManagerImpl::instanceDel(const string& name) {
 }
 
 void SimulationManagerImpl::timeIs(Activity::Time t){
-    if(connRep_)
-        connRep_->resetRouting();
+    //if(connRep_)
+    //    connRep_->resetRouting();
     if(t > realTimeManager_->now())
         realTimeManager_->nowIs(t);
 }
 
 void SimulationManagerImpl::virtualTimeIs(Activity::Time t){
-    if(connRep_)
-        connRep_->resetRouting();
+    //if(connRep_)
+    //    connRep_->resetRouting();
     if(t > virtualTimeManager_->now())
         virtualTimeManager_->nowIs(t);
 }

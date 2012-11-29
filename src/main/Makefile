@@ -4,7 +4,7 @@ LIBS= ../activity/Activity.o ../rep/Instance.o ../engine/Engine.o ../fwk/*.o
 
 CXXFLAGS = -Wall -g $(INCLUDE)
 
-default: test-cases test1 example ourclient 100customers
+default: test-cases test1 example ourclient 100customers verification adaptive
 
 test_client: test_client.o $(LIBS)
 	$(CXX) $(CXXFLAGS) -o $@ $^
@@ -23,8 +23,14 @@ test-cases: test-cases.o $(LIBS)
 100customers: 100customers.o $(LIBS)
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
+verification: verification.o $(LIBS)
+	$(CXX) $(CXXFLAGS) -o $@ $^
+
+adaptive: adaptive.o $(LIBS)
+	$(CXX) $(CXXFLAGS) -o $@ $^
+
 clean:
-	rm -f test1 test1.o example test-cases test-cases.o example.o ourclient ourclient.o *~
+	rm -f test1 test1.o example test-cases test-cases.o example.o ourclient ourclient.o adaptive.o apative 100customers 100customers.o *~
 
 example.o: example.cpp
 test1.o: test1.cpp 

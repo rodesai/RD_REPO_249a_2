@@ -125,7 +125,7 @@ TEST(Activity, BasicShipments) {
 
     // check defaults
     EXPECT_EQ("0", loc1->attribute("Transfer Rate"));
-    EXPECT_EQ("1", loc1->attribute("Shipment Size"));
+    EXPECT_EQ("0", loc1->attribute("Shipment Size"));
     EXPECT_EQ("", loc1->attribute("Destination"));
     EXPECT_EQ("10", seg1->attribute("Capacity"));
 
