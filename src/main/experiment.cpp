@@ -105,17 +105,17 @@ int main(int argc, char *argv[]) {
         assigninjectionparams(manager,1,100,"c", "root", 160, 1,1000);
 
     manager->simulationManager()->timeIs(30);
-    std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
+    std::cout << "@30 Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
     manager->simulationManager()->timeIs(60);
-    std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
+    std::cout << "@60 Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
     manager->simulationManager()->timeIs(90);
-    std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
+    std::cout << "@90 Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
     manager->simulationManager()->timeIs(120);
-    std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
+    std::cout << "@120 Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
     manager->simulationManager()->timeIs(150);
-    std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
+    std::cout << "@150 Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
     manager->simulationManager()->timeIs(180);
-    std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
+    std::cout << "@180 Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << std::endl;
 
     std::cout << std::endl;
     

@@ -84,15 +84,25 @@ int main(int argc, char *argv[]) {
     segr->attributeIs("Capacity","200");
     segr->attributeIs("length","10.0");
 
-    seg = manager->instanceNew("t-2->root","Truck segment");
-    segr = manager->instanceNew("root->t-2","Truck segment");
+    manager->instanceNew("t-3","Port");
+    seg = manager->instanceNew("t-2->t-3","Truck segment");
+    segr = manager->instanceNew("t-3->t-2","Truck segment");
     seg->attributeIs("source","t-2");
-    segr->attributeIs("source","root");
-    seg->attributeIs("return segment","root->t-2");
+    segr->attributeIs("source","t-3");
+    seg->attributeIs("return segment","t-3->t-2");
     seg->attributeIs("Capacity","300");
-    seg->attributeIs("length","10.1");
+    seg->attributeIs("length","5.1");
     segr->attributeIs("Capacity","300");
-    segr->attributeIs("length","10.1");
+    segr->attributeIs("length","5.1");
+    seg = manager->instanceNew("t-3->root","Truck segment");
+    segr = manager->instanceNew("root->t-3","Truck segment");
+    seg->attributeIs("source","t-3");
+    segr->attributeIs("source","root");
+    seg->attributeIs("return segment","root->t-3");
+    seg->attributeIs("Capacity","300");
+    seg->attributeIs("length","5.1");
+    segr->attributeIs("Capacity","300");
+    segr->attributeIs("length","5.1");
 
     // Setup fleet/conn
     Ptr<Instance> fleet = manager->instanceNew("myFleet","Fleet");
@@ -109,12 +119,13 @@ int main(int argc, char *argv[]) {
 
     uint32_t t1_recv_last=0;
     uint32_t t2_recv_last=0;
-    for(double t = 30; t <= 30; t+=30){
-        manager->simulationManager()->virtualTimeIs(t);
-        std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << ", t-2 received: " << atoi(manager->instance("t-2->root")->attribute("Shipments Routed").c_str())-t2_recv_last << ", " << ", t-1 received: " << atoi(manager->instance("t-1->root")->attribute("Shipments Routed").c_str())-t1_recv_last << std::endl;
-        t1_recv_last=atoi(manager->instance("t-1->root")->attribute("Shipments Routed").c_str());
-        t2_recv_last=atoi(manager->instance("t-2->root")->attribute("Shipments Routed").c_str());
-    }
+    double t = 30;
+    manager->simulationManager()->virtualTimeIs(t);
+    std::cout << "@30 Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") 
+              << ", t-2 received: " << atoi(manager->instance("t-2->t-3")->attribute("Shipments Routed").c_str())-t2_recv_last 
+              << ", t-1 received: " << atoi(manager->instance("t-1->root")->attribute("Shipments Routed").c_str())-t1_recv_last << std::endl;
+    t1_recv_last=atoi(manager->instance("t-1->root")->attribute("Shipments Routed").c_str());
+    t2_recv_last=atoi(manager->instance("t-2->t-3")->attribute("Shipments Routed").c_str());
 
     std::cout << std::endl << "Add large customer. Run network for 30 hours" << std::endl;
 
@@ -135,18 +146,22 @@ int main(int argc, char *argv[]) {
     conn->attributeIs("routing", "none");
     conn->attributeIs("routing", routing);
     manager->simulationManager()->virtualTimeIs(60);
-    std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << ", t-2 received: " << atoi(manager->instance("t-2->root")->attribute("Shipments Routed").c_str())-t2_recv_last << ", t-1 received: " << atoi(manager->instance("t-1->root")->attribute("Shipments Routed").c_str())-t1_recv_last << std::endl;
+    std::cout << "@60" << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") 
+              << ", t-2 received: " << atoi(manager->instance("t-2->t-3")->attribute("Shipments Routed").c_str())-t2_recv_last 
+              << ", t-1 received: " << atoi(manager->instance("t-1->root")->attribute("Shipments Routed").c_str())-t1_recv_last << std::endl;
     t1_recv_last=atoi(manager->instance("t-1->root")->attribute("Shipments Routed").c_str());
-    t2_recv_last=atoi(manager->instance("t-2->root")->attribute("Shipments Routed").c_str());
+    t2_recv_last=atoi(manager->instance("t-2->t-3")->attribute("Shipments Routed").c_str());
 
-    std::cout << std::endl << "Observe congestion and re-route. Run network for 30 hours" << std::endl;
-    for(uint32_t i =10; i <= 100; i+=5){
-    conn->attributeIs("routing", "none");
-    conn->attributeIs("routing", routing);
-    manager->simulationManager()->virtualTimeIs(60+i);
-    std::cout << "Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") << ", t-2 received: " << atoi(manager->instance("t-2->root")->attribute("Shipments Routed").c_str())-t2_recv_last << ", t-1 received: " << atoi(manager->instance("t-1->root")->attribute("Shipments Routed").c_str())-t1_recv_last << std::endl;
-    t1_recv_last=atoi(manager->instance("t-1->root")->attribute("Shipments Routed").c_str());
-    t2_recv_last=atoi(manager->instance("t-2->root")->attribute("Shipments Routed").c_str());
+    std::cout << std::endl << "Observe congestion and re-route every 6 hours. Run network for 90 hours" << std::endl;
+        for(uint32_t i =6; i <= 90; i+=6){
+        conn->attributeIs("routing", "none");
+        conn->attributeIs("routing", routing);
+        manager->simulationManager()->virtualTimeIs(60+i);
+        std::cout << "@" << 60+i << " Shipments Received: " << root->attribute("Shipments Received") << ", Average Latency: " << root->attribute("Average Latency") 
+                  << ", t-2 received: " << atoi(manager->instance("t-2->t-3")->attribute("Shipments Routed").c_str())-t2_recv_last << ", t-1 received: " 
+                  << atoi(manager->instance("t-1->root")->attribute("Shipments Routed").c_str())-t1_recv_last << std::endl;
+        t1_recv_last=atoi(manager->instance("t-1->root")->attribute("Shipments Routed").c_str());
+        t2_recv_last=atoi(manager->instance("t-2->t-3")->attribute("Shipments Routed").c_str());
     }
 
     std::cout << std::endl;

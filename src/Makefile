@@ -4,6 +4,7 @@ default:
 	cd rep && gmake
 	cd engine && gmake
 	cd main && gmake
+	gmake runtest
 
 clean:
 	cd fwk && gmake clean
